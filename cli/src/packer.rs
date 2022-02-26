@@ -12,6 +12,7 @@ pub struct PackerTemplate {
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct QemuBuilder {
 	pub r#type: String,
+	pub qemuargs: Vec<Vec<String>>,
 }
 
 impl PackerTemplate {
