@@ -1,11 +1,16 @@
-use std::path::Path;
+use crate::qemu::QemuConfig;
+use crate::config::Config;
+use crate::image::ImageMetadata;
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use anyhow::{Result, bail};
-use serde::{Deserialize, Serialize};
-use validator::Validate;
-use std::fs;
+use log::debug;
 use std::env;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
 
+pub mod config;
+pub mod image;
 pub mod packer;
 pub mod qemu;
 
@@ -19,103 +24,127 @@ struct CommandLine {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Build image
+    Build {},
 
-	/// Build image
-	Build {},
+    Registry {
+        #[clap(subcommand)]
+        command: RegistryCommands,
+    },
 
-	Registry {},
+    /// Manage local images
+    Image {
+        #[clap(subcommand)]
+        command: ImageCommands,
+    },
 
-	Images {},
+    /// Write image to a disk
+    Write {},
 
-	/// Write image to an unmounted disk
-	Write {},
-
-	Init {
-		profile: String,
-	},
+    /// Initialize the current directory
+    Init { profile: String },
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
-struct Config {
+#[derive(Subcommand, Debug)]
+enum RegistryCommands {
+    /// Upload a local image to a remote registry
+    Push { url: String },
 
-	pub name: String,
-
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub description: Option<String>,
-
-	pub base: String,
-
-	pub provisioners: Vec<Provisioner>,
-
-	pub qemu: qemu::QemuConfig,
+    /// Download an image from a remote registry
+    Pull { url: String },
 }
 
-/// A generic provisioner
-#[derive(Clone, Serialize, Deserialize, Validate)]
-struct Provisioner {
+#[derive(Subcommand, Debug)]
+enum ImageCommands {
+    /// List local images
+    List {},
 
-	pub r#type: String,
-
-	#[serde(flatten)]
-	pub ansible: AnsibleProvisioner,
-
-	#[serde(flatten)]
-	pub shell: ShellProvisioner,
+    Info {},
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
-struct AnsibleProvisioner {
-
-	pub playbook: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, Validate)]
-struct ShellProvisioner {
-
-	pub script: String,
-
-	pub inline: Vec<String>,
-}
-
-fn load_config() -> Result<Config> {
-
-	// Read config from working directory
-	let config: Config = serde_json::from_slice(&fs::read("goldboot.json").unwrap()).unwrap();
-
-	// TODO add base config
-	Ok(config)
+fn image_list() -> Result<()> {
+    for metadata in ImageMetadata::load()? {
+        println!("{}", metadata.name);
+    }
+    Ok(())
 }
 
 fn build(cl: CommandLine) -> Result<()> {
-	Ok(())
+    debug!("Starting build");
+
+    // Load config
+    let config = Config::load()?;
+
+    // Acquire temporary directory for the build
+    //let tmp = tempfile::tempdir().unwrap();
+    let tmp = Path::new("/tmp/testpacker");
+    debug!("Allocated temporary directory for build: {}", tmp.display());
+
+    // Generate packer template
+    let template = config.generate_packer_template()?;
+
+    fs::write(
+        tmp.join("packer.json"),
+        serde_json::to_string(&template).unwrap(),
+    )
+    .unwrap();
+
+    if let Some(code) = Command::new("packer")
+        .current_dir(tmp)
+        .arg("build")
+        .arg("packer.json")
+        .status()
+        .expect("Failed to launch packer")
+        .code()
+    {
+        if code == 0 {
+            debug!("Build completed successfully");
+            
+            // Create new image metadata
+            //ImageMetadata::write();
+        }
+    } else {
+    	bail!("");
+    }
 }
 
 fn init(cl: CommandLine) -> Result<()> {
+    let config_path = Path::new("goldboot.json");
 
-	if Path::new("goldboot.json").exists() {
-		bail!("This directory has already been initialized");
-	}
+    if config_path.exists() {
+        bail!("This directory has already been initialized");
+    }
 
-	let mut config = Config::default();
+    let mut config = Config::default();
 
-	// Set name equal to directory name
-	if let Some(name) = env::current_dir().unwrap().file_name() {
-		config.name = name.to_str().unwrap().to_string();
-	}
+    // Set name equal to directory name
+    if let Some(name) = env::current_dir().unwrap().file_name() {
+        config.name = name.to_str().unwrap().to_string();
+    }
 
-	// Generate QEMU flags for this hardware
+    // Generate QEMU flags for this hardware
+    config.qemu = QemuConfig::generate_config()?;
 
-	// Write out the config
-	fs::write(Path::new("goldboot.json"), serde_json::to_string(&config).unwrap()).unwrap();
+    // Write out the config
+    fs::write(config_path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
 
-	Ok(())
+    Ok(())
 }
 
 pub fn main() -> Result<()> {
     let cl = CommandLine::parse();
 
+    // Configure logging
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+
     match &cl.command {
-    	Commands::Build {} => build(cl),
-    	Commands::Init {profile} => init(cl),
+        Commands::Build {} => build(cl),
+        Commands::Registry { command } => build(cl),
+        Commands::Write {} => build(cl),
+        Commands::Init { profile } => init(cl),
+        Commands::Image { command } => match &command {
+            ImageCommands::List {} => image_list(),
+            ImageCommands::Info {} => image_list(),
+        },
     }
 }
