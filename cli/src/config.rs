@@ -1,16 +1,10 @@
-use crate::packer::{PackerTemplate, QemuBuilder};
 use crate::qemu::QemuConfig;
 use anyhow::Result;
 use log::debug;
-use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::fs;
 use validator::Validate;
-
-#[derive(RustEmbed)]
-#[folder = "src/profiles"]
-struct Profiles;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
 pub struct Config {
@@ -24,28 +18,15 @@ pub struct Config {
     pub provisioners: Vec<Provisioner>,
 
     pub qemu: QemuConfig,
+
+    pub user: User,
+
+    pub iso_url: Option<String>,
+
+    pub iso_checksum: Option<String>,
 }
 
 impl Config {
-    pub fn generate_packer_template(&self) -> Result<PackerTemplate> {
-        debug!("Generating packer template");
-
-        let mut template = PackerTemplate::default();
-
-        if let Some(profile) = Profiles::get(format!("{}.json", self.base).as_str()) {
-            let mut builder: QemuBuilder = serde_json::from_slice(profile.data.as_ref()).unwrap();
-            builder.qemuargs = self.qemu.to_qemuargs();
-            builder.r#type = String::from("qemu");
-            builder.format = String::from("qcow2");
-            builder.headless = true;
-
-            template.builders.push(builder);
-        } else {
-            // TODO error
-        }
-
-        Ok(template)
-    }
 
     pub fn load() -> Result<Config> {
         debug!("Loading config");
@@ -54,6 +35,13 @@ impl Config {
         let config: Config = serde_json::from_slice(&fs::read("goldboot.json").unwrap()).unwrap();
         Ok(config)
     }
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+pub struct User {
+
+    pub username: String,
+    pub password: String,
 }
 
 /// A generic provisioner

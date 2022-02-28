@@ -1,9 +1,11 @@
+use std::path::PathBuf;
+use crate::image_library_path;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::Path;
 use validator::Validate;
+use log::debug;
 
 /// Represents a local image.
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -18,13 +20,32 @@ pub struct ImageMetadata {
 }
 
 impl ImageMetadata {
+
+    /// Write the image metadata to the library and return the metadata hash
+    pub fn write(&self) -> Result<String> {
+        let metadata_json = serde_json::to_string(&self).unwrap();
+        let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
+
+        // Write it to the library directory
+        fs::write(image_library_path().join(format!("{}.json", hash)), &metadata_json).unwrap();
+        Ok(hash)
+    }
+
+    pub fn new(output: PathBuf) -> Result<ImageMetadata> {
+        Ok(ImageMetadata{
+            name: "".into(),
+            sha256: "".into(),
+            generate_time: 0u64,
+            parent_image: "".into(),
+        })
+    }
+
     /// Load images present in the local image library
     pub fn load() -> Result<Vec<ImageMetadata>> {
-        let image_path = Path::new("/var/lib/goldboot/images");
 
         let mut images = Vec::new();
 
-        for p in image_path.read_dir().unwrap() {
+        for p in image_library_path().read_dir().unwrap() {
             let path = p.unwrap().path();
 
             if let Some(ext) = path.extension() {
@@ -33,10 +54,12 @@ impl ImageMetadata {
                     // Hash the file and compare it to the filename
                     let content = fs::read(&path).unwrap();
 
-                    if *Sha256::new().chain_update(content).finalize() == *filename.as_bytes() {
+                    if *Sha256::new().chain_update(content).finalize() == hex::decode(filename).unwrap() {
                         let metadata: ImageMetadata =
                             serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
                         images.push(metadata);
+                    } else {
+                        debug!("Found corrupt file in image directory: {}", path.display());
                     }
                 }
             }
