@@ -1,18 +1,22 @@
-use std::path::PathBuf;
 use crate::image_library_path;
 use anyhow::Result;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::path::PathBuf;
+use tabled::Tabled;
 use validator::Validate;
-use log::debug;
 
 /// Represents a local image.
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Tabled)]
 pub struct ImageMetadata {
     pub name: String,
 
     pub sha256: String,
+
+    /// The image size in bytes
+    pub size: u64,
 
     pub generate_time: u64,
 
@@ -20,21 +24,25 @@ pub struct ImageMetadata {
 }
 
 impl ImageMetadata {
-
     /// Write the image metadata to the library and return the metadata hash
     pub fn write(&self) -> Result<String> {
         let metadata_json = serde_json::to_string(&self).unwrap();
         let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
 
         // Write it to the library directory
-        fs::write(image_library_path().join(format!("{}.json", hash)), &metadata_json).unwrap();
+        fs::write(
+            image_library_path().join(format!("{}.json", hash)),
+            &metadata_json,
+        )
+        .unwrap();
         Ok(hash)
     }
 
     pub fn new(output: PathBuf) -> Result<ImageMetadata> {
-        Ok(ImageMetadata{
-            name: "".into(),
+        Ok(ImageMetadata {
+            name: output.file_stem().unwrap().to_str().unwrap().to_string(),
             sha256: "".into(),
+            size: fs::metadata(output).unwrap().len(),
             generate_time: 0u64,
             parent_image: "".into(),
         })
@@ -42,7 +50,6 @@ impl ImageMetadata {
 
     /// Load images present in the local image library
     pub fn load() -> Result<Vec<ImageMetadata>> {
-
         let mut images = Vec::new();
 
         for p in image_library_path().read_dir().unwrap() {
@@ -54,7 +61,9 @@ impl ImageMetadata {
                     // Hash the file and compare it to the filename
                     let content = fs::read(&path).unwrap();
 
-                    if *Sha256::new().chain_update(content).finalize() == hex::decode(filename).unwrap() {
+                    if *Sha256::new().chain_update(content).finalize()
+                        == hex::decode(filename).unwrap()
+                    {
                         let metadata: ImageMetadata =
                             serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
                         images.push(metadata);
@@ -66,5 +75,13 @@ impl ImageMetadata {
         }
 
         Ok(images)
+    }
+
+    pub fn find(image_name: &str) -> Result<ImageMetadata> {
+        Ok(ImageMetadata::load()?
+            .iter()
+            .find(|&metadata| metadata.name == image_name)
+            .unwrap()
+            .to_owned())
     }
 }

@@ -16,10 +16,8 @@ impl QemuConfig {
     }
 
     /// Generate a config for the current hardware
-	pub fn generate_config() -> Result<QemuConfig> {
-		let mut qemu_config = QemuConfig::default();
-	    Ok(qemu_config)
-	}
+    pub fn generate_config() -> Result<QemuConfig> {
+        let mut qemu_config = QemuConfig::default();
+        Ok(qemu_config)
+    }
 }
-
-

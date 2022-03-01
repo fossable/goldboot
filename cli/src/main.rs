@@ -1,16 +1,18 @@
-use crate::packer::PackerTemplate;
-use crate::packer::PackerProvisioner;
-use std::path::PathBuf;
-use crate::qemu::QemuConfig;
 use crate::config::Config;
 use crate::image::ImageMetadata;
+use crate::packer::PackerProvisioner;
+use crate::packer::PackerTemplate;
+use crate::qemu::QemuConfig;
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use log::debug;
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
+use tabled::Style;
+use tabled::Table;
 
 pub mod config;
 pub mod image;
@@ -18,7 +20,8 @@ pub mod packer;
 pub mod qemu;
 pub mod windows;
 pub mod profiles {
-	pub mod arch_linux;
+    pub mod arch_linux;
+    pub mod windows_10;
 }
 
 #[derive(Parser, Debug)]
@@ -33,6 +36,9 @@ enum Commands {
     /// Build new image
     Build {},
 
+    /// Run an existing image
+    Run { image: String },
+
     /// Manage image registries
     Registry {
         #[clap(subcommand)]
@@ -46,7 +52,7 @@ enum Commands {
     },
 
     /// Write image to a disk
-    Write {},
+    Write { image: String, disk: String },
 
     /// Initialize the current directory
     Init { profile: String },
@@ -71,17 +77,27 @@ enum ImageCommands {
 
 /// Return the image library path for the current platform.
 pub fn image_library_path() -> PathBuf {
-	if cfg!(target_os = "linux") {
-		PathBuf::from("/var/lib/goldboot/images")
-	} else {
-		panic!("Unsupported platform");
-	}
+    if cfg!(target_os = "linux") {
+        PathBuf::from("/var/lib/goldboot/images")
+    } else {
+        panic!("Unsupported platform");
+    }
+}
+
+pub fn current_qemu_binary() -> &'static str {
+    if cfg!(target_arch = "x86_64") {
+        "qemu-system-x86_64"
+    } else if cfg!(target_arch = "aarch64") {
+        "qemu-system-aarch64"
+    } else {
+        panic!("Unsupported platform");
+    }
 }
 
 fn image_list() -> Result<()> {
-    for metadata in ImageMetadata::load()? {
-        println!("{}", metadata.name);
-    }
+    let images = ImageMetadata::load()?;
+
+    print!("{}", Table::new(images).with(Style::modern()).to_string());
     Ok(())
 }
 
@@ -98,21 +114,28 @@ fn build(cl: CommandLine) -> Result<()> {
 
     // Generate packer builder according to profile
     let mut builder = match config.base.as_str() {
-    	"ArchLinux" => profiles::arch_linux::default_builder(),
-    	_ => bail!("Unknown profile"),
+        "ArchLinux" => profiles::arch_linux::default_builder(),
+        "Windows10" => profiles::windows_10::default_builder(),
+        _ => bail!("Unknown profile"),
     };
 
     // Builder overrides
     builder.output_directory = Some(image_library_path().to_str().unwrap().to_string());
     builder.vm_name = Some(config.name.clone());
     builder.qemuargs = Some(config.qemu.to_qemuargs());
-
-    if let Some(iso_url) = config.iso_url {
-    	builder.iso_url = Some(iso_url);
+    if let Some(arch) = &config.arch {
+        builder.qemu_binary = match arch.as_str() {
+            "x86_64" => Some("qemu-system-x86_64".into()),
+            _ => None,
+        };
     }
 
-    if let Some(iso_checksum) = config.iso_checksum {
-    	builder.iso_checksum = Some(iso_checksum);
+    if config.iso_url != "" {
+        builder.iso_url = config.iso_url.clone();
+    }
+
+    if config.iso_checksum != "" {
+        builder.iso_checksum = config.iso_checksum.clone();
     }
 
     // Create packer template
@@ -122,18 +145,18 @@ fn build(cl: CommandLine) -> Result<()> {
     // Translate provisioners in config into packer provisioners
     for p in config.provisioners.iter() {
         let provisioner = match p.r#type.as_str() {
-            "ansible" => {
-                PackerProvisioner {
-                    r#type: "ansible".into(),
-                    scripts: vec![],
-                    playbook_file: Some(p.ansible.playbook.clone()),
-                    user: Some("".into()),
-                    use_proxy: Some(false),
-                    extra_arguments: vec![
-                        "-e".into(), "ansible_winrm_scheme=http".into(),
-                        "-e".into(), "ansible_winrm_server_cert_validation=ignore".into()
-                    ],
-                }
+            "ansible" => PackerProvisioner {
+                r#type: "ansible".into(),
+                scripts: vec![],
+                playbook_file: Some(p.ansible.playbook.clone()),
+                user: Some("".into()),
+                use_proxy: Some(false),
+                extra_arguments: vec![
+                    "-e".into(),
+                    "ansible_winrm_scheme=http".into(),
+                    "-e".into(),
+                    "ansible_winrm_server_cert_validation=ignore".into(),
+                ],
             },
             _ => panic!(""),
         };
@@ -147,6 +170,12 @@ fn build(cl: CommandLine) -> Result<()> {
     )
     .unwrap();
 
+    // Build Windows Autounattend files if needed
+    match config.base.as_str() {
+        "Windows10" => profiles::windows_10::unattended(&config).write(tmp)?,
+        _ => (),
+    };
+
     // Run the build
     if let Some(code) = Command::new("packer")
         .current_dir(tmp)
@@ -158,10 +187,10 @@ fn build(cl: CommandLine) -> Result<()> {
         .code()
     {
         if code != 0 {
-        	bail!("Build failed with error code: {}", code);
+            bail!("Build failed with error code: {}", code);
         }
     } else {
-    	bail!("");
+        bail!("");
     }
 
     debug!("Build completed successfully");
@@ -170,7 +199,11 @@ fn build(cl: CommandLine) -> Result<()> {
     let metadata_name = ImageMetadata::new(image_library_path().join(&config.name))?.write()?;
 
     // Rename the image itself
-    fs::rename(image_library_path().join(&config.name), image_library_path().join(&metadata_name)).unwrap();
+    fs::rename(
+        image_library_path().join(&config.name),
+        image_library_path().join(format!("{}.qcow2", &metadata_name)),
+    )
+    .unwrap();
 
     return Ok(());
 }
@@ -192,18 +225,47 @@ fn init(profile: &str) -> Result<()> {
     // Generate QEMU flags for this hardware
     config.qemu = QemuConfig::generate_config()?;
 
+    // Set current platform
+    config.arch = if cfg!(target_arch = "x86_64") {
+        Some("x86_64".into())
+    } else if cfg!(target_arch = "aarch64") {
+        Some("aarch64".into())
+    } else {
+        panic!("Unsupported platform");
+    };
+
     // Set base profile
     config.base = profile.to_string();
 
     // Allow profile-specific initialization
     match profile {
-    	"ArchLinux" => profiles::arch_linux::init(&mut config),
-    	_ => bail!("Unknown profile"),
+        "ArchLinux" => profiles::arch_linux::init(&mut config),
+        "Windows10" => profiles::windows_10::init(&mut config),
+        _ => bail!("Unknown profile"),
     }
 
     // Finally write out the config
     fs::write(config_path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
 
+    Ok(())
+}
+
+fn run(image: &str) -> Result<()> {
+    Command::new("qemu-system-x86_64").args([
+        "-display",
+        "gtk",
+        "-machine",
+        "type=pc,accel=kvm",
+        "-m",
+        "1000M",
+        "-boot",
+        "once=d",
+        "-drive",
+        "file=/var/lib/goldboot/images/da1d9c276e89c1a7cdc27fe6b52b1449e6d0feb9c7f9ac38873210f4359f0642,if=virtio,cache=writeback,discard=ignore,format=qcow2",
+        "-name",
+        "cli",
+    ])
+    .status().unwrap();
     Ok(())
 }
 
@@ -215,8 +277,9 @@ pub fn main() -> Result<()> {
 
     match &cl.command {
         Commands::Build {} => build(cl),
+        Commands::Run { image } => run(image),
         Commands::Registry { command } => build(cl),
-        Commands::Write {} => build(cl),
+        Commands::Write { image, disk } => build(cl),
         Commands::Init { profile } => init(profile),
         Commands::Image { command } => match &command {
             ImageCommands::List {} => image_list(),

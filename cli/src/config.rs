@@ -21,13 +21,15 @@ pub struct Config {
 
     pub user: User,
 
-    pub iso_url: Option<String>,
+    pub iso_url: String,
 
-    pub iso_checksum: Option<String>,
+    pub iso_checksum: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arch: Option<String>,
 }
 
 impl Config {
-
     pub fn load() -> Result<Config> {
         debug!("Loading config");
 
@@ -39,7 +41,6 @@ impl Config {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
 pub struct User {
-
     pub username: String,
     pub password: String,
 }
