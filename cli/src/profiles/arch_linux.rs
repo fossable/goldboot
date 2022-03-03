@@ -1,5 +1,12 @@
 use crate::packer::QemuBuilder;
 use crate::Config;
+use anyhow::Result;
+use rust_embed::RustEmbed;
+use std::path::Path;
+
+#[derive(RustEmbed)]
+#[folder = "res/arch_linux/"]
+struct Resources;
 
 pub fn init(config: &mut Config) {
     config.user.username = String::from("root");
@@ -7,10 +14,12 @@ pub fn init(config: &mut Config) {
     config.iso_url = String::from(
         "https://mirrors.edge.kernel.org/archlinux/iso/2021.10.01/archlinux-2021.10.01-x86_64.iso",
     );
-    config.iso_checksum = String::from("sha1:77a20dcd9d838398cebb2c7c15f46946bdc3855e");
+    config.iso_checksum = Some(String::from(
+        "sha1:77a20dcd9d838398cebb2c7c15f46946bdc3855e",
+    ));
 }
 
-pub fn default_builder() -> QemuBuilder {
+pub fn build(_config: &Config, _context: &Path) -> Result<QemuBuilder> {
     let mut builder = QemuBuilder::new();
     builder.boot_command = vec![
         "echo root:root | chpasswd<enter><wait2>".into(),
@@ -23,5 +32,5 @@ pub fn default_builder() -> QemuBuilder {
     builder.ssh_username = Some("root".into());
     builder.ssh_wait_timeout = Some("5m".into());
 
-    return builder;
+    return Ok(builder);
 }

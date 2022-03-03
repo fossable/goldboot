@@ -1,5 +1,5 @@
 use anyhow::Result;
-use serde::{Serialize};
+use serde::Serialize;
 use std::path::Path;
 
 #[derive(Clone, Serialize)]
@@ -42,61 +42,61 @@ pub struct Component {
 
 #[derive(Clone, Serialize)]
 pub struct DiskConfiguration {
-	pub WillShowUI: WillShowUI,
-	pub Disk: Disk,
+    pub WillShowUI: WillShowUI,
+    pub Disk: Disk,
 }
 
 #[derive(Clone, Serialize)]
 pub struct Disk {
-	pub CreatePartitions: CreatePartitions,
-	pub ModifyPartitions: ModifyPartitions,
-	pub WillWipeDisk: WillWipeDisk,
-	pub DiskID: DiskID,
+    pub CreatePartitions: CreatePartitions,
+    pub ModifyPartitions: ModifyPartitions,
+    pub WillWipeDisk: WillWipeDisk,
+    pub DiskID: DiskID,
 }
 
 #[derive(Clone, Serialize)]
 pub struct CreatePartitions {
-	pub CreatePartition: Vec<CreatePartition>,
+    pub CreatePartition: Vec<CreatePartition>,
 }
 
 #[derive(Clone, Serialize)]
 pub struct CreatePartition {
-	pub Order: Order,
-	pub Size: Size,
-	pub Type: Type,
+    pub Order: Order,
+    pub Size: Size,
+    pub Type: Type,
 }
 
 #[derive(Clone, Serialize)]
 pub struct ModifyPartitions {
-	pub ModifyPartition: Vec<ModifyPartition>,
+    pub ModifyPartition: Vec<ModifyPartition>,
 }
 
 #[derive(Clone, Serialize)]
 pub struct ModifyPartition {
-	pub Format: Format,
-	pub Label: Label,
-	pub Order: Order,
-	pub PartitionID: PartitionID,
-	pub Extend: Option<Extend>,
-	pub Letter: Option<Letter>,
+    pub Format: Format,
+    pub Label: Label,
+    pub Order: Order,
+    pub PartitionID: PartitionID,
+    pub Extend: Option<Extend>,
+    pub Letter: Option<Letter>,
 }
 
 #[derive(Clone, Serialize)]
 pub struct ImageInstall {
-	pub OSImage: OSImage,
+    pub OSImage: OSImage,
 }
 
 #[derive(Clone, Serialize)]
 pub struct OSImage {
-	pub InstallTo: InstallTo,
-	pub WillShowUI: WillShowUI,
-	pub InstallToAvailablePartition: InstallToAvailablePartition,
+    pub InstallTo: InstallTo,
+    pub WillShowUI: WillShowUI,
+    pub InstallToAvailablePartition: InstallToAvailablePartition,
 }
 
 #[derive(Clone, Serialize)]
 pub struct InstallTo {
-	pub DiskID: DiskID,
-	pub PartitionID: PartitionID,
+    pub DiskID: DiskID,
+    pub PartitionID: PartitionID,
 }
 
 #[derive(Clone, Serialize)]

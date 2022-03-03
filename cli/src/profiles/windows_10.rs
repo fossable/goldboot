@@ -4,28 +4,22 @@ use crate::windows::ComputerName;
 use crate::windows::Settings;
 use crate::windows::UnattendXml;
 use crate::Config;
+use anyhow::Result;
+use rust_embed::RustEmbed;
+use std::path::Path;
+
+#[derive(RustEmbed)]
+#[folder = "res/windows_10/"]
+struct Resources;
 
 pub fn init(config: &mut Config) {
     config.user.username = String::from("admin");
     config.user.password = String::from("admin");
     config.iso_url = String::from("<ISO URL>");
-    config.iso_checksum = String::from("<ISO checksum>");
+    config.iso_checksum = Some(String::from("<ISO checksum>"));
 }
 
-pub fn default_builder() -> QemuBuilder {
-    let mut builder = QemuBuilder::new();
-    builder.boot_command = vec!["<enter>".into()];
-    builder.boot_wait = "4s".into();
-    builder.shutdown_command = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\"".into();
-    builder.communicator = "winrm".into();
-    builder.winrm_insecure = Some(true);
-    builder.winrm_timeout = Some("2h".into());
-    builder.floppy_files = Some(vec!["Autounattend.xml".into()]);
-
-    return builder;
-}
-
-pub fn unattended(config: &Config) -> UnattendXml {
+fn create_unattended(config: &Config) -> UnattendXml {
     UnattendXml {
         xmlns: "urn:schemas-microsoft-com:unattend".into(),
         settings: vec![Settings {
@@ -46,28 +40,27 @@ pub fn unattended(config: &Config) -> UnattendXml {
     }
 }
 
-pub fn build() {
-    std::fs::write(
-        "",
-        r#"
-			# Supress network location Prompt
-			New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff" -Force
+pub fn build(config: &Config, context: &Path) -> Result<QemuBuilder> {
+    // Write the Autounattend.xml file
+    create_unattended(&config).write(&context)?;
 
-			# Set network to private
-			$ifaceinfo = Get-NetConnectionProfile
-			Set-NetConnectionProfile -InterfaceIndex $ifaceinfo.InterfaceIndex -NetworkCategory Private 
+    // Copy powershell scripts
+    if let Some(resource) = Resources::get("configure_winrm.ps1") {
+        std::fs::write(context.join("configure_winrm.ps1"), resource.data).unwrap();
+    }
 
-			# Configure WinRM itself
-			winrm quickconfig -q
-			winrm s "winrm/config" '@{MaxTimeoutms="1800000"}'
-			winrm s "winrm/config/winrs" '@{MaxMemoryPerShellMB="2048"}'
-			winrm s "winrm/config/service" '@{AllowUnencrypted="true"}'
-			winrm s "winrm/config/service/auth" '@{Basic="true"}'
+    // Create the initial builder
+    let mut builder = QemuBuilder::new();
+    builder.boot_command = vec!["<enter>".into()];
+    builder.boot_wait = "4s".into();
+    builder.shutdown_command = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\"".into();
+    builder.communicator = "winrm".into();
+    builder.winrm_insecure = Some(true);
+    builder.winrm_timeout = Some("2h".into());
+    builder.floppy_files = Some(vec![
+        "Autounattend.xml".into(),
+        "configure_winrm.ps1".into(),
+    ]);
 
-			# Enable the WinRM Firewall rule, which will likely already be enabled due to the 'winrm quickconfig' command above
-			Enable-NetFirewallRule -DisplayName "Windows Remote Management (HTTP-In)"
-
-			exit 0
-		"#,
-    );
+    return Ok(builder);
 }

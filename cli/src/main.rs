@@ -21,6 +21,7 @@ pub mod qemu;
 pub mod windows;
 pub mod profiles {
     pub mod arch_linux;
+    pub mod pop_os_21_04;
     pub mod windows_10;
 }
 
@@ -112,17 +113,20 @@ fn build(cl: CommandLine) -> Result<()> {
     let tmp = Path::new("/tmp/testpacker");
     debug!("Allocated temporary directory for build: {}", tmp.display());
 
-    // Generate packer builder according to profile
+    // Run profile-specific build hook
     let mut builder = match config.base.as_str() {
-        "ArchLinux" => profiles::arch_linux::default_builder(),
-        "Windows10" => profiles::windows_10::default_builder(),
+        "ArchLinux" => profiles::arch_linux::build(&config, &tmp),
+        "Windows10" => profiles::windows_10::build(&config, &tmp),
+        "PopOS_21.04" => profiles::pop_os_21_04::build(&config, &tmp),
         _ => bail!("Unknown profile"),
-    };
+    }?;
 
     // Builder overrides
-    builder.output_directory = Some(image_library_path().to_str().unwrap().to_string());
+    builder.output_directory = image_library_path().to_str().unwrap().to_string();
     builder.vm_name = Some(config.name.clone());
     builder.qemuargs = Some(config.qemu.to_qemuargs());
+    builder.memory = config.memory;
+    builder.disk_size = config.disk_size;
     if let Some(arch) = &config.arch {
         builder.qemu_binary = match arch.as_str() {
             "x86_64" => Some("qemu-system-x86_64".into()),
@@ -134,8 +138,10 @@ fn build(cl: CommandLine) -> Result<()> {
         builder.iso_url = config.iso_url.clone();
     }
 
-    if config.iso_checksum != "" {
-        builder.iso_checksum = config.iso_checksum.clone();
+    if let Some(checksum) = config.iso_checksum {
+    	builder.iso_checksum = checksum;
+    } else {
+    	builder.iso_checksum = "none".into();
     }
 
     // Create packer template
@@ -169,12 +175,6 @@ fn build(cl: CommandLine) -> Result<()> {
         serde_json::to_string(&template).unwrap(),
     )
     .unwrap();
-
-    // Build Windows Autounattend files if needed
-    match config.base.as_str() {
-        "Windows10" => profiles::windows_10::unattended(&config).write(tmp)?,
-        _ => (),
-    };
 
     // Run the build
     if let Some(code) = Command::new("packer")
@@ -237,10 +237,11 @@ fn init(profile: &str) -> Result<()> {
     // Set base profile
     config.base = profile.to_string();
 
-    // Allow profile-specific initialization
+    // Run profile-specific initialization
     match profile {
         "ArchLinux" => profiles::arch_linux::init(&mut config),
         "Windows10" => profiles::windows_10::init(&mut config),
+        "PopOS_21.04" => profiles::pop_os_21_04::init(&mut config),
         _ => bail!("Unknown profile"),
     }
 
@@ -248,6 +249,11 @@ fn init(profile: &str) -> Result<()> {
     fs::write(config_path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
 
     Ok(())
+}
+
+fn write(image: &str, disk: &str) -> Result<()> {
+	// TODO backup option
+	Ok(())
 }
 
 fn run(image: &str) -> Result<()> {
@@ -279,7 +285,7 @@ pub fn main() -> Result<()> {
         Commands::Build {} => build(cl),
         Commands::Run { image } => run(image),
         Commands::Registry { command } => build(cl),
-        Commands::Write { image, disk } => build(cl),
+        Commands::Write { image, disk } => write(image, disk),
         Commands::Init { profile } => init(profile),
         Commands::Image { command } => match &command {
             ImageCommands::List {} => image_list(),

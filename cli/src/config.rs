@@ -21,12 +21,26 @@ pub struct Config {
 
     pub user: User,
 
+    /// The installation media URL
     pub iso_url: String,
 
-    pub iso_checksum: String,
+    /// A hash of the installation media
+    pub iso_checksum: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arch: Option<String>,
+
+    pub timezone: Option<String>,
+
+    pub locale: Option<String>,
+
+    pub packer_template: Option<String>,
+
+    /// The amount of memory to allocate to the VM
+    pub memory: String,
+
+    /// The size of the disk to attach to the VM
+    pub disk_size: String,
 }
 
 impl Config {

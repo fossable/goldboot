@@ -52,7 +52,13 @@ And add it to the goldboot config in the order they should be executed:
 ]
 ```
 
-Finally, build the image:
+Now, build the image:
 ```sh
 goldboot build
+```
+
+And finally deploy it to a physical disk:
+```sh
+# THIS WILL OVERWRITE /dev/sdb! TAKE A BACKUP FIRST!
+goldboot write WindowsMachine /dev/sdb
 ```
