@@ -1,20 +1,21 @@
-use serde::{Deserialize, Serialize};
+use crate::build_headless_debug;
+use serde::Serialize;
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerTemplate {
     pub builders: Vec<QemuBuilder>,
     pub provisioners: Vec<PackerProvisioner>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct QemuBuilder {
     pub boot_command: Vec<String>,
     pub boot_wait: String,
     pub communicator: String,
     pub disk_compression: bool,
     pub disk_size: String,
-    pub format: String,
+    pub format: &'static str,
     pub headless: bool,
     pub iso_checksum: String,
     pub iso_url: String,
@@ -24,7 +25,7 @@ pub struct QemuBuilder {
     pub qemu_binary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub qemuargs: Option<Vec<Vec<String>>>,
-    pub r#type: String,
+    pub r#type: &'static str,
     pub shutdown_command: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssh_password: Option<String>,
@@ -44,23 +45,23 @@ pub struct QemuBuilder {
     pub winrm_username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub floppy_files: Option<Vec<String>>,
-    pub disk_interface: String,
+    pub disk_interface: &'static str,
 }
 
 impl QemuBuilder {
     pub fn new() -> QemuBuilder {
         let mut builder = QemuBuilder::default();
-        builder.format = "qcow2".into();
-        builder.headless = true;
-        builder.r#type = "qemu".into();
+        builder.format = "qcow2";
+        builder.headless = build_headless_debug();
+        builder.r#type = "qemu";
         builder.disk_compression = true;
-        builder.disk_interface = "ide".into();
+        builder.disk_interface = "ide";
 
         return builder;
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerProvisioner {
     pub extra_arguments: Vec<String>,
     pub playbook_file: Option<String>,
@@ -68,4 +69,55 @@ pub struct PackerProvisioner {
     pub scripts: Vec<String>,
     pub use_proxy: Option<bool>,
     pub user: Option<String>,
+}
+
+pub mod bootcmds {
+    macro_rules! enter {
+        ($text:expr) => {
+            format!("{}<enter><wait>", $text)
+        };
+        () => {
+            format!("<enter><wait>")
+        };
+    }
+
+    macro_rules! spacebar {
+        () => {
+            "<spacebar><wait>".to_string()
+        };
+    }
+
+    macro_rules! tab {
+        ($text:expr) => {
+            format!("{}<tab><wait>", $text)
+        };
+        () => {
+            format!("<tab><wait>")
+        };
+    }
+
+    macro_rules! wait {
+        ($duration:expr) => {
+            format!("<wait{}s>", $duration)
+        };
+    }
+
+    macro_rules! input {
+        ($text:expr) => {
+            format!("{}", $text)
+        };
+    }
+
+    macro_rules! leftSuper {
+        () => {
+            "<leftSuper><wait>".to_string()
+        };
+    }
+
+    pub(crate) use enter;
+    pub(crate) use input;
+    pub(crate) use leftSuper;
+    pub(crate) use spacebar;
+    pub(crate) use tab;
+    pub(crate) use wait;
 }

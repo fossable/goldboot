@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::config::Profile;
 use crate::image::ImageMetadata;
 use crate::packer::PackerProvisioner;
 use crate::packer::PackerTemplate;
@@ -6,11 +7,16 @@ use crate::qemu::QemuConfig;
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use log::debug;
+use log::info;
 use std::env;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use sysinfo::DiskExt;
+use sysinfo::RefreshKind;
+use sysinfo::System;
+use sysinfo::SystemExt;
 use tabled::Style;
 use tabled::Table;
 
@@ -21,7 +27,8 @@ pub mod qemu;
 pub mod windows;
 pub mod profiles {
     pub mod arch_linux;
-    pub mod pop_os_21_04;
+    pub mod pop_os_2104;
+    pub mod pop_os_2110;
     pub mod windows_10;
 }
 
@@ -56,7 +63,7 @@ enum Commands {
     Write { image: String, disk: String },
 
     /// Initialize the current directory
-    Init { profile: String },
+    Init { profile: Profile },
 }
 
 #[derive(Subcommand, Debug)]
@@ -109,78 +116,86 @@ fn build(cl: CommandLine) -> Result<()> {
     let config = Config::load()?;
 
     // Acquire temporary directory for the build
-    //let tmp = tempfile::tempdir().unwrap();
-    let tmp = Path::new("/tmp/testpacker");
-    debug!("Allocated temporary directory for build: {}", tmp.display());
+    let tmp = tempfile::tempdir().unwrap();
+    let context_path = tmp.path();
+    debug!(
+        "Allocated temporary directory for build: {}",
+        context_path.display()
+    );
 
-    // Run profile-specific build hook
-    let mut builder = match config.base.as_str() {
-        "ArchLinux" => profiles::arch_linux::build(&config, &tmp),
-        "Windows10" => profiles::windows_10::build(&config, &tmp),
-        "PopOS_21.04" => profiles::pop_os_21_04::build(&config, &tmp),
-        _ => bail!("Unknown profile"),
-    }?;
+    if let Some(profile) = &config.base {
+        // Run profile-specific build hook
+        let mut builder = match profile {
+            Profile::ArchLinux => profiles::arch_linux::build(&config, &context_path),
+            Profile::Windows10 => profiles::windows_10::build(&config, &context_path),
+            Profile::PopOs2104 => profiles::pop_os_2104::build(&config, &context_path),
+            Profile::PopOs2110 => profiles::pop_os_2110::build(&config, &context_path),
+        }?;
 
-    // Builder overrides
-    builder.output_directory = image_library_path().to_str().unwrap().to_string();
-    builder.vm_name = Some(config.name.clone());
-    builder.qemuargs = Some(config.qemu.to_qemuargs());
-    builder.memory = config.memory;
-    builder.disk_size = config.disk_size;
-    if let Some(arch) = &config.arch {
-        builder.qemu_binary = match arch.as_str() {
-            "x86_64" => Some("qemu-system-x86_64".into()),
-            _ => None,
-        };
+        // Builder overrides
+        builder.output_directory = context_path.to_str().unwrap().to_string();
+        builder.vm_name = Some(config.name.clone());
+        builder.qemuargs = Some(config.qemu.to_qemuargs());
+        builder.memory = config.memory;
+        builder.disk_size = config.disk_size;
+        if let Some(arch) = &config.arch {
+            builder.qemu_binary = match arch.as_str() {
+                "x86_64" => Some("qemu-system-x86_64".into()),
+                _ => None,
+            };
+        }
+
+        if config.iso_url != "" {
+            builder.iso_url = config.iso_url.clone();
+        }
+
+        if let Some(checksum) = config.iso_checksum {
+            builder.iso_checksum = checksum;
+        } else {
+            builder.iso_checksum = "none".into();
+        }
+
+        // Create packer template
+        let mut template = PackerTemplate::default();
+        template.builders.push(builder);
+
+        // Translate provisioners in config into packer provisioners
+        for p in config.provisioners.iter() {
+            let provisioner = match p.r#type.as_str() {
+                "ansible" => PackerProvisioner {
+                    r#type: "ansible".into(),
+                    scripts: vec![],
+                    playbook_file: Some(p.ansible.playbook.clone()),
+                    user: Some("".into()),
+                    use_proxy: Some(false),
+                    extra_arguments: vec![
+                        "-e".into(),
+                        "ansible_winrm_scheme=http".into(),
+                        "-e".into(),
+                        "ansible_winrm_server_cert_validation=ignore".into(),
+                    ],
+                },
+                _ => panic!(""),
+            };
+            template.provisioners.push(provisioner);
+        }
+
+        debug!("Created packer template: {:?}", &template);
+
+        // Write the packer template
+        fs::write(
+            context_path.join("packer.json"),
+            serde_json::to_string(&template).unwrap(),
+        )
+        .unwrap();
     }
-
-    if config.iso_url != "" {
-        builder.iso_url = config.iso_url.clone();
-    }
-
-    if let Some(checksum) = config.iso_checksum {
-    	builder.iso_checksum = checksum;
-    } else {
-    	builder.iso_checksum = "none".into();
-    }
-
-    // Create packer template
-    let mut template = PackerTemplate::default();
-    template.builders.push(builder);
-
-    // Translate provisioners in config into packer provisioners
-    for p in config.provisioners.iter() {
-        let provisioner = match p.r#type.as_str() {
-            "ansible" => PackerProvisioner {
-                r#type: "ansible".into(),
-                scripts: vec![],
-                playbook_file: Some(p.ansible.playbook.clone()),
-                user: Some("".into()),
-                use_proxy: Some(false),
-                extra_arguments: vec![
-                    "-e".into(),
-                    "ansible_winrm_scheme=http".into(),
-                    "-e".into(),
-                    "ansible_winrm_server_cert_validation=ignore".into(),
-                ],
-            },
-            _ => panic!(""),
-        };
-        template.provisioners.push(provisioner);
-    }
-
-    // Write the packer template
-    fs::write(
-        tmp.join("packer.json"),
-        serde_json::to_string(&template).unwrap(),
-    )
-    .unwrap();
 
     // Run the build
     if let Some(code) = Command::new("packer")
-        .current_dir(tmp)
+        .current_dir(context_path)
         .arg("build")
         .arg("-force")
+        .arg("-on-error=abort")
         .arg("packer.json")
         .status()
         .expect("Failed to launch packer")
@@ -198,9 +213,9 @@ fn build(cl: CommandLine) -> Result<()> {
     // Create new image metadata
     let metadata_name = ImageMetadata::new(image_library_path().join(&config.name))?.write()?;
 
-    // Rename the image itself
+    // Move the image to the library
     fs::rename(
-        image_library_path().join(&config.name),
+        context_path.join(&config.name),
         image_library_path().join(format!("{}.qcow2", &metadata_name)),
     )
     .unwrap();
@@ -208,7 +223,7 @@ fn build(cl: CommandLine) -> Result<()> {
     return Ok(());
 }
 
-fn init(profile: &str) -> Result<()> {
+fn init(profile: &Profile) -> Result<()> {
     let config_path = Path::new("goldboot.json");
 
     if config_path.exists() {
@@ -234,15 +249,17 @@ fn init(profile: &str) -> Result<()> {
         panic!("Unsupported platform");
     };
 
-    // Set base profile
-    config.base = profile.to_string();
+    // Choose the last disk as the target
+    for disk in System::new_with_specifics(RefreshKind::new().with_disks_list()).disks() {
+        config.disk_size = format!("{}b", disk.total_space());
+    }
 
     // Run profile-specific initialization
     match profile {
-        "ArchLinux" => profiles::arch_linux::init(&mut config),
-        "Windows10" => profiles::windows_10::init(&mut config),
-        "PopOS_21.04" => profiles::pop_os_21_04::init(&mut config),
-        _ => bail!("Unknown profile"),
+        Profile::ArchLinux => profiles::arch_linux::init(&mut config),
+        Profile::Windows10 => profiles::windows_10::init(&mut config),
+        Profile::PopOs2104 => profiles::pop_os_2104::init(&mut config),
+        Profile::PopOs2110 => profiles::pop_os_2110::init(&mut config),
     }
 
     // Finally write out the config
@@ -251,9 +268,31 @@ fn init(profile: &str) -> Result<()> {
     Ok(())
 }
 
-fn write(image: &str, disk: &str) -> Result<()> {
-	// TODO backup option
-	Ok(())
+fn write(image_name: &str, disk_name: &str) -> Result<()> {
+    // TODO backup option
+
+    // Locate the requested image
+    let image = ImageMetadata::find(image_name)?;
+
+    // Locate the requested disk
+    if let Some(disk) = System::new_with_specifics(RefreshKind::new().with_disks_list())
+        .disks()
+        .iter()
+        .find(|&d| d.name() == disk_name)
+    {
+        debug!("Found disk: {:?}", disk);
+
+        // Verify sizes are compatible
+        if image.size != disk.total_space() {
+            bail!("The requested disk size is not equal to the image size");
+        }
+
+    	// Check if mounted
+    	// TODO
+    } else {
+        bail!("Disk not found: {}", disk_name);
+    }
+    Ok(())
 }
 
 fn run(image: &str) -> Result<()> {
@@ -273,6 +312,14 @@ fn run(image: &str) -> Result<()> {
     ])
     .status().unwrap();
     Ok(())
+}
+
+/// Determine whether builds should be headless or not for debugging.
+pub fn build_headless_debug() -> bool {
+    match env::var("GOLDBOOT_DEBUG") {
+        Ok(_) => false,
+        Err(_) => true,
+    }
 }
 
 pub fn main() -> Result<()> {

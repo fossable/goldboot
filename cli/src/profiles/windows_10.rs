@@ -1,3 +1,4 @@
+use crate::config::Profile;
 use crate::packer::QemuBuilder;
 use crate::windows::Component;
 use crate::windows::ComputerName;
@@ -13,8 +14,9 @@ use std::path::Path;
 struct Resources;
 
 pub fn init(config: &mut Config) {
-    config.user.username = String::from("admin");
-    config.user.password = String::from("admin");
+    config.base = Some(Profile::Windows10);
+    config.profile.insert("username".into(), "admin".into());
+    config.profile.insert("password".into(), "admin".into());
     config.iso_url = String::from("<ISO URL>");
     config.iso_checksum = Some(String::from("<ISO checksum>"));
 }

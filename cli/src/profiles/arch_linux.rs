@@ -1,3 +1,4 @@
+use crate::config::Profile;
 use crate::packer::QemuBuilder;
 use crate::Config;
 use anyhow::Result;
@@ -9,8 +10,12 @@ use std::path::Path;
 struct Resources;
 
 pub fn init(config: &mut Config) {
-    config.user.username = String::from("root");
-    config.user.password = String::from("root");
+    config.base = Some(Profile::ArchLinux);
+    config.profile.insert("username".into(), "user".into());
+    config
+        .profile
+        .insert("password".into(), "88Password**".into());
+    config.profile.insert("root_password".into(), "root".into());
     config.iso_url = String::from(
         "https://mirrors.edge.kernel.org/archlinux/iso/2021.10.01/archlinux-2021.10.01-x86_64.iso",
     );
