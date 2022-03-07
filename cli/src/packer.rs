@@ -11,7 +11,7 @@ pub struct PackerTemplate {
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct QemuBuilder {
     pub boot_command: Vec<String>,
-    pub boot_wait: String,
+    pub boot_wait: &'static str,
     pub communicator: String,
     pub disk_compression: bool,
     pub disk_size: String,
@@ -55,7 +55,6 @@ impl QemuBuilder {
         builder.headless = build_headless_debug();
         builder.r#type = "qemu";
         builder.disk_compression = true;
-        builder.disk_interface = "ide";
 
         return builder;
     }
@@ -63,11 +62,15 @@ impl QemuBuilder {
 
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerProvisioner {
-    pub extra_arguments: Vec<String>,
+    pub extra_arguments: Vec<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub playbook_file: Option<String>,
     pub r#type: String,
-    pub scripts: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scripts: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub use_proxy: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
 }
 
@@ -121,3 +124,5 @@ pub mod bootcmds {
     pub(crate) use tab;
     pub(crate) use wait;
 }
+
+// TODO install plugin function

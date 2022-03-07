@@ -1,22 +1,17 @@
-use crate::config::Profile;
 use crate::packer::QemuBuilder;
 use crate::Config;
 use anyhow::{bail, Result};
 use std::path::Path;
 
 pub fn init(config: &mut Config) {
-    config.base = Some(Profile::PopOs2104);
+    config.base = Some(String::from("PopOs2104"));
     config.profile.insert("username".into(), "user".into());
     config
         .profile
         .insert("password".into(), "88Password**".into());
     config.profile.insert("root_password".into(), "root".into());
-    config.iso_url = String::from(
-        "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.04/amd64/intel/5/pop-os_21.04_amd64_intel_5.iso",
-    );
-    config.iso_checksum = Some(String::from(
-        "sha256:da8448fa5bbed869b146acf3d9315c9c4301d65ebe4cc8a39027f54a73935a43",
-    ));
+    config.iso_url = "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.04/amd64/intel/5/pop-os_21.04_amd64_intel_5.iso";
+    config.iso_checksum = Some("sha256:da8448fa5bbed869b146acf3d9315c9c4301d65ebe4cc8a39027f54a73935a43");
 }
 
 pub fn validate(config: &Config) -> Result<()> {

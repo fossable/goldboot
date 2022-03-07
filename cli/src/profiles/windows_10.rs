@@ -1,4 +1,3 @@
-use crate::config::Profile;
 use crate::packer::QemuBuilder;
 use crate::windows::Component;
 use crate::windows::ComputerName;
@@ -14,11 +13,11 @@ use std::path::Path;
 struct Resources;
 
 pub fn init(config: &mut Config) {
-    config.base = Some(Profile::Windows10);
+    config.base = Some(String::from("Windows10"));
     config.profile.insert("username".into(), "admin".into());
     config.profile.insert("password".into(), "admin".into());
-    config.iso_url = String::from("<ISO URL>");
-    config.iso_checksum = Some(String::from("<ISO checksum>"));
+    config.iso_url = "<ISO URL>";
+    config.iso_checksum = Some("<ISO checksum>");
 }
 
 fn create_unattended(config: &Config) -> UnattendXml {
@@ -33,7 +32,7 @@ fn create_unattended(config: &Config) -> UnattendXml {
                 language: "neutral".into(),
                 versionScope: "nonSxS".into(),
                 ComputerName: Some(ComputerName {
-                    value: config.name.clone(),
+                    value: config.name.to_string(),
                 }),
                 DiskConfiguration: None,
                 ImageInstall: None,
@@ -54,11 +53,12 @@ pub fn build(config: &Config, context: &Path) -> Result<QemuBuilder> {
     // Create the initial builder
     let mut builder = QemuBuilder::new();
     builder.boot_command = vec!["<enter>".into()];
-    builder.boot_wait = "4s".into();
+    builder.boot_wait = "4s";
     builder.shutdown_command = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\"".into();
     builder.communicator = "winrm".into();
     builder.winrm_insecure = Some(true);
     builder.winrm_timeout = Some("2h".into());
+    builder.disk_interface = "ide";
     builder.floppy_files = Some(vec![
         "Autounattend.xml".into(),
         "configure_winrm.ps1".into(),

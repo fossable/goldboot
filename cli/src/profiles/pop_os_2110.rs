@@ -1,4 +1,3 @@
-use crate::config::Profile;
 use crate::packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait};
 use crate::packer::QemuBuilder;
 use crate::Config;
@@ -6,18 +5,14 @@ use anyhow::{bail, Result};
 use std::path::Path;
 
 pub fn init(config: &mut Config) {
-    config.base = Some(Profile::PopOs2110);
+    config.base = Some(String::from("PopOs2110"));
     config.profile.insert("username".into(), "user".into());
     config
         .profile
         .insert("password".into(), "88Password**".into());
     config.profile.insert("root_password".into(), "root".into());
-    config.iso_url = String::from(
-        "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso",
-    );
-    config.iso_checksum = Some(String::from(
-        "sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2",
-    ));
+    config.iso_url = "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso";
+    config.iso_checksum = Some("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2");
 }
 
 pub fn validate(config: &Config) -> Result<()> {
@@ -55,7 +50,7 @@ pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder> {
         tab!(),
         enter!(password), // Configure password
         enter!(),         // Enable disk encryption
-        wait!(500),       // Wait for installation
+        wait!(250), spacebar!(), wait!(250), // Wait for installation (avoiding screen timeouts)
         enter!(),         // Reboot
         wait!(30),        // Wait for reboot
         enter!(password), // Unlock disk
@@ -78,7 +73,7 @@ pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder> {
         enter!("systemctl restart sshd"),                            // Start sshd
     ];
 
-    builder.boot_wait = "2m".into();
+    builder.boot_wait = "2m";
     builder.communicator = "ssh".into();
     builder.shutdown_command = "poweroff".into();
     builder.ssh_password = Some("root".into());

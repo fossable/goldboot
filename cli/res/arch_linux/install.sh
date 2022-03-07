@@ -61,4 +61,4 @@ EOF
 arch-chroot /mnt systemctl enable sshd.service
 
 # Enable dhcpcd
-arch-chroot /mnt systemctl enable dhcpcd@enp4s0.service
+arch-chroot /mnt systemctl enable dhcpcd.service

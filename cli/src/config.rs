@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::default::Default;
 use std::error::Error;
-use std::fmt;
 use std::fs;
-use std::str::FromStr;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
@@ -17,7 +15,8 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    pub base: Option<Profile>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
 
     pub provisioners: Vec<Provisioner>,
 
@@ -61,39 +60,6 @@ impl Config {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum Profile {
-    ArchLinux,
-    Windows10,
-    PopOs2104,
-    PopOs2110,
-}
-
-#[derive(Debug)]
-pub struct ProfileParseErr;
-
-impl Error for ProfileParseErr {}
-
-impl fmt::Display for ProfileParseErr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ArchLinux, Windows10, PopOs2104, PopOs2110")
-    }
-}
-
-impl FromStr for Profile {
-    type Err = ProfileParseErr;
-
-    fn from_str(string: &str) -> Result<Self, <Self as FromStr>::Err> {
-        match string {
-            "ArchLinux" => Ok(Profile::ArchLinux),
-            "Windows10" => Ok(Profile::Windows10),
-            "PopOs2104" => Ok(Profile::PopOs2104),
-            "PopOs2110" => Ok(Profile::PopOs2110),
-            _ => Err(ProfileParseErr {}),
-        }
-    }
-}
-
 /// A generic provisioner
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct Provisioner {
@@ -108,12 +74,10 @@ pub struct Provisioner {
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct AnsibleProvisioner {
-    pub playbook: String,
+    pub playbook: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct ShellProvisioner {
-    pub script: String,
-
-    pub inline: Vec<String>,
+    pub script: Option<String>,
 }
