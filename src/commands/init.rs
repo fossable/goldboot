@@ -1,12 +1,15 @@
 use std::{
-    path::{Path, PathBuf},
+    path::{Path},
     fs,
     env,
     error::Error,
 };
 use crate::{
-	Config,
+	config::Config,
+	profiles,
+	qemu::QemuConfig,
 };
+use anyhow::bail;
 
 /// Choose some arbitrary disk and get its size. The user will likely change it
 /// in the config later.

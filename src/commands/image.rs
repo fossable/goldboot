@@ -4,19 +4,19 @@ use std::{
     io::{Write, Seek, SeekFrom, BufReader},
     fs::File,
     process::Command,
+    error::Error,
 };
 use crate::image_library_path;
-use anyhow::Result;
+use anyhow::bail;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tabled::Tabled;
 use validator::Validate;
 use qcow::levels::ClusterDescriptor;
 use qcow::*;
 
 /// Represents a local image.
-#[derive(Clone, Serialize, Deserialize, Validate, Tabled)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct ImageMetadata {
     pub name: String,
 
@@ -32,7 +32,7 @@ pub struct ImageMetadata {
 
 impl ImageMetadata {
     /// Write the image metadata to the library and return the metadata hash
-    pub fn write(&self) -> Result<String> {
+    pub fn write(&self) -> Result<String, Box<dyn Error>> {
         let metadata_json = serde_json::to_string(&self).unwrap();
         let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
 
@@ -49,7 +49,7 @@ impl ImageMetadata {
         &Path::new("")
     }
 
-    pub fn new(output: PathBuf) -> Result<ImageMetadata> {
+    pub fn new(output: PathBuf) -> Result<ImageMetadata, Box<dyn Error>> {
         Ok(ImageMetadata {
             name: output.file_stem().unwrap().to_str().unwrap().to_string(),
             sha256: "".into(),
@@ -60,7 +60,7 @@ impl ImageMetadata {
     }
 
     /// Load images present in the local image library
-    pub fn load() -> Result<Vec<ImageMetadata>> {
+    pub fn load() -> Result<Vec<ImageMetadata>, Box<dyn Error>> {
         let mut images = Vec::new();
 
         for p in image_library_path().read_dir().unwrap() {
@@ -88,7 +88,7 @@ impl ImageMetadata {
         Ok(images)
     }
 
-    pub fn find(image_name: &str) -> Result<ImageMetadata> {
+    pub fn find(image_name: &str) -> Result<ImageMetadata, Box<dyn Error>> {
         Ok(ImageMetadata::load()?
             .iter()
             .find(|&metadata| metadata.name == image_name)
@@ -97,15 +97,19 @@ impl ImageMetadata {
     }
 }
 
+pub fn info() -> Result<(), Box<dyn Error>> {
+    Ok(())
+}
+
 /// List all images in the image library.
-pub fn list() -> Result<()> {
+pub fn list() -> Result<(), Box<dyn Error>> {
     let images = ImageMetadata::load()?;
 
     print!("{}", Table::new(images).with(Style::modern()).to_string());
     Ok(())
 }
 
-pub fn write(image_name: &str, disk_name: &str) -> Result<()> {
+pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
     // TODO backup option
 
     // Locate the requested image
@@ -166,7 +170,7 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run(image: &str) -> Result<()> {
+pub fn run(image: &str) -> Result<(), Box<dyn Error>> {
     Command::new("qemu-system-x86_64").args([
         "-display",
         "gtk",

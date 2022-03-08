@@ -1,9 +1,13 @@
-use crate::packer::QemuBuilder;
-use crate::Config;
-use anyhow::Result;
 use rust_embed::RustEmbed;
-use std::path::Path;
-use crate::packer::bootcmds::{enter};
+use std::{
+    path::Path,
+    error::Error,
+};
+use crate::{
+    packer::bootcmds::{enter},
+    packer::QemuBuilder,
+    config::Config,
+};
 
 #[derive(RustEmbed)]
 #[folder = "res/arch_linux/"]
@@ -17,9 +21,10 @@ pub fn init(config: &mut Config) {
         .insert("password".into(), "88Password**".into());
     config.profile.insert("root_password".into(), "root".into());
     config.iso_url = String::from("https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso");
+    config.memory = "";
 }
 
-pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder> {
+pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder, Box<dyn Error>> {
 
     // Create install provisioner
     // TODO

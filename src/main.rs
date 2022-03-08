@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
-use log::debug;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{
+    env,
+    path::PathBuf,
+    error::Error,
+};
 
 pub mod config;
 pub mod packer;
@@ -123,7 +124,7 @@ pub fn build_headless_debug() -> bool {
     }
 }
 
-pub fn main() -> Result<()> {
+pub fn main() -> Result<(), Box<dyn Error>> {
 
 	// Parse command line first
     let cl = CommandLine::parse();

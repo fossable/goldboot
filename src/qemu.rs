@@ -1,6 +1,6 @@
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
+use std::error::Error;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
 pub struct QemuConfig {
@@ -14,7 +14,7 @@ impl QemuConfig {
     }
 
     /// Generate a config for the current hardware
-    pub fn generate_config() -> Result<QemuConfig> {
+    pub fn generate_config() -> Result<QemuConfig, Box<dyn Error>> {
         let mut qemu_config = QemuConfig::default();
         Ok(qemu_config)
     }

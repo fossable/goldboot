@@ -1,11 +1,12 @@
 use crate::qemu::QemuConfig;
-use anyhow::Result;
 use log::debug;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::default::Default;
-use std::error::Error;
-use std::fs;
+use std::{
+    collections::HashMap,
+    default::Default,
+    error::Error,
+    fs,
+};
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
@@ -51,7 +52,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load() -> Result<Config> {
+    pub fn load() -> Result<Config, Box<dyn Error>> {
         debug!("Loading config");
 
         // Read config from working directory

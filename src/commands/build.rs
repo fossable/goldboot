@@ -1,12 +1,17 @@
 use std::{
 	path::PathBuf,
 	process::Command,
+    fs,
+    error::Error,
 };
 use crate::{
-	Config,
-	PackerTemplate,
+	config::Config,
+	packer::{PackerTemplate, PackerProvisioner},
+    profiles,
+    image_library_path,
 };
 use log::{debug};
+use anyhow::bail;
 
 pub struct BuildContext {
 	pub config: Config,
@@ -16,7 +21,7 @@ pub struct BuildContext {
 	pub directory: PathBuf,
 }
 
-pub fn build() -> Result<()> {
+pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Starting build");
 
     // Load config
@@ -36,11 +41,11 @@ pub fn build() -> Result<()> {
         let mut template = PackerTemplate::default();
 
         // Run profile-specific build hook
-        match profile {
-            Profile::ArchLinux => profiles::arch_linux::build(&config, &context_path),
-            Profile::Windows10 => profiles::windows_10::build(&config, &context_path),
-            Profile::PopOs2104 => profiles::pop_os_2104::build(&config, &context_path),
-            Profile::PopOs2110 => profiles::pop_os_2110::build(&config, &context_path),
+        match profile.as_str() {
+            "ArchLinux" => profiles::arch_linux::build(&config, &context_path),
+            "Windows10" => profiles::windows_10::build(&config, &context_path),
+            "PopOs2104" => profiles::pop_os_2104::build(&config, &context_path),
+            "PopOs2110" => profiles::pop_os_2110::build(&config, &context_path),
         }?;
 
         // Builder overrides

@@ -4,7 +4,6 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0", default-features = false}
 clap = { version = "3.1.2", features = ["derive"] }
 env_logger = "0.9"
 hex = "0.4.3"

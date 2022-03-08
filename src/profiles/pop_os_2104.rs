@@ -1,7 +1,12 @@
-use crate::packer::QemuBuilder;
-use crate::Config;
+use crate::{
+    config::Config,
+    packer::QemuBuilder,
+};
 use anyhow::{bail, Result};
-use std::path::Path;
+use std::{
+    path::Path,
+    error::Error,
+};
 
 pub fn init(config: &mut Config) {
     config.base = Some(String::from("PopOs2104"));
@@ -27,7 +32,7 @@ pub fn validate(config: &Config) -> Result<()> {
     Ok(())
 }
 
-pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder> {
+pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder, Box<dyn Error>> {
     validate(&config)?;
 
     let username = config.profile.get("username").unwrap();

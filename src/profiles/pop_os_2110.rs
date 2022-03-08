@@ -1,8 +1,13 @@
-use crate::packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait};
-use crate::packer::QemuBuilder;
-use crate::Config;
-use anyhow::{bail, Result};
-use std::path::Path;
+use crate::{
+    config::Config,
+    packer::QemuBuilder,
+    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
+};
+use anyhow::bail;
+use std::{
+    path::Path,
+    error::Error,
+};
 
 pub fn init(config: &mut Config) {
     config.base = Some(String::from("PopOs2110"));
@@ -15,7 +20,7 @@ pub fn init(config: &mut Config) {
     config.iso_checksum = Some("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2");
 }
 
-pub fn validate(config: &Config) -> Result<()> {
+pub fn validate(config: &Config) -> Result<(), Box<dyn Error>> {
     // We can't use the root account for initial setup
     match config.profile.get("username") {
         Some(username) => {
@@ -28,7 +33,7 @@ pub fn validate(config: &Config) -> Result<()> {
     Ok(())
 }
 
-pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder> {
+pub fn build(config: &Config, _context: &Path) -> Result<QemuBuilder, Box<dyn Error>> {
     validate(&config)?;
 
     let username = config.profile.get("username").unwrap();

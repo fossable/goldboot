@@ -1,6 +1,8 @@
-use anyhow::Result;
 use serde::Serialize;
-use std::path::Path;
+use std::{
+    path::Path,
+    error::Error,
+};
 
 #[derive(Clone, Serialize)]
 #[serde(rename = "unattend")]
@@ -10,7 +12,7 @@ pub struct UnattendXml {
 }
 
 impl UnattendXml {
-    pub fn write(&self, path: &Path) -> Result<()> {
+    pub fn write(&self, path: &Path) -> Result<(), Box<dyn Error>> {
         std::fs::write(
             path.join("Autounattend.xml"),
             quick_xml::se::to_string(&self).unwrap(),

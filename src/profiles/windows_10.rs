@@ -1,12 +1,13 @@
-use crate::packer::QemuBuilder;
-use crate::windows::Component;
-use crate::windows::ComputerName;
-use crate::windows::Settings;
-use crate::windows::UnattendXml;
-use crate::Config;
-use anyhow::Result;
+use crate::{
+    config::Config,
+    packer::QemuBuilder,
+    windows::{Component, ComputerName, Settings, UnattendXml},
+};
 use rust_embed::RustEmbed;
-use std::path::Path;
+use std::{
+    path::Path,
+    error::Error,
+};
 
 #[derive(RustEmbed)]
 #[folder = "res/windows_10/"]
@@ -41,7 +42,7 @@ fn create_unattended(config: &Config) -> UnattendXml {
     }
 }
 
-pub fn build(config: &Config, context: &Path) -> Result<QemuBuilder> {
+pub fn build(config: &Config, context: &Path) -> Result<QemuBuilder, Box<dyn Error>> {
     // Write the Autounattend.xml file
     create_unattended(&config).write(&context)?;
 
