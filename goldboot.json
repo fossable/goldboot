@@ -1,0 +1,21 @@
+{
+  "name": "cli",
+  "base": "PopOs2110",
+  "provisioners": [
+    {
+      "type": "ansible",
+      "playbook": "/home/cilki/workspace/github.com/cilki/goldboot/cli/install.yml"
+    }
+  ],
+  "qemu": {
+    "bios": "/usr/share/ovmf/x64/OVMF.fd"
+  },
+    "username": "user",
+    "password": "88Password**",
+"root_password":"root",
+  "iso_url": "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso",
+  "iso_checksum": "sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2",
+  "arch": "x86_64",
+  "memory": "4096",
+  "disk_size": "256060514304b"
+}

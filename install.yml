@@ -1,0 +1,38 @@
+- hosts: default
+  tasks:
+    - name: Remove unwanted packages
+      apt:
+        name:
+          - libreoffice-calc
+          - libreoffice-draw
+          - libreoffice-writer
+          - libreoffice-core
+          - libreoffice-common
+          - libreoffice-gtk3
+        state: absent
+        autoremove: yes
+
+    - name: Update packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install packages
+      apt:
+        name:
+          - ansible
+          - awscli
+          - bash-completion
+          - cmus
+          - dia
+          - git
+          - gnome-boxes
+          - htop
+          - nfs-common
+          - nmap
+          - python3-pip
+          - sshfs
+          - tree
+          - wireshark-gtk
+          - zsh
+        state: latest
