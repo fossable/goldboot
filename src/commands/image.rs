@@ -1,19 +1,19 @@
-use std::{
-    path::{Path, PathBuf},
-    fs,
-    io::{Write, Seek, SeekFrom, BufReader},
-    fs::File,
-    process::Command,
-    error::Error,
-};
 use crate::image_library_path;
 use anyhow::bail;
 use log::debug;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use validator::Validate;
 use qcow::levels::ClusterDescriptor;
 use qcow::*;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    error::Error,
+    fs,
+    fs::File,
+    io::{BufReader, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+    process::Command,
+};
+use validator::Validate;
 
 /// Represents a local image.
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -116,7 +116,10 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
     let image = ImageMetadata::find(image_name)?;
 
     // Locate the requested disk
-    debug!("disks: {:?}", System::new_with_specifics(RefreshKind::new().with_disks_list()).disks());
+    debug!(
+        "disks: {:?}",
+        System::new_with_specifics(RefreshKind::new().with_disks_list()).disks()
+    );
     if let Some(disk) = System::new_with_specifics(RefreshKind::new().with_disks_list())
         .disks()
         .iter()
@@ -148,11 +151,17 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
                             ClusterDescriptor::Standard(cluster) => {
                                 if cluster.host_cluster_offset != 0 {
                                     debug!("Uncompressed cluster: {:?}", cluster);
-                                    l2_entry.read_contents(&mut file, &mut buffer, CompressionType::Zlib).unwrap();
+                                    l2_entry
+                                        .read_contents(
+                                            &mut file,
+                                            &mut buffer,
+                                            CompressionType::Zlib,
+                                        )
+                                        .unwrap();
                                     f.seek(SeekFrom::Start(offset)).unwrap();
                                     f.write_all(&buffer).unwrap();
                                 }
-                            },
+                            }
                             ClusterDescriptor::Compressed(cluster) => {
                                 debug!("Compressed cluster: {:?}", cluster);
                             }

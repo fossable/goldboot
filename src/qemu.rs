@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 use std::error::Error;
+use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
 pub struct QemuConfig {

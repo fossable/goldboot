@@ -1,8 +1,5 @@
 use serde::Serialize;
-use std::{
-    path::Path,
-    error::Error,
-};
+use std::{error::Error, path::Path};
 
 #[derive(Clone, Serialize)]
 #[serde(rename = "unattend")]

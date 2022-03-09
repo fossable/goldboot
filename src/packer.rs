@@ -11,11 +11,11 @@ pub struct PackerTemplate {
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct QemuBuilder {
     pub boot_command: Vec<String>,
-    pub boot_wait: &'static str,
+    pub boot_wait: String,
     pub communicator: String,
     pub disk_compression: bool,
     pub disk_size: String,
-    pub format: &'static str,
+    pub format: String,
     pub headless: bool,
     pub iso_checksum: String,
     pub iso_url: String,
@@ -25,7 +25,7 @@ pub struct QemuBuilder {
     pub qemu_binary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub qemuargs: Option<Vec<Vec<String>>>,
-    pub r#type: &'static str,
+    pub r#type: String,
     pub shutdown_command: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssh_password: Option<String>,
@@ -45,15 +45,15 @@ pub struct QemuBuilder {
     pub winrm_username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub floppy_files: Option<Vec<String>>,
-    pub disk_interface: &'static str,
+    pub disk_interface: String,
 }
 
 impl QemuBuilder {
     pub fn new() -> QemuBuilder {
         let mut builder = QemuBuilder::default();
-        builder.format = "qcow2";
+        builder.format = String::from("qcow2");
         builder.headless = build_headless_debug();
-        builder.r#type = "qemu";
+        builder.r#type = String::from("qemu");
         builder.disk_compression = true;
 
         return builder;
@@ -62,7 +62,7 @@ impl QemuBuilder {
 
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerProvisioner {
-    pub extra_arguments: Vec<&'static str>,
+    pub extra_arguments: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub playbook_file: Option<String>,
     pub r#type: String,

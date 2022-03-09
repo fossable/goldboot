@@ -1,25 +1,11 @@
-use std::{
-	path::PathBuf,
-	process::Command,
-    fs,
-    error::Error,
-};
 use crate::{
-	config::Config,
-	packer::{PackerTemplate, PackerProvisioner},
-    profiles,
+    config::Config,
     image_library_path,
+    packer::{PackerProvisioner, PackerTemplate},
+    profiles,
 };
-use log::{debug};
-use anyhow::bail;
-
-pub struct BuildContext {
-	pub config: Config,
-	pub template: PackerTemplate,
-
-	/// The temporary build directory which will be deleted at the end of the run
-	pub directory: PathBuf,
-}
+use log::debug;
+use std::{error::Error, fs, path::PathBuf, process::Command};
 
 pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Starting build");
@@ -36,8 +22,7 @@ pub fn build() -> Result<(), Box<dyn Error>> {
     );
 
     if let Some(profile) = &config.base {
-
-    	// Create packer template
+        // Create packer template
         let mut template = PackerTemplate::default();
 
         // Run profile-specific build hook
@@ -49,7 +34,11 @@ pub fn build() -> Result<(), Box<dyn Error>> {
         }?;
 
         // Builder overrides
-        builder.output_directory = image_library_path().join("output").to_str().unwrap().to_string();
+        builder.output_directory = image_library_path()
+            .join("output")
+            .to_str()
+            .unwrap()
+            .to_string();
         builder.vm_name = Some(config.name.to_string());
         builder.qemuargs = Some(config.qemu.to_qemuargs());
         builder.memory = config.memory.to_string();
@@ -83,12 +72,12 @@ pub fn build() -> Result<(), Box<dyn Error>> {
                     user: Some("root".into()),
                     use_proxy: Some(false),
                     extra_arguments: vec![
-                        "-e",
-                        "ansible_winrm_scheme=http",
-                        "-e",
-                        "ansible_winrm_server_cert_validation=ignore",
-                        "-e",
-                        "ansible_ssh_pass=root",
+                        String::from("-e"),
+                        String::from("ansible_winrm_scheme=http"),
+                        String::from("-e"),
+                        String::from("ansible_winrm_server_cert_validation=ignore"),
+                        String::from("-e"),
+                        String::from("ansible_ssh_pass=root"),
                     ],
                 },
                 _ => panic!(""),
@@ -125,7 +114,8 @@ pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Build completed successfully");
 
     // Create new image metadata
-    let metadata_name = ImageMetadata::new(image_library_path().join("output").join(&config.name))?.write()?;
+    let metadata_name =
+        ImageMetadata::new(image_library_path().join("output").join(&config.name))?.write()?;
 
     // Move the image to the library
     fs::rename(

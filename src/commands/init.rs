@@ -1,23 +1,13 @@
-use std::{
-    path::{Path},
-    fs,
-    env,
-    error::Error,
-};
-use crate::{
-	config::Config,
-	profiles,
-	qemu::QemuConfig,
-};
-use anyhow::bail;
+use crate::{config::Config, profiles, qemu::QemuConfig};
+use std::{env, error::Error, fs, path::Path};
 
 /// Choose some arbitrary disk and get its size. The user will likely change it
 /// in the config later.
 fn guess_disk_size() -> u64 {
-	if cfg!(target_os = "unix") {
-		// TODO
-	}
-	return 256000000;
+    if cfg!(target_os = "unix") {
+        // TODO
+    }
+    return 256000000;
 }
 
 pub fn init(profile: Option<String>, template: Option<String>) -> Result<(), Box<dyn Error>> {
@@ -32,40 +22,39 @@ pub fn init(profile: Option<String>, template: Option<String>) -> Result<(), Box
 
     // Setup the config for the given base profile
     if let Some(profile_value) = profile {
+        // Set name equal to directory name
+        if let Some(name) = env::current_dir()?.file_name() {
+            config.name = &name.to_str()?.to_string();
+        }
 
-    	// Set name equal to directory name
-	    if let Some(name) = env::current_dir()?.file_name() {
-	        config.name = &name.to_str()?.to_string();
-	    }
+        // Generate QEMU flags for this hardware
+        config.qemu = QemuConfig::generate_config()?;
 
-	    // Generate QEMU flags for this hardware
-	    config.qemu = QemuConfig::generate_config()?;
+        // Set current platform
+        config.arch = if cfg!(target_arch = "x86_64") {
+            Some("x86_64".into())
+        } else if cfg!(target_arch = "aarch64") {
+            Some("aarch64".into())
+        } else {
+            panic!("Unsupported platform");
+        };
 
-	    // Set current platform
-	    config.arch = if cfg!(target_arch = "x86_64") {
-	        Some("x86_64".into())
-	    } else if cfg!(target_arch = "aarch64") {
-	        Some("aarch64".into())
-	    } else {
-	        panic!("Unsupported platform");
-	    };
+        // Set an arbitrary disk size
+        config.disk_size = format!("{}b", guess_disk_size());
 
-	    // Set an arbitrary disk size
-	    config.disk_size = format!("{}b", guess_disk_size());
-
-	    // Run profile-specific initialization
-	    match &profile_value {
-	        "ArchLinux" => profiles::arch_linux::init(&mut config),
-	        "Windows10" => profiles::windows_10::init(&mut config),
-	        "PopOs2104" => profiles::pop_os_2104::init(&mut config),
-	        "PopOs2010" => profiles::pop_os_2110::init(&mut config),
-	        _ => panic!("Unknown profile"),
-	    }
+        // Run profile-specific initialization
+        match profile_value.as_str() {
+            "ArchLinux" => profiles::arch_linux::init(&mut config),
+            "Windows10" => profiles::windows_10::init(&mut config),
+            "UbuntuServer2110" => profiles::ubuntu_server_2110::init(&mut config),
+            "PopOs2010" => profiles::pop_os_2110::init(&mut config),
+            _ => panic!("Unknown profile"),
+        }
     }
 
     // Setup the config for the given packer template
     if let Some(template_value) = template {
-    	config.packer_template = template_value;
+        config.packer_template = template_value;
     }
 
     // Finally write out the config

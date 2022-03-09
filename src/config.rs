@@ -1,12 +1,7 @@
 use crate::qemu::QemuConfig;
 use log::debug;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    default::Default,
-    error::Error,
-    fs,
-};
+use std::{collections::HashMap, default::Default, error::Error, fs};
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Default)]
@@ -56,8 +51,7 @@ impl Config {
         debug!("Loading config");
 
         // Read config from working directory
-        let config: Config = serde_json::from_slice(&fs::read("goldboot.json").unwrap()).unwrap();
-        Ok(config)
+        Ok(serde_json::from_slice(&fs::read("goldboot.json")?)?)
     }
 }
 

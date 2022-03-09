@@ -17,9 +17,9 @@ jobs:
     - name: Install rust nightly
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly
-          override: true
-          components: rust-src
+        toolchain: nightly
+        override: true
+        components: rust-src
 
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -28,3 +28,9 @@ jobs:
       run: |
         cargo build --target x86_64
         sudo cp target/debug/goldboot /usr/bin
+
+    - name: Test ArchLinux profile
+      run: |
+        mkdir ArchLinux && cd ArchLinux
+        goldboot init ArchLinux
+        goldboot build

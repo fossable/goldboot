@@ -1,26 +1,23 @@
 use clap::{Parser, Subcommand};
-use std::{
-    env,
-    path::PathBuf,
-    error::Error,
-};
+use std::{env, error::Error, path::PathBuf};
 
 pub mod config;
 pub mod packer;
+pub mod profile;
 pub mod qemu;
 pub mod windows;
 pub mod profiles {
     pub mod arch_linux;
-    pub mod pop_os_2104;
     pub mod pop_os_2110;
+    pub mod ubuntu_server_2110;
     pub mod windows_10;
 }
 pub mod commands {
-	pub mod build;
-	pub mod image;
-	pub mod init;
-	pub mod registry;
-	pub mod make_usb;
+    pub mod build;
+    pub mod image;
+    pub mod init;
+    pub mod make_usb;
+    pub mod registry;
 }
 
 #[derive(Parser, Debug)]
@@ -42,17 +39,19 @@ enum Commands {
     },
 
     /// Initialize the current directory
-    Init { profile: Option<String>, template: Option<String> },
+    Init {
+        profile: Option<String>,
+        template: Option<String>,
+    },
 
     /// Create a bootable USB drive
     MakeUsb {
+        /// The disk to erase and make bootable
+        disk: String,
 
-    	/// The disk to erase and make bootable
-    	disk: String,
-
-    	/// Do not check for confirmation
-    	#[clap(long, takes_value = false)]
-    	confirm: bool,
+        /// Do not check for confirmation
+        #[clap(long, takes_value = false)]
+        confirm: bool,
     },
 
     /// Manage image registries
@@ -76,24 +75,27 @@ enum ImageCommands {
     /// List local images
     List {},
 
-    Info { image: String, },
+    Info {
+        image: String,
+    },
 
     /// Write image to a disk
     Write {
+        /// The selected image
+        image: String,
 
-    	/// The selected image
-    	image: String,
+        /// The disk to overwrite
+        disk: String,
 
-    	/// The disk to overwrite
-    	disk: String,
-
-    	/// Do not check for confirmation
-    	#[clap(long, takes_value = false)]
-    	confirm: bool,
+        /// Do not check for confirmation
+        #[clap(long, takes_value = false)]
+        confirm: bool,
     },
 
     /// Run an existing image
-    Run { image: String },
+    Run {
+        image: String,
+    },
 }
 
 /// Return the image library path for the current platform.
@@ -125,8 +127,7 @@ pub fn build_headless_debug() -> bool {
 }
 
 pub fn main() -> Result<(), Box<dyn Error>> {
-
-	// Parse command line first
+    // Parse command line first
     let cl = CommandLine::parse();
 
     // Configure logging
@@ -136,8 +137,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     match &cl.command {
         Commands::Build {} => commands::build::build(),
         Commands::Registry { command } => match &command {
-        	RegistryCommands::Push { image } => commands::registry::push(image),
-        	RegistryCommands::Pull { image } => commands::registry::pull(image),
+            RegistryCommands::Push { image } => commands::registry::push(image),
+            RegistryCommands::Pull { image } => commands::registry::pull(image),
         },
         Commands::Init { profile, template } => commands::init::init(profile, template),
         Commands::MakeUsb { image, disk } => commands::make_usb::make_usb(image, disk),
