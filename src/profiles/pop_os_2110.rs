@@ -8,7 +8,7 @@ use std::{error::Error, path::Path};
 use validator::Validate;
 
 #[derive(Validate)]
-struct PopOs2110Profile {
+pub struct PopOs2110Profile {
     username: String,
     password: String,
     root_password: String,
@@ -32,7 +32,7 @@ pub fn init(config: &mut Config) {
 }
 
 impl PopOs2110Profile {
-    fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
+    pub fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
         let profile = Self {
             username: config
                 .profile
@@ -59,7 +59,7 @@ impl PopOs2110Profile {
 
 impl Profile for PopOs2110Profile {
     fn build(&self, template: &mut PackerTemplate, context: &Path) -> Result<(), Box<dyn Error>> {
-        let mut builder = template.builders.first().unwrap();
+        let builder = template.builders.first_mut().unwrap();
         builder.boot_command = vec![
             enter!(), // Select language: English
             enter!(), // Select location: United States
@@ -103,7 +103,7 @@ impl Profile for PopOs2110Profile {
         builder.communicator = String::from("ssh");
         builder.shutdown_command = String::from("poweroff");
         builder.ssh_password = Some(String::from("root"));
-        builder.ssh_username = Some(self.root_password);
+        builder.ssh_username = Some(self.root_password.clone());
         builder.ssh_wait_timeout = Some(String::from("5m"));
         Ok(())
     }

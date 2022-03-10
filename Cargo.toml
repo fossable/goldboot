@@ -18,3 +18,4 @@ validator = { version = "0.12", features = ["derive"] }
 rust-embed = "6.3.0"
 sysinfo = "0.23.5"
 qcow = { version="1.2.0", default-features = false }
+simple-error = "0.2.3"

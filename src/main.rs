@@ -137,16 +137,16 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     match &cl.command {
         Commands::Build {} => commands::build::build(),
         Commands::Registry { command } => match &command {
-            RegistryCommands::Push { image } => commands::registry::push(image),
-            RegistryCommands::Pull { image } => commands::registry::pull(image),
+            RegistryCommands::Push { url } => commands::registry::push(),
+            RegistryCommands::Pull { url } => commands::registry::pull(),
         },
-        Commands::Init { profile, template } => commands::init::init(profile, template),
-        Commands::MakeUsb { image, disk } => commands::make_usb::make_usb(image, disk),
+        Commands::Init { profile, template } => commands::init::init(profile.to_owned(), template.to_owned()),
+        Commands::MakeUsb { disk, confirm } => commands::make_usb::make_usb(),
         Commands::Image { command } => match &command {
             ImageCommands::List {} => commands::image::list(),
             ImageCommands::Info { image } => commands::image::info(image),
             ImageCommands::Run { image } => commands::image::run(image),
-            ImageCommands::Write { image, disk } => commands::image::write(image, disk),
+            ImageCommands::Write { image, disk, confirm } => commands::image::write(image, disk),
         },
     }
 }

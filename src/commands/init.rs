@@ -1,5 +1,6 @@
 use crate::{config::Config, profiles, qemu::QemuConfig};
 use std::{env, error::Error, fs, path::Path};
+use simple_error::bail;
 
 /// Choose some arbitrary disk and get its size. The user will likely change it
 /// in the config later.
@@ -24,7 +25,7 @@ pub fn init(profile: Option<String>, template: Option<String>) -> Result<(), Box
     if let Some(profile_value) = profile {
         // Set name equal to directory name
         if let Some(name) = env::current_dir()?.file_name() {
-            config.name = &name.to_str()?.to_string();
+            config.name = name.to_str().unwrap().to_string();
         }
 
         // Generate QEMU flags for this hardware
@@ -54,9 +55,10 @@ pub fn init(profile: Option<String>, template: Option<String>) -> Result<(), Box
 
     // Setup the config for the given packer template
     if let Some(template_value) = template {
-        config.packer_template = template_value;
+        config.packer_template = Some(template_value);
     }
 
     // Finally write out the config
-    fs::write(config_path, serde_json::to_string_pretty(&config)?)
+    fs::write(config_path, serde_json::to_string_pretty(&config)?)?;
+    Ok(())
 }

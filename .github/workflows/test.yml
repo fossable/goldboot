@@ -8,29 +8,29 @@ jobs:
   linux-x86_64:
     name: Test Linux x86_64
     runs-on: ubuntu-latest
-  steps:
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-system-x86 ovmf packer sshpass
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 ovmf packer sshpass
 
-    - name: Install rust nightly
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        override: true
-        components: rust-src
+      - name: Install rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rust-src
 
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Build and install
-      run: |
-        cargo build --target x86_64
-        sudo cp target/debug/goldboot /usr/bin
+      - name: Build and install
+        run: |
+          cargo build --target x86_64
+          sudo cp target/debug/goldboot /usr/bin
 
-    - name: Test ArchLinux profile
-      run: |
-        mkdir ArchLinux && cd ArchLinux
-        goldboot init ArchLinux
-        goldboot build
+      - name: Test ArchLinux profile
+        run: |
+          mkdir ArchLinux && cd ArchLinux
+          goldboot init ArchLinux
+          goldboot build

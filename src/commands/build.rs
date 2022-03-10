@@ -1,17 +1,20 @@
+use crate::commands::image::ImageMetadata;
 use crate::{
     config::Config,
     image_library_path,
-    packer::{PackerProvisioner, PackerTemplate},
+    packer::{PackerProvisioner, PackerTemplate, QemuBuilder},
     profiles,
+    profile::Profile,
 };
 use log::debug;
 use std::{error::Error, fs, path::PathBuf, process::Command};
+use simple_error::bail;
 
 pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Starting build");
 
     // Load config
-    let config = Config::load()?;
+    let mut config = Config::load()?;
 
     // Acquire temporary directory for the build
     let tmp = tempfile::tempdir().unwrap();
@@ -24,16 +27,8 @@ pub fn build() -> Result<(), Box<dyn Error>> {
     if let Some(profile) = &config.base {
         // Create packer template
         let mut template = PackerTemplate::default();
+        let mut builder = QemuBuilder::new();
 
-        // Run profile-specific build hook
-        match profile.as_str() {
-            "ArchLinux" => profiles::arch_linux::build(&config, &context_path),
-            "Windows10" => profiles::windows_10::build(&config, &context_path),
-            "PopOs2104" => profiles::pop_os_2104::build(&config, &context_path),
-            "PopOs2110" => profiles::pop_os_2110::build(&config, &context_path),
-        }?;
-
-        // Builder overrides
         builder.output_directory = image_library_path()
             .join("output")
             .to_str()
@@ -43,8 +38,8 @@ pub fn build() -> Result<(), Box<dyn Error>> {
         builder.qemuargs = Some(config.qemu.to_qemuargs());
         builder.memory = config.memory.to_string();
         builder.disk_size = config.disk_size.to_string();
-        if let Some(arch) = config.arch {
-            builder.qemu_binary = match arch {
+        if let Some(arch) = &config.arch {
+            builder.qemu_binary = match arch.as_str() {
                 "x86_64" => Some("qemu-system-x86_64".into()),
                 _ => None,
             };
@@ -54,13 +49,21 @@ pub fn build() -> Result<(), Box<dyn Error>> {
             builder.iso_url = config.iso_url.to_string();
         }
 
-        if let Some(checksum) = config.iso_checksum {
+        if let Some(checksum) = &config.iso_checksum {
             builder.iso_checksum = checksum.to_string();
         } else {
             builder.iso_checksum = "none".into();
         }
 
         template.builders.push(builder);
+
+        // Run profile-specific build hook
+        match profile.as_str() {
+            "ArchLinux" => profiles::arch_linux::ArchLinuxProfile::new(&mut config)?.build(&mut template, &context_path),
+            "Windows10" => profiles::windows_10::Windows10Profile::new(&mut config)?.build(&mut template, &context_path),
+            "PopOs2110" => profiles::pop_os_2110::PopOs2110Profile::new(&mut config)?.build(&mut template, &context_path),
+            _ => panic!(""),
+        }?;
 
         // Translate provisioners in config into packer provisioners
         for p in config.provisioners.iter() {

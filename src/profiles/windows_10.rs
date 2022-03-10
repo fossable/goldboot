@@ -20,7 +20,7 @@ pub struct Windows10Profile {
 }
 
 impl Windows10Profile {
-    fn new(config: &mut Config) -> Result<Self, Box<dyn Error>> {
+    pub fn new(config: &mut Config) -> Result<Self, Box<dyn Error>> {
         let profile = Self {
             username: config
                 .profile
@@ -55,7 +55,7 @@ impl Windows10Profile {
                     language: "neutral".into(),
                     versionScope: "nonSxS".into(),
                     ComputerName: Some(ComputerName {
-                        value: self.hostname,
+                        value: self.hostname.clone(),
                     }),
                     DiskConfiguration: None,
                     ImageInstall: None,
@@ -83,7 +83,7 @@ impl Profile for Windows10Profile {
             std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
         }
 
-        let mut builder = template.builders.first().unwrap();
+        let builder = template.builders.first_mut().unwrap();
         builder.boot_command = vec!["<enter>".into()];
         builder.boot_wait = String::from("4s");
         builder.shutdown_command = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\"".into();

@@ -1,5 +1,5 @@
 use crate::image_library_path;
-use anyhow::bail;
+use simple_error::bail;
 use log::debug;
 use qcow::levels::ClusterDescriptor;
 use qcow::*;
@@ -97,7 +97,7 @@ impl ImageMetadata {
     }
 }
 
-pub fn info() -> Result<(), Box<dyn Error>> {
+pub fn info(image: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
@@ -105,7 +105,10 @@ pub fn info() -> Result<(), Box<dyn Error>> {
 pub fn list() -> Result<(), Box<dyn Error>> {
     let images = ImageMetadata::load()?;
 
-    print!("{}", Table::new(images).with(Style::modern()).to_string());
+    print!("Image\n");
+    for image in images {
+        // TODO
+    }
     Ok(())
 }
 
@@ -115,71 +118,60 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
     // Locate the requested image
     let image = ImageMetadata::find(image_name)?;
 
-    // Locate the requested disk
-    debug!(
-        "disks: {:?}",
-        System::new_with_specifics(RefreshKind::new().with_disks_list()).disks()
-    );
-    if let Some(disk) = System::new_with_specifics(RefreshKind::new().with_disks_list())
-        .disks()
-        .iter()
-        .find(|&d| d.name() == disk_name)
-    {
-        debug!("Found disk: {:?}", disk);
+    // Verify sizes are compatible
+    //if image.size != disk.total_space() {
+    //    bail!("The requested disk size is not equal to the image size");
+    //}
 
-        // Verify sizes are compatible
-        if image.size != disk.total_space() {
-            bail!("The requested disk size is not equal to the image size");
-        }
+    // Check if mounted
+    // TODO
 
-        // Check if mounted
-        // TODO
+    let mut f = File::open("foo.txt").unwrap();
 
-        let mut f = File::open("foo.txt").unwrap();
+    let qcow2 = qcow::open(image.path())?.unwrap_qcow2();
+    let mut file = BufReader::new(File::open(image.path())?);
 
-        let qcow2 = qcow::open("/var/lib/goldboot/images/cd019f625eba2fc001b116065485ef0ed9ed33a1fa34bcc5584acd5b88a6d4f0.qcow2").unwrap().unwrap_qcow2();
-        let mut file = BufReader::new(File::open("/var/lib/goldboot/images/cd019f625eba2fc001b116065485ef0ed9ed33a1fa34bcc5584acd5b88a6d4f0.qcow2").unwrap());
+    let mut offset = 0u64;
+    let mut buffer = [0u8, 1 << qcow2.header.cluster_bits];
 
-        let mut offset = 0u64;
-        let mut buffer = [0u8, 1 << qcow2.header.cluster_bits];
-
-        for l1_entry in qcow2.l1_table {
-            if l1_entry.l2_offset != 0 {
-                if let Some(l2_table) = l1_entry.read_l2(&mut file, qcow2.header.cluster_bits) {
-                    for l2_entry in l2_table {
-                        match &l2_entry.cluster_descriptor {
-                            ClusterDescriptor::Standard(cluster) => {
-                                if cluster.host_cluster_offset != 0 {
-                                    debug!("Uncompressed cluster: {:?}", cluster);
-                                    l2_entry
-                                        .read_contents(
-                                            &mut file,
-                                            &mut buffer,
-                                            CompressionType::Zlib,
-                                        )
-                                        .unwrap();
-                                    f.seek(SeekFrom::Start(offset)).unwrap();
-                                    f.write_all(&buffer).unwrap();
-                                }
-                            }
-                            ClusterDescriptor::Compressed(cluster) => {
-                                debug!("Compressed cluster: {:?}", cluster);
+    for l1_entry in qcow2.l1_table {
+        if l1_entry.l2_offset != 0 {
+            if let Some(l2_table) = l1_entry.read_l2(&mut file, qcow2.header.cluster_bits) {
+                for l2_entry in l2_table {
+                    match &l2_entry.cluster_descriptor {
+                        ClusterDescriptor::Standard(cluster) => {
+                            if cluster.host_cluster_offset != 0 {
+                                debug!("Uncompressed cluster: {:?}", cluster);
+                                l2_entry
+                                    .read_contents(
+                                        &mut file,
+                                        &mut buffer,
+                                        CompressionType::Zlib,
+                                    )
+                                    .unwrap();
+                                f.seek(SeekFrom::Start(offset)).unwrap();
+                                f.write_all(&buffer).unwrap();
                             }
                         }
-                        offset += 1 << qcow2.header.cluster_bits;
+                        ClusterDescriptor::Compressed(cluster) => {
+                            debug!("Compressed cluster: {:?}", cluster);
+                        }
                     }
+                    offset += 1 << qcow2.header.cluster_bits;
                 }
-            } else {
-                offset += u64::pow(1 << qcow2.header.cluster_bits, 2) / 8;
             }
+        } else {
+            offset += u64::pow(1 << qcow2.header.cluster_bits, 2) / 8;
         }
-    } else {
-        bail!("Disk not found: {}", disk_name);
     }
     Ok(())
 }
 
-pub fn run(image: &str) -> Result<(), Box<dyn Error>> {
+pub fn run(image_name: &str) -> Result<(), Box<dyn Error>> {
+
+    // Locate the requested image
+    let image = ImageMetadata::find(image_name)?;
+
     Command::new("qemu-system-x86_64").args([
         "-display",
         "gtk",
@@ -190,7 +182,7 @@ pub fn run(image: &str) -> Result<(), Box<dyn Error>> {
         "-boot",
         "once=d",
         "-drive",
-        "file=/var/lib/goldboot/images/da1d9c276e89c1a7cdc27fe6b52b1449e6d0feb9c7f9ac38873210f4359f0642,if=virtio,cache=writeback,discard=ignore,format=qcow2",
+        &format!("file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", image.path().display()),
         "-name",
         "cli",
     ])

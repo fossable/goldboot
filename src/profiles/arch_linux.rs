@@ -45,7 +45,7 @@ impl Profile for ArchLinuxProfile {
         // Create install provisioner
         // TODO
 
-        let mut builder = template.builders.first().unwrap();
+        let builder = template.builders.first_mut().unwrap();
         builder.boot_command = vec![
             enter!("passwd"),
             enter!(self.root_password),
