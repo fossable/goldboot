@@ -1,5 +1,5 @@
+use crate::config::Config;
 use crate::image_library_path;
-use simple_error::bail;
 use log::debug;
 use qcow::levels::ClusterDescriptor;
 use qcow::*;
@@ -10,7 +10,7 @@ use std::{
     fs,
     fs::File,
     io::{BufReader, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Command,
 };
 use validator::Validate;
@@ -18,8 +18,6 @@ use validator::Validate;
 /// Represents a local image.
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct ImageMetadata {
-    pub name: String,
-
     pub sha256: String,
 
     /// The image size in bytes
@@ -28,34 +26,43 @@ pub struct ImageMetadata {
     pub generate_time: u64,
 
     pub parent_image: String,
+
+    pub config: Config,
 }
 
 impl ImageMetadata {
     /// Write the image metadata to the library and return the metadata hash
-    pub fn write(&self) -> Result<String, Box<dyn Error>> {
+    pub fn write(&self) -> Result<(), Box<dyn Error>> {
+        let metadata_json = serde_json::to_string(&self).unwrap();
+
+        // Write it to the library directory
+        fs::write(self.path_json(), &metadata_json).unwrap();
+        Ok(())
+    }
+
+    pub fn path_json(&self) -> PathBuf {
         let metadata_json = serde_json::to_string(&self).unwrap();
         let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
 
-        // Write it to the library directory
-        fs::write(
-            image_library_path().join(format!("{}.json", hash)),
-            &metadata_json,
-        )
-        .unwrap();
-        Ok(hash)
+        image_library_path().join(format!("{}.json", hash))
     }
 
-    pub fn path(&self) -> &Path {
-        &Path::new("")
+    pub fn path_qcow2(&self) -> PathBuf {
+        let metadata_json = serde_json::to_string(&self).unwrap();
+        let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
+
+        image_library_path().join(format!("{}.qcow2", hash))
     }
 
-    pub fn new(output: PathBuf) -> Result<ImageMetadata, Box<dyn Error>> {
+    pub fn new(config: Config) -> Result<ImageMetadata, Box<dyn Error>> {
+        let output = image_library_path().join("output").join(&config.name);
         Ok(ImageMetadata {
-            name: output.file_stem().unwrap().to_str().unwrap().to_string(),
+            //name: output.file_stem().unwrap().to_str().unwrap().to_string(),
             sha256: "".into(),
             size: fs::metadata(output).unwrap().len(),
             generate_time: 0u64,
             parent_image: "".into(),
+            config: config,
         })
     }
 
@@ -91,7 +98,7 @@ impl ImageMetadata {
     pub fn find(image_name: &str) -> Result<ImageMetadata, Box<dyn Error>> {
         Ok(ImageMetadata::load()?
             .iter()
-            .find(|&metadata| metadata.name == image_name)
+            .find(|&metadata| metadata.config.name == image_name)
             .unwrap()
             .to_owned())
     }
@@ -126,10 +133,13 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
     // Check if mounted
     // TODO
 
+    // Update EFI vars
+    // TODO
+
     let mut f = File::open("foo.txt").unwrap();
 
-    let qcow2 = qcow::open(image.path())?.unwrap_qcow2();
-    let mut file = BufReader::new(File::open(image.path())?);
+    let qcow2 = qcow::open(image.path_qcow2())?.unwrap_qcow2();
+    let mut file = BufReader::new(File::open(image.path_qcow2())?);
 
     let mut offset = 0u64;
     let mut buffer = [0u8, 1 << qcow2.header.cluster_bits];
@@ -143,11 +153,7 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
                             if cluster.host_cluster_offset != 0 {
                                 debug!("Uncompressed cluster: {:?}", cluster);
                                 l2_entry
-                                    .read_contents(
-                                        &mut file,
-                                        &mut buffer,
-                                        CompressionType::Zlib,
-                                    )
+                                    .read_contents(&mut file, &mut buffer, CompressionType::Zlib)
                                     .unwrap();
                                 f.seek(SeekFrom::Start(offset)).unwrap();
                                 f.write_all(&buffer).unwrap();
@@ -168,24 +174,32 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn run(image_name: &str) -> Result<(), Box<dyn Error>> {
-
     // Locate the requested image
     let image = ImageMetadata::find(image_name)?;
 
-    Command::new("qemu-system-x86_64").args([
-        "-display",
-        "gtk",
-        "-machine",
-        "type=pc,accel=kvm",
-        "-m",
-        "1000M",
-        "-boot",
-        "once=d",
-        "-drive",
-        &format!("file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", image.path().display()),
-        "-name",
-        "cli",
-    ])
-    .status().unwrap();
+    Command::new("qemu-system-x86_64")
+        .args([
+            "-display",
+            "gtk",
+            "-machine",
+            "type=pc,accel=kvm",
+            "-m",
+            "1000M",
+            "-boot",
+            "once=c",
+            "-bios",
+            "/usr/share/ovmf/x64/OVMF.fd",
+            "-pflash",
+            "/tmp/test.fd",
+            "-drive",
+            &format!(
+                "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+                image.path_qcow2().display()
+            ),
+            "-name",
+            "cli",
+        ])
+        .status()
+        .unwrap();
     Ok(())
 }

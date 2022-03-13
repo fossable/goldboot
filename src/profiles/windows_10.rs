@@ -1,10 +1,10 @@
 use crate::{
-    config::Config,
-    packer::PackerTemplate,
+    packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
     windows::{Component, ComputerName, Settings, UnattendXml},
 };
 use rust_embed::RustEmbed;
+use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
 use validator::Validate;
 
@@ -12,37 +12,45 @@ use validator::Validate;
 #[folder = "res/windows_10/"]
 struct Resources;
 
-#[derive(Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Default)]
 pub struct Windows10Profile {
+    #[serde(default = "default_username")]
     username: String,
+
+    #[serde(default = "default_password")]
     password: String,
+
+    #[serde(default = "default_hostname")]
     hostname: String,
+
+    #[serde(default = "default_iso_url")]
+    iso_url: String,
+
+    #[serde(default = "default_iso_checksum")]
+    iso_checksum: String,
+}
+
+fn default_username() -> String {
+    String::from("admin")
+}
+
+fn default_password() -> String {
+    String::from("admin")
+}
+
+fn default_hostname() -> String {
+    String::from("goldboot")
+}
+
+fn default_iso_url() -> String {
+    String::from("<ISO URL>")
+}
+
+fn default_iso_checksum() -> String {
+    String::from("<ISO HASH>")
 }
 
 impl Windows10Profile {
-    pub fn new(config: &mut Config) -> Result<Self, Box<dyn Error>> {
-        let profile = Self {
-            username: config
-                .profile
-                .get("username")
-                .ok_or("Missing username")?
-                .to_string(),
-            password: config
-                .profile
-                .get("password")
-                .ok_or("Missing password")?
-                .to_string(),
-            hostname: config
-                .profile
-                .get("hostname")
-                .ok_or("Missing hostname")?
-                .to_string(),
-        };
-
-        profile.validate()?;
-        Ok(profile)
-    }
-
     fn create_unattended(&self) -> UnattendXml {
         UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
@@ -65,16 +73,10 @@ impl Windows10Profile {
     }
 }
 
-pub fn init(config: &mut Config) {
-    config.base = Some(String::from("Windows10"));
-    config.profile.insert("username".into(), "admin".into());
-    config.profile.insert("password".into(), "admin".into());
-    config.iso_url = String::from("<ISO URL>");
-    config.iso_checksum = Some(String::from("<ISO checksum>"));
-}
-
 impl Profile for Windows10Profile {
-    fn build(&self, template: &mut PackerTemplate, context: &Path) -> Result<(), Box<dyn Error>> {
+    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
+        let mut template = PackerTemplate::default();
+
         // Write the Autounattend.xml file
         self.create_unattended().write(&context)?;
 
@@ -83,7 +85,7 @@ impl Profile for Windows10Profile {
             std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
         }
 
-        let builder = template.builders.first_mut().unwrap();
+        let mut builder = QemuBuilder::new();
         builder.boot_command = vec!["<enter>".into()];
         builder.boot_wait = String::from("4s");
         builder.shutdown_command = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\"".into();
@@ -95,7 +97,8 @@ impl Profile for Windows10Profile {
             "Autounattend.xml".into(),
             "configure_winrm.ps1".into(),
         ]);
+        template.builders.push(builder);
 
-        Ok(())
+        Ok(template)
     }
 }

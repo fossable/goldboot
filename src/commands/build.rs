@@ -1,20 +1,14 @@
 use crate::commands::image::ImageMetadata;
-use crate::{
-    config::Config,
-    image_library_path,
-    packer::{PackerProvisioner, PackerTemplate, QemuBuilder},
-    profiles,
-    profile::Profile,
-};
+use crate::{config::Config, image_library_path, packer::PackerTemplate, profile::Profile};
 use log::debug;
-use std::{error::Error, fs, path::PathBuf, process::Command};
 use simple_error::bail;
+use std::{error::Error, fs, process::Command};
 
 pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Starting build");
 
     // Load config
-    let mut config = Config::load()?;
+    let config = Config::load()?;
 
     // Acquire temporary directory for the build
     let tmp = tempfile::tempdir().unwrap();
@@ -24,18 +18,22 @@ pub fn build() -> Result<(), Box<dyn Error>> {
         context_path.display()
     );
 
-    if let Some(profile) = &config.base {
-        // Create packer template
-        let mut template = PackerTemplate::default();
-        let mut builder = QemuBuilder::new();
+    let templates = Vec::<PackerTemplate>::new();
 
+    if let Some(profile) = config.ArchLinux {
+        templates.push(profile.generate_template(context_path)?);
+    }
+
+    // Configure the builder for each template
+    for template in templates {
+        let builder = template.builders.first_mut().unwrap();
         builder.output_directory = image_library_path()
             .join("output")
             .to_str()
             .unwrap()
             .to_string();
         builder.vm_name = Some(config.name.to_string());
-        builder.qemuargs = Some(config.qemu.to_qemuargs());
+        //builder.qemuargs = Some(config.qemu.to_qemuargs());
         builder.memory = config.memory.to_string();
         builder.disk_size = config.disk_size.to_string();
         if let Some(arch) = &config.arch {
@@ -44,86 +42,45 @@ pub fn build() -> Result<(), Box<dyn Error>> {
                 _ => None,
             };
         }
+    }
 
-        if config.iso_url != "" {
-            builder.iso_url = config.iso_url.to_string();
-        }
-
-        if let Some(checksum) = &config.iso_checksum {
-            builder.iso_checksum = checksum.to_string();
-        } else {
-            builder.iso_checksum = "none".into();
-        }
-
-        template.builders.push(builder);
-
-        // Run profile-specific build hook
-        match profile.as_str() {
-            "ArchLinux" => profiles::arch_linux::ArchLinuxProfile::new(&mut config)?.build(&mut template, &context_path),
-            "Windows10" => profiles::windows_10::Windows10Profile::new(&mut config)?.build(&mut template, &context_path),
-            "PopOs2110" => profiles::pop_os_2110::PopOs2110Profile::new(&mut config)?.build(&mut template, &context_path),
-            _ => panic!(""),
-        }?;
-
-        // Translate provisioners in config into packer provisioners
-        for p in config.provisioners.iter() {
-            let provisioner = match p.r#type.as_str() {
-                "ansible" => PackerProvisioner {
-                    r#type: "ansible".into(),
-                    scripts: None,
-                    playbook_file: Some(p.ansible.playbook.as_ref().unwrap().clone()),
-                    user: Some("root".into()),
-                    use_proxy: Some(false),
-                    extra_arguments: vec![
-                        String::from("-e"),
-                        String::from("ansible_winrm_scheme=http"),
-                        String::from("-e"),
-                        String::from("ansible_winrm_server_cert_validation=ignore"),
-                        String::from("-e"),
-                        String::from("ansible_ssh_pass=root"),
-                    ],
-                },
-                _ => panic!(""),
-            };
-            template.provisioners.push(provisioner);
-        }
-
-        debug!("Created packer template: {:?}", &template);
-
-        // Write the packer template
+    // Execute the templates sequentially
+    for template in templates {
+        // Write the template to the context directory
         fs::write(
             context_path.join("packer.json"),
             serde_json::to_string(&template).unwrap(),
         )
         .unwrap();
-    }
 
-    // Run the build
-    if let Some(code) = Command::new("packer")
-        .current_dir(context_path)
-        .arg("build")
-        .arg("packer.json")
-        .status()
-        .expect("Failed to launch packer")
-        .code()
-    {
-        if code != 0 {
-            bail!("Build failed with error code: {}", code);
+        // Run the build
+        if let Some(code) = Command::new("packer")
+            .current_dir(context_path)
+            .arg("build")
+            .arg("-force")
+            .arg("packer.json")
+            .status()
+            .expect("Failed to launch packer")
+            .code()
+        {
+            if code != 0 {
+                bail!("Build failed with error code: {}", code);
+            }
+        } else {
+            panic!();
         }
-    } else {
-        bail!("");
     }
 
     debug!("Build completed successfully");
 
     // Create new image metadata
-    let metadata_name =
-        ImageMetadata::new(image_library_path().join("output").join(&config.name))?.write()?;
+    let metadata = ImageMetadata::new(config)?;
+    metadata.write()?;
 
     // Move the image to the library
     fs::rename(
         image_library_path().join("output").join(&config.name),
-        image_library_path().join(format!("{}.qcow2", &metadata_name)),
+        metadata.path_qcow2(),
     )
     .unwrap();
 

@@ -1,4 +1,5 @@
 use crate::build_headless_debug;
+use crate::config::Provisioner;
 use serde::Serialize;
 use validator::Validate;
 
@@ -62,16 +63,60 @@ impl QemuBuilder {
 
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerProvisioner {
-    pub extra_arguments: Vec<String>,
+    pub r#type: String,
+
+    #[serde(flatten)]
+    pub ansible: Option<AnsiblePackerProvisioner>,
+
+    #[serde(flatten)]
+    pub shell: Option<ShellPackerProvisioner>,
+}
+
+impl From<&Provisioner> for PackerProvisioner {
+    fn from(provisioner: &Provisioner) -> Self {
+        match provisioner.r#type.as_str() {
+            "ansible" => PackerProvisioner {
+                r#type: String::from("ansible"),
+                ansible: Some(AnsiblePackerProvisioner {
+                    playbook_file: Some(provisioner.ansible.playbook.as_ref().unwrap().clone()),
+                    user: Some("root".into()),
+                    use_proxy: Some(false),
+                    extra_arguments: Some(vec![
+                        String::from("-e"),
+                        String::from("ansible_winrm_scheme=http"),
+                        String::from("-e"),
+                        String::from("ansible_winrm_server_cert_validation=ignore"),
+                        String::from("-e"),
+                        String::from("ansible_ssh_pass=root"),
+                    ]),
+                }),
+                shell: None,
+            },
+            _ => panic!(""),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Validate, Default, Debug)]
+pub struct AnsiblePackerProvisioner {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub playbook_file: Option<String>,
-    pub r#type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scripts: Option<Vec<String>>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_proxy: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_arguments: Option<Vec<String>>,
+}
+
+#[derive(Clone, Serialize, Validate, Default, Debug)]
+pub struct ShellPackerProvisioner {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scripts: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expect_disconnect: Option<bool>,
 }
 
 pub mod bootcmds {

@@ -1,65 +1,65 @@
 use crate::{
     config::Config,
     packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-    packer::PackerTemplate,
+    packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
 };
+use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
 use validator::Validate;
 
-#[derive(Validate)]
-pub struct PopOs2110Profile {
+#[derive(Clone, Serialize, Deserialize, Default)]
+enum PopOsVersions {
+    #[serde(rename = "21.10")]
+    #[default]
+    V21_10,
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+pub struct PopOsProfile {
+    pub version: PopOsVersions,
+
+    #[serde(default = "default_username")]
     username: String,
+
+    #[serde(default = "default_password")]
     password: String,
+
+    #[serde(default = "default_root_password")]
     root_password: String,
+
+    #[serde(default = "default_iso_url")]
+    iso_url: String,
+
+    #[serde(default = "default_iso_checksum")]
+    iso_checksum: String,
 }
 
-pub fn init(config: &mut Config) {
-    config.base = Some(String::from("PopOs2110"));
-    config
-        .profile
-        .insert(String::from("username"), String::from("user"));
-    config
-        .profile
-        .insert(String::from("password"), String::from("88Password**"));
-    config
-        .profile
-        .insert(String::from("root_password"), String::from("root"));
-    config.iso_url = String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso");
-    config.iso_checksum = Some(String::from(
-        "sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2",
-    ));
+fn default_username() -> String {
+    whoami::username()
 }
 
-impl PopOs2110Profile {
-    pub fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
-        let profile = Self {
-            username: config
-                .profile
-                .get("username")
-                .ok_or("Missing username")?
-                .to_string(),
-            password: config
-                .profile
-                .get("password")
-                .ok_or("Missing password")?
-                .to_string(),
-            root_password: config
-                .profile
-                .get("root_password")
-                .ok_or("Missing root_password")?
-                .to_string(),
-        };
-
-        // TODO prohibit root username
-        profile.validate()?;
-        Ok(profile)
-    }
+fn default_password() -> String {
+    String::from("88Password;")
 }
 
-impl Profile for PopOs2110Profile {
-    fn build(&self, template: &mut PackerTemplate, context: &Path) -> Result<(), Box<dyn Error>> {
-        let builder = template.builders.first_mut().unwrap();
+fn default_root_password() -> String {
+    String::from("root")
+}
+
+fn default_iso_url() -> String {
+    String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso")
+}
+
+fn default_iso_checksum() -> String {
+    String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2")
+}
+
+impl Profile for PopOsProfile {
+    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
+        let mut template = PackerTemplate::default();
+
+        let mut builder = QemuBuilder::new();
         builder.boot_command = vec![
             enter!(), // Select language: English
             enter!(), // Select location: United States
@@ -105,6 +105,8 @@ impl Profile for PopOs2110Profile {
         builder.ssh_password = Some(String::from("root"));
         builder.ssh_username = Some(self.root_password.clone());
         builder.ssh_wait_timeout = Some(String::from("5m"));
-        Ok(())
+        template.builders.push(builder);
+
+        Ok(template)
     }
 }

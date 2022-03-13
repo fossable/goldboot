@@ -1,21 +1,16 @@
 {
-  "name": "cli",
-  "base": "PopOs2110",
-  "provisioners": [
-    {
-      "type": "ansible",
-      "playbook": "/home/cilki/workspace/github.com/cilki/goldboot/cli/install.yml"
-    }
-  ],
+  "name": "goldboot",
+  "base": "ArchLinux",
+  "provisioners": [],
   "qemu": {
-    "bios": "/usr/share/ovmf/x64/OVMF.fd"
+    "bios": "/usr/share/ovmf/x64/OVMF.fd",
+    "pflash": "/tmp/OVMF_VARS.fd"
   },
-    "username": "user",
-    "password": "88Password**",
-"root_password":"root",
-  "iso_url": "https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso",
-  "iso_checksum": "sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2",
+  "iso_url": "https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso",
   "arch": "x86_64",
-  "memory": "4096",
-  "disk_size": "256060514304b"
+  "memory": "2048",
+  "disk_size": "256000000000b",
+  "password": "88Password**",
+  "username": "user",
+  "root_password": "root"
 }

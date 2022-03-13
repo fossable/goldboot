@@ -1,17 +1,7 @@
 ## goldboot
 
-`goldboot` simplifies building and deploying golden images to server or desktop
+`goldboot` simplifies building and deploying bare-metal golden images to server or desktop
 environments. This tool is unfinshed and should be used for testing only!
-
-### CLI
-
-The goldboot CLI builds and deploys golden images.
-
-### Registry
-
-The goldboot registry stores images similar to a docker registry.
-
-### Boot environment
 
 ### Getting Started
 
@@ -59,6 +49,6 @@ goldboot build
 
 And finally deploy it to a physical disk:
 ```sh
-# THIS WILL OVERWRITE /dev/sdb! TAKE A BACKUP FIRST!
-goldboot write WindowsMachine /dev/sdb
+# THIS WILL OVERWRITE /dev/sdX! TAKE A BACKUP FIRST!
+goldboot image write WindowsMachine /dev/sdX
 ```

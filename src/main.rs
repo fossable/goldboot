@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use sha2::{Digest, Sha256};
 use std::{env, error::Error, path::PathBuf};
 
 pub mod config;
@@ -8,9 +9,15 @@ pub mod qemu;
 pub mod windows;
 pub mod profiles {
     pub mod arch_linux;
-    pub mod pop_os_2110;
-    pub mod ubuntu_server_2110;
+    pub mod debian;
+    pub mod pop_os;
+    pub mod steam_deck;
+    pub mod steam_os;
+    pub mod ubuntu_desktop;
+    pub mod ubuntu_server;
     pub mod windows_10;
+    pub mod windows_11;
+    pub mod windows_7;
 }
 pub mod commands {
     pub mod build;
@@ -30,7 +37,7 @@ struct CommandLine {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Build a new image
-    Build {},
+    Build { multiplier: Option<f64> },
 
     /// Manage local images
     Image {
@@ -40,7 +47,24 @@ enum Commands {
 
     /// Initialize the current directory
     Init {
-        profile: Option<String>,
+        /// A base profile which can be found with --list-profiles
+        #[clap(long)]
+        profile: Vec<String>,
+
+        /// The amount of memory the image can access
+        #[clap(long)]
+        memory: Option<String>,
+
+        /// The amount of storage the image can access
+        #[clap(long)]
+        disk: Option<String>,
+
+        /// List available profiles and exit
+        #[clap(long, takes_value = false)]
+        list_profiles: bool,
+
+        /// An existing packer template
+        #[clap(long)]
         template: Option<String>,
     },
 
@@ -52,6 +76,10 @@ enum Commands {
         /// Do not check for confirmation
         #[clap(long, takes_value = false)]
         confirm: bool,
+
+        /// A local image to include on the boot USB
+        #[clap(long)]
+        include: Vec<String>,
     },
 
     /// Manage image registries
@@ -107,6 +135,19 @@ pub fn image_library_path() -> PathBuf {
     }
 }
 
+/// A simple cache for storing images that are not stored in the Packer cache.
+/// Most images here need some kind of transformation before they are bootable.
+pub fn image_cache_lookup(key: &str) -> PathBuf {
+    // Hash the key to get the filename
+    let hash = hex::encode(Sha256::new().chain_update(&key).finalize());
+
+    if cfg!(target_os = "linux") {
+        PathBuf::from("/var/lib/goldboot/cache").join(hash)
+    } else {
+        panic!("Unsupported platform");
+    }
+}
+
 /// Get the QEMU system binary for the current platform
 pub fn current_qemu_binary() -> &'static str {
     if cfg!(target_arch = "x86_64") {
@@ -135,18 +176,32 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build {} => commands::build::build(),
+        Commands::Build { multiplier } => commands::build::build(),
         Commands::Registry { command } => match &command {
             RegistryCommands::Push { url } => commands::registry::push(),
             RegistryCommands::Pull { url } => commands::registry::pull(),
         },
-        Commands::Init { profile, template } => commands::init::init(profile.to_owned(), template.to_owned()),
-        Commands::MakeUsb { disk, confirm } => commands::make_usb::make_usb(),
+        Commands::Init {
+            profile,
+            memory,
+            disk,
+            list_profiles,
+            template,
+        } => commands::init::init(profile.to_owned(), template.to_owned()),
+        Commands::MakeUsb {
+            disk,
+            confirm,
+            include,
+        } => commands::make_usb::make_usb(),
         Commands::Image { command } => match &command {
             ImageCommands::List {} => commands::image::list(),
             ImageCommands::Info { image } => commands::image::info(image),
             ImageCommands::Run { image } => commands::image::run(image),
-            ImageCommands::Write { image, disk, confirm } => commands::image::write(image, disk),
+            ImageCommands::Write {
+                image,
+                disk,
+                confirm,
+            } => commands::image::write(image, disk),
         },
     }
 }

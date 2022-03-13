@@ -9,7 +9,7 @@ env_logger = "0.9"
 hex = "0.4.3"
 log = { version = "0.4.11", default-features = false }
 quick-xml = {version = "0.22.0", features = ["serialize"] }
-reqwest = {version = "0.11.9"}
+reqwest = {version = "0.11.9", features=["blocking"]}
 serde = {version="1",features = ["derive"]}
 serde_json = "1"
 sha2 = "0.10.2"
@@ -19,3 +19,5 @@ rust-embed = "6.3.0"
 sysinfo = "0.23.5"
 qcow = { version="1.2.0", default-features = false }
 simple-error = "0.2.3"
+whoami = "1.2.1"
+bzip2-rs = "0.1.2"

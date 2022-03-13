@@ -1,5 +1,11 @@
-use crate::{config::Config, packer::bootcmds::enter, packer::PackerTemplate, profile::Profile};
+use crate::{
+    config::{Partition, Provisioner},
+    packer::bootcmds::enter,
+    packer::{PackerProvisioner, PackerTemplate, QemuBuilder, ShellPackerProvisioner},
+    profile::Profile,
+};
 use rust_embed::RustEmbed;
+use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
 use validator::Validate;
 
@@ -7,45 +13,72 @@ use validator::Validate;
 #[folder = "res/arch_linux/"]
 struct Resources;
 
-#[derive(Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Default)]
 pub struct ArchLinuxProfile {
-    root_password: String,
+    #[serde(default = "default_root_password")]
+    pub root_password: String,
+
+    #[serde(default = "default_mirrorlist")]
+    pub mirrorlist: Vec<String>,
+
+    /// The installation media URL
+    pub iso_url: String,
+
+    /// A hash of the installation media
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iso_checksum: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partitions: Option<Vec<Partition>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provisioners: Option<Vec<Provisioner>>,
 }
 
-pub fn init(config: &mut Config) {
-    config.base = Some(String::from("ArchLinux"));
-    config.profile.insert("username".into(), "user".into());
-    config
-        .profile
-        .insert("password".into(), "88Password**".into());
-    config.profile.insert("root_password".into(), "root".into());
-    config.iso_url = String::from(
+fn default_root_password() -> String {
+    String::from("root")
+}
+
+fn default_mirrorlist() -> Vec<String> {
+    vec![String::from(
+        "https://mirrors.kernel.org/archlinux/$repo/os/$arch",
+    )]
+}
+
+fn default_iso_url() -> String {
+    String::from(
         "https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso",
-    );
-    config.memory = String::from("2048");
-}
-
-impl ArchLinuxProfile {
-    pub fn new(config: &mut Config) -> Result<Self, Box<dyn Error>> {
-        let profile = Self {
-            root_password: config
-                .profile
-                .get("root_password")
-                .ok_or("Missing root_password")?
-                .to_string(),
-        };
-
-        profile.validate()?;
-        Ok(profile)
-    }
+    )
 }
 
 impl Profile for ArchLinuxProfile {
-    fn build(&self, template: &mut PackerTemplate, context: &Path) -> Result<(), Box<dyn Error>> {
-        // Create install provisioner
-        // TODO
+    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
+        let mut template = PackerTemplate::default();
 
-        let builder = template.builders.first_mut().unwrap();
+        // Create install provisioner
+        template.provisioners.push(PackerProvisioner {
+            r#type: String::from("shell"),
+            ansible: None,
+            shell: Some(ShellPackerProvisioner {
+                scripts: Some(vec![String::from("install.sh")]),
+                expect_disconnect: Some(true),
+            }),
+        });
+
+        // Add user provisioners
+        if let Some(provisioners) = self.provisioners {
+            provisioners
+                .iter()
+                .map(|p| p.into())
+                .for_each(|p| template.provisioners.push(p));
+        }
+
+        // Copy scripts
+        if let Some(resource) = Resources::get("install.sh") {
+            std::fs::write(context.join("install.sh"), resource.data)?;
+        }
+
+        let mut builder = QemuBuilder::new();
         builder.boot_command = vec![
             enter!("passwd"),
             enter!(self.root_password),
@@ -59,6 +92,8 @@ impl Profile for ArchLinuxProfile {
         builder.ssh_username = Some("root".into());
         builder.ssh_wait_timeout = Some("5m".into());
 
-        Ok(())
+        template.builders.push(builder);
+
+        Ok(template)
     }
 }
