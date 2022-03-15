@@ -27,7 +27,7 @@ jobs:
       - name: Build and install
         run: |
           cargo build --target x86_64-unknown-linux-gnu
-          sudo cp target/debug/goldboot /usr/bin
+          sudo cp target/x86_64-unknown-linux-gnu/debug/goldboot /usr/bin
 
       - name: Test ArchLinux profile
         run: |
