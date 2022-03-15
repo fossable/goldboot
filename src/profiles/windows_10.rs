@@ -12,42 +12,29 @@ use validator::Validate;
 #[folder = "res/windows_10/"]
 struct Resources;
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct Windows10Profile {
-    #[serde(default = "default_username")]
     username: String,
 
-    #[serde(default = "default_password")]
     password: String,
 
-    #[serde(default = "default_hostname")]
     hostname: String,
 
-    #[serde(default = "default_iso_url")]
     iso_url: String,
 
-    #[serde(default = "default_iso_checksum")]
     iso_checksum: String,
 }
 
-fn default_username() -> String {
-    String::from("admin")
-}
-
-fn default_password() -> String {
-    String::from("admin")
-}
-
-fn default_hostname() -> String {
-    String::from("goldboot")
-}
-
-fn default_iso_url() -> String {
-    String::from("<ISO URL>")
-}
-
-fn default_iso_checksum() -> String {
-    String::from("<ISO HASH>")
+impl Default for Windows10Profile {
+    fn default() -> Self {
+        Self {
+            username: String::from("admin"),
+            password: String::from("admin"),
+            hostname: String::from("goldboot"),
+            iso_url: String::from("<ISO URL>"),
+            iso_checksum: String::from("<ISO HASH>"),
+        }
+    }
 }
 
 impl Windows10Profile {

@@ -1,4 +1,4 @@
-use crate::{profiles, qemu::QemuConfig};
+use crate::{profiles};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{default::Default, error::Error, fs};
@@ -28,7 +28,10 @@ pub struct Config {
     /// The size of the disk to attach to the VM
     pub disk_size: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nvme: Option<bool>,
+
+    pub qemuargs: Vec<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ArchLinux: Option<profiles::arch_linux::ArchLinuxProfile>,

@@ -1,16 +1,22 @@
 {
   "name": "goldboot",
-  "base": "ArchLinux",
-  "provisioners": [],
-  "qemu": {
-    "bios": "/usr/share/ovmf/x64/OVMF.fd",
-    "pflash": "/tmp/OVMF_VARS.fd"
-  },
-  "iso_url": "https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso",
   "arch": "x86_64",
-  "memory": "2048",
+  "memory": "4096",
   "disk_size": "256000000000b",
-  "password": "88Password**",
-  "username": "user",
-  "root_password": "root"
+  "qemuargs": [],
+  "ArchLinux": {
+    "root_password": "root",
+    "mirrorlist": [
+      "https://mirrors.kernel.org/archlinux/$repo/os/$arch"
+    ],
+    "iso_url": "https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso",
+    "iso_checksum": "none"
+  },
+  "Windows10": {
+    "username": "admin",
+    "password": "admin",
+    "hostname": "goldboot",
+    "iso_url": "<ISO URL>",
+    "iso_checksum": "<ISO HASH>"
+  }
 }

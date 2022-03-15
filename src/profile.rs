@@ -6,3 +6,7 @@ pub trait Profile {
     /// Generate a packer template
     fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>>;
 }
+
+pub fn list_profiles() -> Result<(), Box<dyn Error>> {
+    Ok(())
+}

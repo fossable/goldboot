@@ -10,23 +10,22 @@ use serde::{Deserialize, Serialize};
 use std::{error::Error, fs::File, io, path::Path};
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct SteamDeckProfile {
-    pub version: String,
-
-    #[serde(default = "default_recovery_url")]
     pub recovery_url: String,
 
-    #[serde(default = "default_recovery_checksum")]
     pub recovery_checksum: String,
 }
 
-fn default_recovery_url() -> String {
-    String::from("https://steamdeck-images.steamos.cloud/recovery/steamdeck-recovery-1.img.bz2")
-}
-
-fn default_recovery_checksum() -> String {
-    String::from("none")
+impl Default for SteamDeckProfile {
+    fn default() -> Self {
+        Self {
+            recovery_url: String::from(
+                "https://steamdeck-images.steamos.cloud/recovery/steamdeck-recovery-1.img.bz2",
+            ),
+            recovery_checksum: String::from("none"),
+        }
+    }
 }
 
 impl Profile for SteamDeckProfile {
@@ -36,7 +35,7 @@ impl Profile for SteamDeckProfile {
         // Check the cache
         let recovery_file = image_cache_lookup(&self.recovery_url);
         if !recovery_file.is_file() {
-            let rs = reqwest::blocking::get(self.recovery_url)?;
+            let rs = reqwest::blocking::get(&self.recovery_url)?;
             if rs.status().is_success() {
                 let mut reader = DecoderReader::new(rs);
                 io::copy(&mut reader, &mut File::open(recovery_file)?)?;

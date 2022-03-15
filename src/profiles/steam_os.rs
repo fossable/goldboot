@@ -8,23 +8,22 @@ use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct SteamOsProfile {
-    pub version: String,
+    pub iso_url: String,
 
-    #[serde(default = "default_iso_url")]
-    iso_url: String,
-
-    #[serde(default = "default_iso_checksum")]
-    iso_checksum: String,
+    pub iso_checksum: String,
 }
 
-fn default_iso_url() -> String {
-    String::from("https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso")
-}
-
-fn default_iso_checksum() -> String {
-    String::from("none")
+impl Default for SteamOsProfile {
+    fn default() -> Self {
+        Self {
+            iso_url: String::from(
+                "https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso",
+            ),
+            iso_checksum: String::from("none"),
+        }
+    }
 }
 
 impl Profile for SteamOsProfile {

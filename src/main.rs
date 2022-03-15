@@ -1,6 +1,8 @@
+#![feature(derive_default_enum)]
+
 use clap::{Parser, Subcommand};
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, path::PathBuf};
+use std::{env, error::Error, path::{Path, PathBuf}};
 
 pub mod config;
 pub mod packer;
@@ -47,6 +49,10 @@ enum Commands {
 
     /// Initialize the current directory
     Init {
+        /// The image name
+        #[clap(long)]
+        name: Option<String>,
+
         /// A base profile which can be found with --list-profiles
         #[clap(long)]
         profile: Vec<String>,
@@ -135,6 +141,15 @@ pub fn image_library_path() -> PathBuf {
     }
 }
 
+pub fn ovmf_firmware() -> Option<PathBuf> {
+    // Search for UEFI firmware
+    if Path::new("/usr/share/ovmf/x64/OVMF.fd").is_file() {
+        Some(PathBuf::from("/usr/share/ovmf/x64/OVMF.fd"))
+    } else {
+        None
+    }
+}
+
 /// A simple cache for storing images that are not stored in the Packer cache.
 /// Most images here need some kind of transformation before they are bootable.
 pub fn image_cache_lookup(key: &str) -> PathBuf {
@@ -182,12 +197,19 @@ pub fn main() -> Result<(), Box<dyn Error>> {
             RegistryCommands::Pull { url } => commands::registry::pull(),
         },
         Commands::Init {
+            name,
             profile,
             memory,
             disk,
             list_profiles,
             template,
-        } => commands::init::init(profile.to_owned(), template.to_owned()),
+        } => {
+            if *list_profiles {
+                profile::list_profiles()
+            } else {
+                commands::init::init(profile, template, name, memory, disk)
+            }
+        }
         Commands::MakeUsb {
             disk,
             confirm,

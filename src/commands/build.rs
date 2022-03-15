@@ -18,14 +18,26 @@ pub fn build() -> Result<(), Box<dyn Error>> {
         context_path.display()
     );
 
-    let templates = Vec::<PackerTemplate>::new();
+    let mut templates = Vec::<PackerTemplate>::new();
 
-    if let Some(profile) = config.ArchLinux {
+    if let Some(profile) = &config.ArchLinux {
+        templates.push(profile.generate_template(context_path)?);
+    }
+    if let Some(profile) = &config.Windows10 {
+        templates.push(profile.generate_template(context_path)?);
+    }
+    if let Some(profile) = &config.PopOs {
+        templates.push(profile.generate_template(context_path)?);
+    }
+    if let Some(profile) = &config.SteamOs {
+        templates.push(profile.generate_template(context_path)?);
+    }
+    if let Some(profile) = &config.SteamDeck {
         templates.push(profile.generate_template(context_path)?);
     }
 
     // Configure the builder for each template
-    for template in templates {
+    for template in templates.iter_mut() {
         let builder = template.builders.first_mut().unwrap();
         builder.output_directory = image_library_path()
             .join("output")
@@ -74,7 +86,7 @@ pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Build completed successfully");
 
     // Create new image metadata
-    let metadata = ImageMetadata::new(config)?;
+    let metadata = ImageMetadata::new(config.clone())?;
     metadata.write()?;
 
     // Move the image to the library

@@ -1,4 +1,4 @@
-use crate::{config::Config, profiles, qemu::QemuConfig};
+use crate::{config::Config, profiles, qemu::generate_qemuargs};
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
@@ -11,7 +11,13 @@ fn guess_disk_size() -> u64 {
     return 256000000;
 }
 
-pub fn init(profiles: Vec<String>, template: Option<String>) -> Result<(), Box<dyn Error>> {
+pub fn init(
+    profiles: &Vec<String>,
+    template: &Option<String>,
+    name: &Option<String>,
+    memory: &Option<String>,
+    disk: &Option<String>,
+) -> Result<(), Box<dyn Error>> {
     let config_path = Path::new("goldboot.json");
 
     if config_path.exists() {
@@ -29,7 +35,7 @@ pub fn init(profiles: Vec<String>, template: Option<String>) -> Result<(), Box<d
     // Setup the config for the given base profile
     if profiles.len() > 0 {
         // Generate QEMU flags for this hardware
-        //config.qemu = QemuConfig::generate_config()?;
+        config.qemuargs = generate_qemuargs()?;
 
         // Set current platform
         config.arch = if cfg!(target_arch = "x86_64") {
@@ -63,7 +69,7 @@ pub fn init(profiles: Vec<String>, template: Option<String>) -> Result<(), Box<d
     }
     // Setup the config for the given packer template
     else if let Some(template_value) = template {
-        config.packer_template = Some(template_value);
+        config.packer_template = Some(template_value.to_owned());
     }
 
     // Finally write out the config

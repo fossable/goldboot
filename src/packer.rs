@@ -1,7 +1,9 @@
+use std::{path::PathBuf};
 use crate::build_headless_debug;
 use crate::config::Provisioner;
 use serde::Serialize;
 use validator::Validate;
+use sha1::{Sha1, Digest};
 
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerTemplate {
@@ -24,8 +26,8 @@ pub struct QemuBuilder {
     pub output_directory: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub qemu_binary: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub qemuargs: Option<Vec<Vec<String>>>,
+
+    pub qemuargs: Vec<Vec<String>>,
     pub r#type: String,
     pub shutdown_command: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,6 +60,16 @@ impl QemuBuilder {
         builder.disk_compression = true;
 
         return builder;
+    }
+
+    /// Locate the ISO local path
+    pub fn iso_path(&self) -> PathBuf {
+        let hash = hex::encode(Sha1::new().chain_update(&self.iso_url).finalize());
+        if cfg!(target_os = "linux") {
+            PathBuf::from(format!("/home/{}/.cache/packer/{}.iso", whoami::username(), hash))
+        } else {
+            panic!("Unsupported platform");
+        }
     }
 }
 
@@ -117,6 +129,9 @@ pub struct ShellPackerProvisioner {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expect_disconnect: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub environment_vars: Option<Vec<String>>,
 }
 
 pub mod bootcmds {

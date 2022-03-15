@@ -9,50 +9,38 @@ use std::{error::Error, path::Path};
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Default)]
-enum PopOsVersions {
+pub enum PopOsVersions {
     #[serde(rename = "21.10")]
     #[default]
     V21_10,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct PopOsProfile {
     pub version: PopOsVersions,
 
-    #[serde(default = "default_username")]
-    username: String,
+    pub username: String,
 
-    #[serde(default = "default_password")]
-    password: String,
+    pub password: String,
 
-    #[serde(default = "default_root_password")]
-    root_password: String,
+    pub root_password: String,
 
-    #[serde(default = "default_iso_url")]
-    iso_url: String,
+    pub iso_url: String,
 
-    #[serde(default = "default_iso_checksum")]
-    iso_checksum: String,
+    pub iso_checksum: String,
 }
 
-fn default_username() -> String {
-    whoami::username()
-}
-
-fn default_password() -> String {
-    String::from("88Password;")
-}
-
-fn default_root_password() -> String {
-    String::from("root")
-}
-
-fn default_iso_url() -> String {
-    String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso")
-}
-
-fn default_iso_checksum() -> String {
-    String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2")
+impl Default for PopOsProfile {
+    fn default() -> Self {
+        Self {
+            version: PopOsVersions::V21_10,
+            username: whoami::username(),
+            password: String::from("88Password;"),
+            root_password: String::from("root"),
+            iso_url: String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso"),
+            iso_checksum: String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2"),
+        }
+    }
 }
 
 impl Profile for PopOsProfile {
