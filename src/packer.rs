@@ -1,9 +1,9 @@
-use std::{path::PathBuf};
 use crate::build_headless_debug;
 use crate::config::Provisioner;
 use serde::Serialize;
+use sha1::{Digest, Sha1};
+use std::path::PathBuf;
 use validator::Validate;
-use sha1::{Sha1, Digest};
 
 #[derive(Clone, Serialize, Validate, Default, Debug)]
 pub struct PackerTemplate {
@@ -66,7 +66,11 @@ impl QemuBuilder {
     pub fn iso_path(&self) -> PathBuf {
         let hash = hex::encode(Sha1::new().chain_update(&self.iso_url).finalize());
         if cfg!(target_os = "linux") {
-            PathBuf::from(format!("/home/{}/.cache/packer/{}.iso", whoami::username(), hash))
+            PathBuf::from(format!(
+                "/home/{}/.cache/packer/{}.iso",
+                whoami::username(),
+                hash
+            ))
         } else {
             panic!("Unsupported platform");
         }

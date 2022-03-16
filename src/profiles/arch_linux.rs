@@ -6,8 +6,11 @@ use crate::{
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::Path};
+use simple_error::bail;
+use std::{error::Error, io::BufRead, io::BufReader, path::Path};
 use validator::Validate;
+
+const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 
 #[derive(RustEmbed)]
 #[folder = "res/arch_linux/"]
@@ -34,19 +37,44 @@ pub struct ArchLinuxProfile {
 
 impl ArchLinuxProfile {
     pub fn format_mirrorlist(&self) -> String {
-        self.mirrorlist.iter().map(|s| format!("Server = {}", s)).collect::<Vec<String>>().join("\n")
+        self.mirrorlist
+            .iter()
+            .map(|s| format!("Server = {}", s))
+            .collect::<Vec<String>>()
+            .join("\n")
     }
+}
+
+/// Fetch the latest iso URL and its SHA1 hash
+pub fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
+    let rs = reqwest::blocking::get(format!("{DEFAULT_MIRROR}/iso/latest/sha1sums.txt"))?;
+    if rs.status().is_success() {
+        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+            if line.ends_with(".iso") {
+                let split: Vec<&str> = line.split_whitespace().collect();
+                if let [hash, filename] = split[..] {
+                    return Ok((
+                        format!("{DEFAULT_MIRROR}/iso/latest/{}", filename),
+                        hash.to_string(),
+                    ));
+                }
+            }
+        }
+    }
+    bail!("Failed to request latest ISO");
 }
 
 impl Default for ArchLinuxProfile {
     fn default() -> Self {
+        let (iso_url, iso_checksum) = fetch_latest_iso().unwrap_or((
+            format!("{DEFAULT_MIRROR}/iso/latest/archlinux-2022.03.01-x86_64.iso"),
+            String::from("none"),
+        ));
         Self {
             root_password: String::from("root"),
-            mirrorlist: vec![
-                String::from("https://mirrors.kernel.org/archlinux/$repo/os/$arch")
-            ],
-            iso_url: String::from("https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso"),
-            iso_checksum: String::from("none"),
+            mirrorlist: vec![format!("{DEFAULT_MIRROR}/$repo/os/$arch",)],
+            iso_url: iso_url,
+            iso_checksum: iso_checksum,
             partitions: None,
             provisioners: None,
         }
@@ -100,11 +128,8 @@ impl Profile for ArchLinuxProfile {
         builder.iso_url = self.iso_url.clone();
         builder.iso_checksum = self.iso_checksum.clone();
         builder.qemuargs = vec![
-            vec![String::from("-drive"), String::from("if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/ovmf/x64/OVMF.fd")],
-            //vec![String::from("-drive"), format!("if=pflash,format=raw,unit=1,file={}/OVMF_VARS.fd", context.to_string_lossy())],
-            vec![String::from("-drive"), format!("if=pflash,format=raw,unit=1,file=/usr/share/ovmf/x64/OVMF_VARS.fd")],
-            vec![String::from("-drive"), format!("file=/var/lib/goldboot/images/output/goldboot,if=virtio,cache=writeback,discard=ignore,format=qcow2")],
-            vec![String::from("-drive"), format!("file={},media=cdrom", builder.iso_path().to_string_lossy())]
+            vec![String::from("-global"), String::from("driver=cfi.pflash01,property=secure,value=on")],
+            vec![String::from("-bios"), String::from("/usr/share/ovmf/x64/OVMF.fd")],
         ];
 
         template.builders.push(builder);

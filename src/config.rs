@@ -1,4 +1,4 @@
-use crate::{profiles};
+use crate::profiles;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{default::Default, error::Error, fs};

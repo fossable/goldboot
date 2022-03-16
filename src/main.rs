@@ -2,7 +2,11 @@
 
 use clap::{Parser, Subcommand};
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, path::{Path, PathBuf}};
+use std::{
+    env,
+    error::Error,
+    path::{Path, PathBuf},
+};
 
 pub mod config;
 pub mod packer;

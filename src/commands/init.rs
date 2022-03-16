@@ -2,13 +2,18 @@ use crate::{config::Config, profiles, qemu::generate_qemuargs};
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
-/// Choose some arbitrary disk and get its size. The user will likely change it
+/// Choose some arbitrary disk and get its size in bytes. The user will likely change it
 /// in the config later.
 fn guess_disk_size() -> u64 {
     if cfg!(target_os = "unix") {
         // TODO
     }
-    return 256000000;
+    return 64000000000;
+}
+
+/// Choose some arbitrary memory size in megabytes which is less than the amount of available free memory on the system.
+fn guess_memory_size() -> u64 {
+    return 2048;
 }
 
 pub fn init(
@@ -46,8 +51,19 @@ pub fn init(
             panic!("Unsupported platform");
         };
 
-        // Set an arbitrary disk size
-        config.disk_size = format!("{}b", guess_disk_size());
+        // Set an arbitrary disk size unless given a value
+        config.disk_size = if let Some(disk_size) = disk {
+            disk_size.to_string()
+        } else {
+            format!("{}b", guess_disk_size())
+        };
+
+        // Set an arbitrary memory size unless given a value
+        config.memory = if let Some(memory_size) = memory {
+            memory_size.to_string()
+        } else {
+            format!("{}", guess_memory_size())
+        };
 
         // Run profile-specific initialization
         for profile in profiles {
