@@ -39,4 +39,4 @@ jobs:
         run: |
           mkdir ArchLinux && cd ArchLinux
           goldboot init --profile ArchLinux
-          goldboot build
+          goldboot build 1.5
