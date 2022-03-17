@@ -1,5 +1,5 @@
 use crate::ovmf_firmware;
-use std::{error::Error};
+use std::error::Error;
 
 /// Generate a config for the current hardware
 pub fn generate_qemuargs() -> Result<Vec<Vec<String>>, Box<dyn Error>> {
@@ -7,8 +7,7 @@ pub fn generate_qemuargs() -> Result<Vec<Vec<String>>, Box<dyn Error>> {
 
     qemuargs.push(vec![
         String::from("-bios"),
-        ovmf_firmware()
-            .ok_or("Failed to locate firmware")?,
+        ovmf_firmware().ok_or("Failed to locate firmware")?,
     ]);
 
     // TODO get CPU type, etc

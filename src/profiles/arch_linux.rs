@@ -3,6 +3,7 @@ use crate::{
     packer::bootcmds::enter,
     packer::{PackerProvisioner, PackerTemplate, QemuBuilder, ShellPackerProvisioner},
     profile::Profile,
+    scale_wait_time,
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -119,7 +120,7 @@ impl Profile for ArchLinuxProfile {
             enter!(self.root_password),     // Configure root password
             enter!("systemctl start sshd"), // Start sshd
         ];
-        builder.boot_wait = String::from("50s");
+        builder.boot_wait = scale_wait_time(70);
         builder.communicator = String::from("ssh");
         builder.shutdown_command = String::from("poweroff");
         builder.ssh_password = Some(String::from("root"));

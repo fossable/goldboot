@@ -139,6 +139,7 @@ pub struct ShellPackerProvisioner {
 }
 
 pub mod bootcmds {
+
     macro_rules! enter {
         ($text:expr) => {
             format!("{}<enter><wait>", $text)
@@ -165,7 +166,7 @@ pub mod bootcmds {
 
     macro_rules! wait {
         ($duration:expr) => {
-            format!("<wait{}s>", $duration)
+            format!("<wait{}>", crate::scale_wait_time($duration))
         };
     }
 

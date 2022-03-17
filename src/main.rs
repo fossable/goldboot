@@ -193,6 +193,13 @@ pub fn build_headless_debug() -> bool {
     return true;
 }
 
+/// Scale all wait times to support faster or slower machines.
+pub fn scale_wait_time(seconds: u32) -> String {
+    unsafe { format!("{}s", (seconds as f64 * MULTIPLIER) as u64) }
+}
+
+static mut MULTIPLIER: f64 = 1f64;
+
 pub fn main() -> Result<(), Box<dyn Error>> {
     // Parse command line first
     let cl = CommandLine::parse();
@@ -202,7 +209,16 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build { multiplier } => commands::build::build(),
+        Commands::Build { multiplier } => {
+            // Set global multiplier
+            // TODO: unsafe can be refactored
+            if let Some(m) = multiplier {
+                unsafe {
+                    MULTIPLIER = *m;
+                }
+            }
+            commands::build::build()
+        }
         Commands::Registry { command } => match &command {
             RegistryCommands::Push { url } => commands::registry::push(),
             RegistryCommands::Pull { url } => commands::registry::pull(),
