@@ -127,10 +127,10 @@ impl Profile for ArchLinuxProfile {
         builder.ssh_wait_timeout = Some(String::from("1m"));
         builder.iso_url = self.iso_url.clone();
         builder.iso_checksum = self.iso_checksum.clone();
-        builder.qemuargs = vec![
-            vec![String::from("-global"), String::from("driver=cfi.pflash01,property=secure,value=on")],
-            vec![String::from("-bios"), String::from("/usr/share/ovmf/x64/OVMF.fd")],
-        ];
+        builder.qemuargs = vec![vec![
+            String::from("-global"),
+            String::from("driver=cfi.pflash01,property=secure,value=on"),
+        ]];
 
         template.builders.push(builder);
 

@@ -145,13 +145,17 @@ pub fn image_library_path() -> PathBuf {
     }
 }
 
-pub fn ovmf_firmware() -> Option<PathBuf> {
-    // Search for UEFI firmware
-    if Path::new("/usr/share/ovmf/x64/OVMF.fd").is_file() {
-        Some(PathBuf::from("/usr/share/ovmf/x64/OVMF.fd"))
-    } else {
-        None
+/// Search filesystem for UEFI firmware
+pub fn ovmf_firmware() -> Option<String> {
+    for path in vec![
+        "/usr/share/ovmf/x64/OVMF.fd",
+        "/usr/share/OVMF/OVMF_CODE.fd",
+    ] {
+        if Path::new(&path).is_file() {
+            return Some(path.to_string());
+        }
     }
+    None
 }
 
 /// A simple cache for storing images that are not stored in the Packer cache.
@@ -180,9 +184,12 @@ pub fn current_qemu_binary() -> &'static str {
 
 /// Determine whether builds should be headless or not for debugging.
 pub fn build_headless_debug() -> bool {
-    match env::var("GOLDBOOT_DEBUG") {
+    match env::var("CI") {
         Ok(_) => false,
-        Err(_) => true,
+        Err(_) => match env::var("GOLDBOOT_DEBUG") {
+            Ok(_) => false,
+            Err(_) => true,
+        },
     }
 }
 

@@ -8,7 +8,7 @@ pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Starting build");
 
     // Load config
-    let config = Config::load()?;
+    let mut config = Config::load()?;
 
     // Acquire temporary directory for the build
     let tmp = tempfile::tempdir().unwrap();
@@ -45,7 +45,7 @@ pub fn build() -> Result<(), Box<dyn Error>> {
             .unwrap()
             .to_string();
         builder.vm_name = Some(config.name.to_string());
-        //builder.qemuargs = Some(config.qemu.to_qemuargs());
+        builder.qemuargs.append(&mut config.qemuargs);
         builder.memory = config.memory.to_string();
         builder.disk_size = config.disk_size.to_string();
         if let Some(arch) = &config.arch {
