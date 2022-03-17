@@ -184,13 +184,13 @@ pub fn current_qemu_binary() -> &'static str {
 
 /// Determine whether builds should be headless or not for debugging.
 pub fn build_headless_debug() -> bool {
-    match env::var("CI") {
-        Ok(_) => false,
-        Err(_) => match env::var("GOLDBOOT_DEBUG") {
-            Ok(_) => false,
-            Err(_) => true,
-        },
+    if env::var("CI").is_ok() {
+        return true;
     }
+    if env::var("GOLDBOOT_DEBUG").is_ok() {
+        return false;
+    }
+    return true;
 }
 
 pub fn main() -> Result<(), Box<dyn Error>> {
