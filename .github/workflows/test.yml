@@ -17,6 +17,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 ovmf packer sshpass
+          sudo mkdir -p /var/lib/goldboot/images
+          sudo chmod -R 777 /var/lib/goldboot
 
       - name: Install rust nightly
         uses: actions-rs/toolchain@v1
