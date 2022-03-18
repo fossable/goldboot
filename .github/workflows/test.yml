@@ -39,4 +39,4 @@ jobs:
         run: |
           mkdir ArchLinux && cd ArchLinux
           goldboot init --profile ArchLinux
-          goldboot build 1.5
+          goldboot build --scale 2.5

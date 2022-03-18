@@ -43,7 +43,11 @@ struct CommandLine {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Build a new image
-    Build { multiplier: Option<f64> },
+    Build {
+        /// Scale all wait times to account for hardware of different speeds
+        #[clap(long)]
+        scale: Option<f64>
+    },
 
     /// Manage local images
     Image {
@@ -209,10 +213,10 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build { multiplier } => {
+        Commands::Build { scale } => {
             // Set global multiplier
             // TODO: unsafe can be refactored
-            if let Some(m) = multiplier {
+            if let Some(m) = scale {
                 unsafe {
                     MULTIPLIER = *m;
                 }
