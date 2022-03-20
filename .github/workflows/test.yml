@@ -11,8 +11,7 @@ env:
 jobs:
   linux-x86_64:
     name: Test Linux x86_64
-    #runs-on: ubuntu-latest
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
         run: |
@@ -39,5 +38,7 @@ jobs:
       - name: Test ArchLinux profile
         run: |
           mkdir ArchLinux && cd ArchLinux
-          goldboot init --profile ArchLinux
+          goldboot init --profile ArchLinux --disk 1G
           goldboot build --scale 2.5
+          fallocate -l 1GiB /tmp/ArchLinux.raw
+          goldboot image write --image ArchLinux --disk /tmp/ArchLinux.raw

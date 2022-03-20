@@ -49,6 +49,8 @@ pub struct QemuBuilder {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub floppy_files: Option<Vec<String>>,
     pub disk_interface: String,
+    pub vnc_port_min: u32,
+    pub vnc_port_max: u32,
 }
 
 impl QemuBuilder {
@@ -58,6 +60,8 @@ impl QemuBuilder {
         builder.headless = build_headless_debug();
         builder.r#type = String::from("qemu");
         builder.disk_compression = true;
+        builder.vnc_port_min = 5900;
+        builder.vnc_port_max = 5900;
 
         return builder;
     }

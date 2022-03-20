@@ -1,14 +1,20 @@
+use crate::qemu::allocate_image;
 use crate::commands::image::ImageMetadata;
 use crate::{config::Config, image_library_path, packer::PackerTemplate, profile::Profile};
 use log::debug;
 use simple_error::bail;
 use std::{error::Error, fs, process::Command};
+use std::thread;
+use std::time::Duration;
 
 pub fn build() -> Result<(), Box<dyn Error>> {
     debug!("Starting build");
 
     // Load config
     let mut config = Config::load()?;
+
+    // Create an initial image that will be attached as storage to each qemu VM
+    let image = allocate_image(&config.disk_size)?;
 
     // Acquire temporary directory for the build
     let tmp = tempfile::tempdir().unwrap();
@@ -20,19 +26,22 @@ pub fn build() -> Result<(), Box<dyn Error>> {
 
     let mut templates = Vec::<PackerTemplate>::new();
 
-    if let Some(profile) = &config.ArchLinux {
+    if let Some(profile) = &config.profile_alpine {
         templates.push(profile.generate_template(context_path)?);
     }
-    if let Some(profile) = &config.Windows10 {
+    if let Some(profile) = &config.profile_arch_linux {
         templates.push(profile.generate_template(context_path)?);
     }
-    if let Some(profile) = &config.PopOs {
+    if let Some(profile) = &config.profile_windows_10 {
         templates.push(profile.generate_template(context_path)?);
     }
-    if let Some(profile) = &config.SteamOs {
+    if let Some(profile) = &config.profile_pop_os {
         templates.push(profile.generate_template(context_path)?);
     }
-    if let Some(profile) = &config.SteamDeck {
+    if let Some(profile) = &config.profile_steam_os {
+        templates.push(profile.generate_template(context_path)?);
+    }
+    if let Some(profile) = &config.profile_steam_deck {
         templates.push(profile.generate_template(context_path)?);
     }
 
@@ -55,6 +64,9 @@ pub fn build() -> Result<(), Box<dyn Error>> {
             };
         }
     }
+
+    // Create partitions if specified
+    // TODO
 
     // Execute the templates sequentially
     for template in templates {

@@ -1,3 +1,5 @@
+use crate::cache::MediaCache;
+use crate::qemu::QemuArgs;
 use crate::{
     config::Config,
     image_cache_lookup,
@@ -5,7 +7,6 @@ use crate::{
     packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
 };
-use bzip2_rs::DecoderReader;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fs::File, io, path::Path};
 use validator::Validate;
@@ -32,27 +33,27 @@ impl Profile for SteamDeckProfile {
     fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
         let mut template = PackerTemplate::default();
 
-        // Check the cache
-        let recovery_file = image_cache_lookup(&self.recovery_url);
-        if !recovery_file.is_file() {
-            let rs = reqwest::blocking::get(&self.recovery_url)?;
-            if rs.status().is_success() {
-                let mut reader = DecoderReader::new(rs);
-                io::copy(&mut reader, &mut File::open(recovery_file)?)?;
-            }
-        }
+        Ok(template)
+    }
+}
 
-        let mut builder = QemuBuilder::new();
-        builder.boot_command = vec![
+impl SteamDeckProfile {
+    fn build(&self, config: Config, image: &Path) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&config);
+
+        qemuargs.add_drive(image.to_string_lossy().to_string());
+        qemuargs.add_cdrom(MediaCache::get_bzip2(self.recovery_url.clone(), self.recovery_checksum.clone())?);
+
+        // Start VM
+        let qemu = qemuargs.start_process()?;
+
+        // Send boot command
+        qemu.vnc.boot_command(vec![
+            wait!(20),  // Wait for boot
             enter!(),   // Begin auto install
             wait!(600), // Wait for install
-        ];
+        ]);
 
-        builder.boot_wait = String::from("20s");
-        builder.communicator = String::from("none");
-
-        template.builders.push(builder);
-
-        Ok(template)
+        Ok(())
     }
 }

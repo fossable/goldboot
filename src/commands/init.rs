@@ -1,4 +1,4 @@
-use crate::{config::Config, profiles, qemu::generate_qemuargs};
+use crate::{config::Config, profiles};
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
@@ -40,7 +40,7 @@ pub fn init(
     // Setup the config for the given base profile
     if profiles.len() > 0 {
         // Generate QEMU flags for this hardware
-        config.qemuargs = generate_qemuargs()?;
+        //config.qemuargs = generate_qemuargs()?;
 
         // Set current platform
         config.arch = if cfg!(target_arch = "x86_64") {
@@ -68,17 +68,20 @@ pub fn init(
         // Run profile-specific initialization
         for profile in profiles {
             match profile.as_str() {
+                "Alpine" => {
+                    config.profile_alpine = Some(profiles::alpine::AlpineProfile::default())
+                },
                 "ArchLinux" => {
-                    config.ArchLinux = Some(profiles::arch_linux::ArchLinuxProfile::default())
-                }
+                    config.profile_arch_linux = Some(profiles::arch_linux::ArchLinuxProfile::default())
+                },
                 "Windows10" => {
-                    config.Windows10 = Some(profiles::windows_10::Windows10Profile::default())
-                }
+                    config.profile_windows_10 = Some(profiles::windows_10::Windows10Profile::default())
+                },
                 "UbuntuServer" => {
-                    config.UbuntuServer =
+                    config.profile_ubuntu_server =
                         Some(profiles::ubuntu_server::UbuntuServerProfile::default())
-                }
-                "PopOs" => config.PopOs = Some(profiles::pop_os::PopOsProfile::default()),
+                },
+                "PopOs" => config.profile_pop_os = Some(profiles::pop_os::PopOsProfile::default()),
                 _ => panic!("Unknown profile"),
             }
         }

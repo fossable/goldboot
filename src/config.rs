@@ -33,23 +33,42 @@ pub struct Config {
 
     pub qemuargs: Vec<Vec<String>>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ArchLinux: Option<profiles::arch_linux::ArchLinuxProfile>,
+    #[serde(skip_serializing_if = "Option::is_none", default = "default_ssh_port")]
+    pub ssh_port: Option<u16>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub Windows10: Option<profiles::windows_10::Windows10Profile>,
+    #[serde(skip_serializing_if = "Option::is_none", default = "default_vnc_port")]
+    pub vnc_port: Option<u16>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub PopOs: Option<profiles::pop_os::PopOsProfile>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "Alpine")]
+    pub profile_alpine: Option<profiles::alpine::AlpineProfile>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub SteamOs: Option<profiles::steam_os::SteamOsProfile>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "ArchLinux")]
+    pub profile_arch_linux: Option<profiles::arch_linux::ArchLinuxProfile>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub SteamDeck: Option<profiles::steam_deck::SteamDeckProfile>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "Windows10")]
+    pub profile_windows_10: Option<profiles::windows_10::Windows10Profile>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub UbuntuServer: Option<profiles::ubuntu_server::UbuntuServerProfile>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "Pop!_OS")]
+    pub profile_pop_os: Option<profiles::pop_os::PopOsProfile>,
+
+    #[serde(skip_serializing_if = "Option::is_none", rename = "SteamOS")]
+    pub profile_steam_os: Option<profiles::steam_os::SteamOsProfile>,
+
+    #[serde(skip_serializing_if = "Option::is_none", rename = "SteamDeck")]
+    pub profile_steam_deck: Option<profiles::steam_deck::SteamDeckProfile>,
+
+    #[serde(skip_serializing_if = "Option::is_none", rename = "UbuntuServer")]
+    pub profile_ubuntu_server: Option<profiles::ubuntu_server::UbuntuServerProfile>,
+}
+
+fn default_ssh_port() -> Option<u16> {
+    // TODO random
+    Some(1234)
+}
+
+fn default_vnc_port() -> Option<u16> {
+    // TODO random
+    Some(1234)
 }
 
 impl Config {

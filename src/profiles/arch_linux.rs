@@ -1,6 +1,9 @@
+use crate::cache::MediaCache;
+use crate::config::Config;
+use crate::qemu::QemuArgs;
 use crate::{
     config::{Partition, Provisioner},
-    packer::bootcmds::enter,
+    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
     packer::{PackerProvisioner, PackerTemplate, QemuBuilder, ShellPackerProvisioner},
     profile::Profile,
     scale_wait_time,
@@ -136,5 +139,38 @@ impl Profile for ArchLinuxProfile {
         template.builders.push(builder);
 
         Ok(template)
+    }
+}
+
+impl ArchLinuxProfile {
+    fn build(&self, config: Config, image: &Path) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&config);
+
+        qemuargs.add_drive(image.to_string_lossy().to_string());
+        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), self.iso_checksum.clone())?);
+
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
+
+        // Send boot command
+        qemu.vnc.boot_command(vec![
+            wait!(60),  // Wait for boot
+            enter!("passwd"),
+            enter!(self.root_password),
+            enter!(self.root_password),     // Configure root password
+            enter!("systemctl start sshd"), // Start sshd
+        ]);
+
+        // Wait for SSH
+        let ssh = qemu.ssh()?;
+
+        // Run provisioners
+        for provisioner in &self.provisioners {
+            // TODO
+        }
+
+        // Shutdown
+        qemu.shutdown("poweroff")?;
+        Ok(())
     }
 }

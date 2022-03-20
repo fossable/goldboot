@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::{
     env,
     error::Error,
-    path::{Path, PathBuf},
+    path::{PathBuf},
 };
 
 pub mod config;
@@ -13,7 +13,11 @@ pub mod packer;
 pub mod profile;
 pub mod qemu;
 pub mod windows;
+pub mod vnc;
+pub mod ssh;
+pub mod cache;
 pub mod profiles {
+    pub mod alpine;
     pub mod arch_linux;
     pub mod debian;
     pub mod pop_os;
@@ -46,7 +50,11 @@ enum Commands {
     Build {
         /// Scale all wait times to account for hardware of different speeds
         #[clap(long)]
-        scale: Option<f64>
+        scale: Option<f64>,
+
+        /// Record the run to the given path for debugging
+        #[clap(long)]
+        record: Option<String>,
     },
 
     /// Manage local images
@@ -124,9 +132,11 @@ enum ImageCommands {
     /// Write image to a disk
     Write {
         /// The selected image
+        #[clap(long)]
         image: String,
 
         /// The disk to overwrite
+        #[clap(long)]
         disk: String,
 
         /// Do not check for confirmation
@@ -147,19 +157,6 @@ pub fn image_library_path() -> PathBuf {
     } else {
         panic!("Unsupported platform");
     }
-}
-
-/// Search filesystem for UEFI firmware
-pub fn ovmf_firmware() -> Option<String> {
-    for path in vec![
-        "/usr/share/ovmf/x64/OVMF.fd",
-        "/usr/share/OVMF/OVMF_CODE.fd",
-    ] {
-        if Path::new(&path).is_file() {
-            return Some(path.to_string());
-        }
-    }
-    None
 }
 
 /// A simple cache for storing images that are not stored in the Packer cache.
@@ -213,7 +210,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build { scale } => {
+        Commands::Build { scale, record } => {
             // Set global multiplier
             // TODO: unsafe can be refactored
             if let Some(m) = scale {
