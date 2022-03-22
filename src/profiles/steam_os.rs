@@ -1,11 +1,13 @@
+use crate::cache::MediaCache;
+use crate::config::Provisioner;
+use crate::qemu::QemuArgs;
 use crate::{
     config::Config,
-    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-    packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
+    vnc::bootcmds::{enter, wait},
 };
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::Path};
+use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -13,6 +15,9 @@ pub struct SteamOsProfile {
     pub iso_url: String,
 
     pub iso_checksum: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provisioners: Option<Vec<Provisioner>>,
 }
 
 impl Default for SteamOsProfile {
@@ -22,28 +27,38 @@ impl Default for SteamOsProfile {
                 "https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso",
             ),
             iso_checksum: String::from("none"),
+            provisioners: None,
         }
     }
 }
 
 impl Profile for SteamOsProfile {
-    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
-        let mut template = PackerTemplate::default();
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&config);
 
-        let mut builder = QemuBuilder::new();
-        builder.boot_command = vec![
-            enter!(),   // Begin auto install
-            wait!(600), // Wait for install
-        ];
+        qemuargs.add_drive(image_path, "virtio");
+        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
 
-        builder.boot_wait = String::from("20s");
-        builder.communicator = String::from("ssh");
-        builder.shutdown_command = String::from("poweroff");
-        builder.ssh_password = Some(String::from("root"));
-        builder.ssh_wait_timeout = Some(String::from("5m"));
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
 
-        template.builders.push(builder);
+        // Send boot command
+        qemu.vnc.boot_command(vec![
+            wait!(20), // Wait for boot
+            enter!(),
+            wait!(600),
+        ]);
 
-        Ok(template)
+        // Wait for SSH
+        let ssh = qemu.ssh()?;
+
+        // Run provisioners
+        for provisioner in &self.provisioners {
+            // TODO
+        }
+
+        // Shutdown
+        qemu.shutdown("poweroff")?;
+        Ok(())
     }
 }

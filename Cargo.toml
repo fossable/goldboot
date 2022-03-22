@@ -12,7 +12,7 @@ quick-xml = {version = "0.22.0", features = ["serialize"] }
 reqwest = {version = "0.11.9", features=["blocking", "stream"]}
 serde = {version="1",features = ["derive"]}
 serde_json = "1"
-sha2 = "0.10.2"
+sha2 = { version="0.10.2"}
 sha1 = "0.10.1"
 tempfile = "3.3.0"
 validator = { version = "0.12", features = ["derive"] }
@@ -24,5 +24,4 @@ whoami = "1.2.1"
 bzip2-rs = "0.1.2"
 vnc = "0.4"
 indicatif = "0.16.2"
-futures-util = "0.3.14"
-futures = "0.3.21"
+rand = "0.8.5"

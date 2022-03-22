@@ -3,15 +3,13 @@ use crate::config::Config;
 use crate::qemu::QemuArgs;
 use crate::{
     config::{Partition, Provisioner},
-    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-    packer::{PackerProvisioner, PackerTemplate, QemuBuilder, ShellPackerProvisioner},
     profile::Profile,
-    scale_wait_time,
+    vnc::bootcmds::{enter, wait},
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{error::Error, io::BufRead, io::BufReader, path::Path};
+use std::{error::Error, io::BufRead, io::BufReader};
 use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
@@ -58,8 +56,8 @@ pub fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {
                     return Ok((
-                        format!("{DEFAULT_MIRROR}/iso/latest/{}", filename),
-                        hash.to_string(),
+                        format!("{DEFAULT_MIRROR}/iso/latest/{filename}"),
+                        format!("sha1:{hash}"),
                     ));
                 }
             }
@@ -85,7 +83,7 @@ impl Default for ArchLinuxProfile {
     }
 }
 
-impl Profile for ArchLinuxProfile {
+/*impl Profile for ArchLinuxProfile {
     fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
         let mut template = PackerTemplate::default();
 
@@ -115,46 +113,22 @@ impl Profile for ArchLinuxProfile {
         if let Some(resource) = Resources::get("install.sh") {
             std::fs::write(context.join("install.sh"), resource.data)?;
         }
-
-        let mut builder = QemuBuilder::new();
-        builder.boot_command = vec![
-            enter!("passwd"),
-            enter!(self.root_password),
-            enter!(self.root_password),     // Configure root password
-            enter!("systemctl start sshd"), // Start sshd
-        ];
-        builder.boot_wait = scale_wait_time(70);
-        builder.communicator = String::from("ssh");
-        builder.shutdown_command = String::from("poweroff");
-        builder.ssh_password = Some(String::from("root"));
-        builder.ssh_username = Some(String::from("root"));
-        builder.ssh_wait_timeout = Some(String::from("1m"));
-        builder.iso_url = self.iso_url.clone();
-        builder.iso_checksum = self.iso_checksum.clone();
-        builder.qemuargs = vec![vec![
-            String::from("-global"),
-            String::from("driver=cfi.pflash01,property=secure,value=on"),
-        ]];
-
-        template.builders.push(builder);
-
-        Ok(template)
     }
-}
+}*/
 
-impl ArchLinuxProfile {
-    fn build(&self, config: Config, image: &Path) -> Result<(), Box<dyn Error>> {
+impl Profile for ArchLinuxProfile {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image.to_string_lossy().to_string());
-        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), self.iso_checksum.clone())?);
+        qemuargs.add_drive(image_path, "virtio");
+        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
         qemu.vnc.boot_command(vec![
-            wait!(60),  // Wait for boot
+            wait!(60), // Wait for boot
             enter!("passwd"),
             enter!(self.root_password),
             enter!(self.root_password),     // Configure root password

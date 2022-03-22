@@ -1,11 +1,15 @@
+use crate::cache::MediaCache;
+use crate::config::Config;
+use crate::config::Provisioner;
+use crate::qemu::QemuArgs;
 use crate::{
-    packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
+    vnc::bootcmds::{enter, wait},
     windows::{Component, ComputerName, Settings, UnattendXml},
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::Path};
+use std::error::Error;
 use validator::Validate;
 
 #[derive(RustEmbed)]
@@ -23,6 +27,9 @@ pub struct Windows10Profile {
     iso_url: String,
 
     iso_checksum: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provisioners: Option<Vec<Provisioner>>,
 }
 
 impl Default for Windows10Profile {
@@ -33,6 +40,7 @@ impl Default for Windows10Profile {
             hostname: String::from("goldboot"),
             iso_url: String::from("<ISO URL>"),
             iso_checksum: String::from("<ISO HASH>"),
+            provisioners: None,
         }
     }
 }
@@ -61,31 +69,44 @@ impl Windows10Profile {
 }
 
 impl Profile for Windows10Profile {
-    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
-        let mut template = PackerTemplate::default();
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&config);
+
+        qemuargs.add_drive(image_path, "ide");
+        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
 
         // Write the Autounattend.xml file
-        self.create_unattended().write(&context)?;
+        //self.create_unattended().write(&context)?;
 
         // Copy powershell scripts
-        if let Some(resource) = Resources::get("configure_winrm.ps1") {
-            std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
+        //if let Some(resource) = Resources::get("configure_winrm.ps1") {
+        //    std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
+        //}
+
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
+
+        // Send boot command
+        qemu.vnc.boot_command(vec![
+            wait!(4), // Wait for boot
+            enter!(),
+        ]);
+
+        // Wait for SSH
+        let ssh = qemu.ssh()?;
+
+        // Run provisioners
+        for provisioner in &self.provisioners {
+            // TODO
         }
 
-        let mut builder = QemuBuilder::new();
-        builder.boot_command = vec!["<enter>".into()];
-        builder.boot_wait = String::from("4s");
-        builder.shutdown_command = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\"".into();
-        builder.communicator = "winrm".into();
-        builder.winrm_insecure = Some(true);
-        builder.winrm_timeout = Some("2h".into());
-        builder.disk_interface = String::from("ide");
-        builder.floppy_files = Some(vec![
+        // Shutdown
+        qemu.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
+        Ok(())
+
+        /*builder.floppy_files = Some(vec![
             "Autounattend.xml".into(),
             "configure_winrm.ps1".into(),
-        ]);
-        template.builders.push(builder);
-
-        Ok(template)
+        ]);*/
     }
 }

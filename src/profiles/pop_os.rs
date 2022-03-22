@@ -1,11 +1,13 @@
+use crate::cache::MediaCache;
+use crate::config::Provisioner;
+use crate::qemu::QemuArgs;
 use crate::{
     config::Config,
-    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-    packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
+    vnc::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
 };
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::Path};
+use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Default)]
@@ -28,6 +30,9 @@ pub struct PopOsProfile {
     pub iso_url: String,
 
     pub iso_checksum: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provisioners: Option<Vec<Provisioner>>,
 }
 
 impl Default for PopOsProfile {
@@ -39,18 +44,26 @@ impl Default for PopOsProfile {
             root_password: String::from("root"),
             iso_url: String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso"),
             iso_checksum: String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2"),
+            provisioners: None,
         }
     }
 }
 
 impl Profile for PopOsProfile {
-    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
-        let mut template = PackerTemplate::default();
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&config);
 
-        let mut builder = QemuBuilder::new();
-        builder.boot_command = vec![
-            enter!(), // Select language: English
-            enter!(), // Select location: United States
+        qemuargs.add_drive(image_path, "virtio");
+        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
+
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
+
+        // Send boot command
+        qemu.vnc.boot_command(vec![
+            wait!(120), // Wait for boot
+            enter!(),   // Select language: English
+            enter!(),   // Select location: United States
             enter!(),
             enter!(), // Select keyboard layout: US
             spacebar!(),
@@ -85,16 +98,18 @@ impl Profile for PopOsProfile {
             wait!(30),                                                   // Install sshd
             enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"), // Configure sshd
             enter!("systemctl restart sshd"),                            // Start sshd
-        ];
+        ]);
 
-        builder.boot_wait = String::from("2m");
-        builder.communicator = String::from("ssh");
-        builder.shutdown_command = String::from("poweroff");
-        builder.ssh_password = Some(String::from("root"));
-        builder.ssh_username = Some(self.root_password.clone());
-        builder.ssh_wait_timeout = Some(String::from("5m"));
-        template.builders.push(builder);
+        // Wait for SSH
+        let ssh = qemu.ssh()?;
 
-        Ok(template)
+        // Run provisioners
+        for provisioner in &self.provisioners {
+            // TODO
+        }
+
+        // Shutdown
+        qemu.shutdown("poweroff")?;
+        Ok(())
     }
 }

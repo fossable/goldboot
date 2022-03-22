@@ -1,3 +1,5 @@
+use rand::Rng;
+use crate::profile::Profile;
 use crate::profiles;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -62,13 +64,11 @@ pub struct Config {
 }
 
 fn default_ssh_port() -> Option<u16> {
-    // TODO random
-    Some(1234)
+    Some(rand::thread_rng().gen_range(10000..11000))
 }
 
 fn default_vnc_port() -> Option<u16> {
-    // TODO random
-    Some(1234)
+    Some(rand::thread_rng().gen_range(5900..5999))
 }
 
 impl Config {
@@ -76,6 +76,31 @@ impl Config {
     pub fn load() -> Result<Config, Box<dyn Error>> {
         debug!("Loading config");
         Ok(serde_json::from_slice(&fs::read("goldboot.json")?)?)
+    }
+
+    pub fn get_profiles(&self) -> Vec<&dyn Profile> {
+        let mut profiles: Vec<&dyn Profile> = Vec::new();
+
+        if let Some(profile) = &self.profile_alpine {
+            profiles.push(profile);
+        }
+        if let Some(profile) = &self.profile_arch_linux {
+            profiles.push(profile);
+        }
+        if let Some(profile) = &self.profile_windows_10 {
+            profiles.push(profile);
+        }
+        if let Some(profile) = &self.profile_pop_os {
+            profiles.push(profile);
+        }
+        if let Some(profile) = &self.profile_steam_os {
+            profiles.push(profile);
+        }
+        if let Some(profile) = &self.profile_steam_deck {
+            profiles.push(profile);
+        }
+
+        profiles
     }
 }
 

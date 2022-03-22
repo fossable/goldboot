@@ -70,17 +70,26 @@ pub fn init(
             match profile.as_str() {
                 "Alpine" => {
                     config.profile_alpine = Some(profiles::alpine::AlpineProfile::default())
-                },
+                }
                 "ArchLinux" => {
-                    config.profile_arch_linux = Some(profiles::arch_linux::ArchLinuxProfile::default())
-                },
+                    config.profile_arch_linux =
+                        Some(profiles::arch_linux::ArchLinuxProfile::default())
+                }
                 "Windows10" => {
-                    config.profile_windows_10 = Some(profiles::windows_10::Windows10Profile::default())
-                },
+                    config.profile_windows_10 =
+                        Some(profiles::windows_10::Windows10Profile::default())
+                }
                 "UbuntuServer" => {
                     config.profile_ubuntu_server =
                         Some(profiles::ubuntu_server::UbuntuServerProfile::default())
-                },
+                }
+                "SteamOS" => {
+                    config.profile_steam_os = Some(profiles::steam_os::SteamOsProfile::default())
+                }
+                "SteamDeck" => {
+                    config.profile_steam_deck =
+                        Some(profiles::steam_deck::SteamDeckProfile::default())
+                }
                 "PopOs" => config.profile_pop_os = Some(profiles::pop_os::PopOsProfile::default()),
                 _ => panic!("Unknown profile"),
             }

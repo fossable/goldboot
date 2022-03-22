@@ -2,20 +2,15 @@
 
 use clap::{Parser, Subcommand};
 use sha2::{Digest, Sha256};
-use std::{
-    env,
-    error::Error,
-    path::{PathBuf},
-};
+use std::{env, error::Error, path::PathBuf};
 
+pub mod cache;
 pub mod config;
-pub mod packer;
 pub mod profile;
 pub mod qemu;
-pub mod windows;
-pub mod vnc;
 pub mod ssh;
-pub mod cache;
+pub mod vnc;
+pub mod windows;
 pub mod profiles {
     pub mod alpine;
     pub mod arch_linux;
@@ -55,6 +50,9 @@ enum Commands {
         /// Record the run to the given path for debugging
         #[clap(long)]
         record: Option<String>,
+        //
+        //#[clap(long, takes_value = false)]
+        //debug: bool,
     },
 
     /// Manage local images

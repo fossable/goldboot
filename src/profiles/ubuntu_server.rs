@@ -1,8 +1,7 @@
 use crate::{
     config::Config,
-    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-    packer::QemuBuilder,
     profile::Profile,
+    vnc::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
 };
 use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};

@@ -2,13 +2,11 @@ use crate::cache::MediaCache;
 use crate::qemu::QemuArgs;
 use crate::{
     config::Config,
-    image_cache_lookup,
-    packer::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-    packer::{PackerTemplate, QemuBuilder},
     profile::Profile,
+    vnc::bootcmds::{enter, wait},
 };
 use serde::{Deserialize, Serialize};
-use std::{error::Error, fs::File, io, path::Path};
+use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -24,35 +22,30 @@ impl Default for SteamDeckProfile {
             recovery_url: String::from(
                 "https://steamdeck-images.steamos.cloud/recovery/steamdeck-recovery-1.img.bz2",
             ),
-            recovery_checksum: String::from("none"),
+            recovery_checksum: String::from("sha256:5086bcc4fe0fb230dff7265ff6a387dd00045e3d9ae6312de72003e1e82d4526"),
         }
     }
 }
 
 impl Profile for SteamDeckProfile {
-    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
-        let mut template = PackerTemplate::default();
-
-        Ok(template)
-    }
-}
-
-impl SteamDeckProfile {
-    fn build(&self, config: Config, image: &Path) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image.to_string_lossy().to_string());
-        qemuargs.add_cdrom(MediaCache::get_bzip2(self.recovery_url.clone(), self.recovery_checksum.clone())?);
+        qemuargs.add_drive(image_path, "virtio");
+        qemuargs.add_cdrom(MediaCache::get_bzip2(
+            self.recovery_url.clone(),
+            &self.recovery_checksum,
+        )?);
 
         // Start VM
-        let qemu = qemuargs.start_process()?;
+        let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
         qemu.vnc.boot_command(vec![
             wait!(20),  // Wait for boot
             enter!(),   // Begin auto install
             wait!(600), // Wait for install
-        ]);
+        ])?;
 
         Ok(())
     }

@@ -1,13 +1,13 @@
+use crate::cache::MediaCache;
+use crate::config::Config;
+use crate::qemu::QemuArgs;
 use crate::{
     config::{Partition, Provisioner},
-    packer::bootcmds::enter,
-    packer::{PackerProvisioner, PackerTemplate, QemuBuilder, ShellPackerProvisioner},
     profile::Profile,
-    scale_wait_time,
+    vnc::bootcmds::{enter, wait},
 };
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
-use std::{error::Error, io::BufRead, io::BufReader, path::Path};
+use std::error::Error;
 use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
@@ -42,29 +42,32 @@ impl Default for AlpineProfile {
 }
 
 impl Profile for AlpineProfile {
-    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
-        let mut template = PackerTemplate::default();
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&config);
 
-        let mut builder = QemuBuilder::new();
-        builder.boot_command = vec![
-            enter!("root"),
-            enter!("KEYMAPOPTS='us us' setup-alpine -q"),
-        ];
-        builder.boot_wait = scale_wait_time(700000);
-        builder.communicator = String::from("ssh");
-        builder.shutdown_command = String::from("poweroff");
-        builder.ssh_password = Some(String::from("root"));
-        builder.ssh_username = Some(String::from("root"));
-        builder.ssh_wait_timeout = Some(String::from("1m"));
-        builder.iso_url = self.iso_url.clone();
-        builder.iso_checksum = self.iso_checksum.clone();
-        builder.qemuargs = vec![vec![
-            String::from("-global"),
-            String::from("driver=cfi.pflash01,property=secure,value=on"),
-        ]];
+        qemuargs.add_drive(image_path, "virtio");
+        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
 
-        template.builders.push(builder);
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
 
-        Ok(template)
+        // Send boot command
+        qemu.vnc.boot_command(vec![
+            wait!(60),                                    // Wait for boot
+            enter!("root"),                               // Login as root
+            enter!("KEYMAPOPTS='us us' setup-alpine -q"), // Start quick install
+        ]);
+
+        // Wait for SSH
+        let ssh = qemu.ssh()?;
+
+        // Run provisioners
+        for provisioner in &self.provisioners {
+            // TODO
+        }
+
+        // Shutdown
+        qemu.shutdown("poweroff")?;
+        Ok(())
     }
 }
