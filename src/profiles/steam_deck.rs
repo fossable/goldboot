@@ -22,7 +22,9 @@ impl Default for SteamDeckProfile {
             recovery_url: String::from(
                 "https://steamdeck-images.steamos.cloud/recovery/steamdeck-recovery-1.img.bz2",
             ),
-            recovery_checksum: String::from("sha256:5086bcc4fe0fb230dff7265ff6a387dd00045e3d9ae6312de72003e1e82d4526"),
+            recovery_checksum: String::from(
+                "sha256:5086bcc4fe0fb230dff7265ff6a387dd00045e3d9ae6312de72003e1e82d4526",
+            ),
         }
     }
 }

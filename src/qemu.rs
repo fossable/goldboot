@@ -1,4 +1,3 @@
-use std::time::Duration;
 use crate::config::Config;
 use crate::image_library_path;
 use crate::ssh::SshConnection;
@@ -9,6 +8,7 @@ use std::error::Error;
 use std::path::Path;
 use std::process::Child;
 use std::process::Command;
+use std::time::Duration;
 
 /// Search filesystem for UEFI firmware
 fn ovmf_firmware() -> Option<String> {
@@ -174,7 +174,10 @@ impl QemuArgs {
                 "user,id=user.0,hostfwd=tcp::{}-:22",
                 config.ssh_port.clone().unwrap()
             )],
-            vnc: vec![format!("127.0.0.1:{}", config.vnc_port.clone().unwrap() % 5900)],
+            vnc: vec![format!(
+                "127.0.0.1:{}",
+                config.vnc_port.clone().unwrap() % 5900
+            )],
             vnc_port: config.vnc_port.unwrap(),
             exe: if let Some(arch) = &config.arch {
                 match arch.as_str() {

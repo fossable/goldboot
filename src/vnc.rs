@@ -1,5 +1,5 @@
-use sha1::{Digest, Sha1};
 use log::debug;
+use sha1::{Digest, Sha1};
 use simple_error::bail;
 use std::error::Error;
 use std::net::TcpStream;
@@ -12,15 +12,17 @@ pub struct VncScreenshot {
 
 impl VncScreenshot {
     pub fn new(width: usize, height: usize) -> VncScreenshot {
-        Self { data: vec![0; width * height] }
+        Self {
+            data: vec![0; width * height],
+        }
     }
 
     pub fn hash(&self) -> String {
-    	hex::encode(Sha1::new().chain_update(&self.data).finalize())
+        hex::encode(Sha1::new().chain_update(&self.data).finalize())
     }
 
     pub fn put_pixels(&mut self, rect: vnc::Rect, pixels: &Vec<u8>) {
-    	// TODO
+        // TODO
     }
 }
 
@@ -42,7 +44,7 @@ pub struct VncConnection {
 
 impl VncConnection {
     pub fn new(host: &str, port: u16) -> Result<VncConnection, Box<dyn Error>> {
-    	debug!("Attempting VNC connection to: {}:{}", host,port);
+        debug!("Attempting VNC connection to: {}:{}", host, port);
 
         let mut vnc =
             vnc::Client::from_tcp_stream(TcpStream::connect((host, port))?, true, |_| {
@@ -91,7 +93,7 @@ impl VncConnection {
                     self.height = height;
                 }
                 Event::PutPixels(vnc_rect, ref pixels) => {
-                	screen.put_pixels(vnc_rect, pixels);
+                    screen.put_pixels(vnc_rect, pixels);
                 }
                 _ => {}
             }
@@ -108,28 +110,27 @@ impl VncConnection {
     }
 
     pub fn boot_command(&mut self, command: Vec<Vec<Cmd>>) -> Result<(), Box<dyn Error>> {
-
-    	let mut line = String::new();
+        let mut line = String::new();
 
         for step in command {
             for item in step {
                 match item {
                     Cmd::Type(text) => {
-                    	if self.debug {
-                    		println!("Waiting to type '{text}'");
+                        if self.debug {
+                            println!("Waiting to type '{text}'");
 
-                    		// TEMP
-                    		loop {
-                    			println!("hash: {}", self.screenshot()?.hash());
-                    			std::thread::sleep(Duration::from_secs(5));
-                    		}
+                            // TEMP
+                            loop {
+                                println!("hash: {}", self.screenshot()?.hash());
+                                std::thread::sleep(Duration::from_secs(5));
+                            }
 
-                    		std::io::stdin().read_line(&mut line).unwrap();
-                    	}
-                    	self.type_key(text)?;
+                            std::io::stdin().read_line(&mut line).unwrap();
+                        }
+                        self.type_key(text)?;
                     }
                     Cmd::Wait(duration) => {
-                    	debug!("Waiting {} seconds", &duration);
+                        debug!("Waiting {} seconds", &duration);
                         std::thread::sleep(Duration::from_secs(duration));
                     }
                     Cmd::Enter => {}

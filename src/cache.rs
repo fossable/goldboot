@@ -11,21 +11,26 @@ use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 
-fn copy_progress(reader: &mut dyn Read, writer: &mut dyn Write, len: u64, progress: &ProgressBar) -> Result<(), Box<dyn Error>> {
-	let mut buffer = [0u8; 1024 * 1024];
+fn copy_progress(
+    reader: &mut dyn Read,
+    writer: &mut dyn Write,
+    len: u64,
+    progress: &ProgressBar,
+) -> Result<(), Box<dyn Error>> {
+    let mut buffer = [0u8; 1024 * 1024];
     let mut copied: u64 = 0;
 
     loop {
         if let Ok(size) = reader.read(&mut buffer) {
-        	if size == 0 {
-        		break
-        	}
+            if size == 0 {
+                break;
+            }
             writer.write(&buffer[0..size])?;
             let new = min(copied + (size as u64), len);
             copied = new;
             progress.set_position(new);
         } else {
-        	break;
+            break;
         }
     }
 
@@ -42,11 +47,10 @@ fn cache_dir() -> PathBuf {
 }
 
 fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
-
-	// "None" shortcut
-	if checksum == "none" {
-		return Ok(());
-	}
+    // "None" shortcut
+    if checksum == "none" {
+        return Ok(());
+    }
 
     let c: Vec<&str> = checksum.split(":").collect();
     if c.len() != 2 {
@@ -61,13 +65,13 @@ fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
 
     let hash = match c[0] {
         "sha1" | "SHA1" => {
-        	info!("Computing SHA1 checksum");
+            info!("Computing SHA1 checksum");
             let mut hasher = Sha1::new();
             copy_progress(&mut file, &mut hasher, file_size, &progress)?;
             hex::encode(hasher.finalize())
         }
         "sha256" | "SHA256" => {
-        	info!("Computing SHA256 checksum");
+            info!("Computing SHA256 checksum");
             let mut hasher = Sha256::new();
             copy_progress(&mut file, &mut hasher, file_size, &progress)?;
             hex::encode(hasher.finalize())
@@ -95,13 +99,13 @@ impl MediaCache {
         // Delete file if the checksum doesn't match
         if path.is_file() {
             if !verify_checksum(path.to_string_lossy().to_string(), checksum).is_ok() {
-            	info!("Cached file checksum did not match");
+                info!("Cached file checksum did not match");
                 std::fs::remove_file(&path)?;
             }
         }
 
         if !path.is_file() {
-        	let mut rs = reqwest::blocking::get(&url)?;
+            let mut rs = reqwest::blocking::get(&url)?;
             if rs.status().is_success() {
                 let length = rs.content_length().ok_or("Failed to get content length")?;
 
@@ -129,7 +133,7 @@ impl MediaCache {
         // Delete file if the checksum doesn't match
         if path.is_file() {
             if !verify_checksum(path.to_string_lossy().to_string(), checksum).is_ok() {
-            	info!("Cached file checksum did not match");
+                info!("Cached file checksum did not match");
                 std::fs::remove_file(&path)?;
             }
         }

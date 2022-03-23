@@ -1,7 +1,7 @@
-use rand::Rng;
 use crate::profile::Profile;
 use crate::profiles;
 use log::debug;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{default::Default, error::Error, fs};
 use validator::Validate;
