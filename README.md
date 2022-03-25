@@ -8,7 +8,32 @@ or desktop environments.
 Warning: this tool is totally unfinshed and should be used for testing only! Proceed
 at your own risk!
 
-### Getting Started
+## Golden Images
+
+Golden images contain your operating system, applications, software patches, and
+configuration all rolled into one easily deployable package.
+
+`goldboot` is designed to greatly simplify the process of building and deploying
+to bare-metal.
+
+### Reset Security
+
+Reset security is the concept that periodically rolling back a machine's state to a
+"known clean" checkpoint is a beneficial security practice. Most malware (excepting
+firmware-level infections) cannot survive the reimaging process.
+
+So the idea is, if an attacker is able to infiltrate a machine, at least they can't stick around for long.
+
+### Downtime
+
+A disadvantage to golden images is that applying them involves downtime which is
+proportional to the size of the image and how far a particular machine's state
+has drifted from the golden image.
+
+For this reason, the size of golden images should be kept to a minimum. They are
+therefore not ideal for storing large databases, archives, logs, etc.
+
+## Getting Started
 
 First, create a directory which can later be added to version control:
 ```sh

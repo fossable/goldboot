@@ -10,14 +10,14 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub enum PopOsVersions {
     #[serde(rename = "21.10")]
     #[default]
     V21_10,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct PopOsProfile {
     pub version: PopOsVersions,
 
@@ -53,8 +53,13 @@ impl Profile for PopOsProfile {
     fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image_path, "virtio");
-        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
+        qemuargs.drive.push(format!(
+            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+        ));
+        qemuargs.drive.push(format!(
+            "file={},media=cdrom",
+            MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+        ));
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
@@ -98,7 +103,7 @@ impl Profile for PopOsProfile {
             wait!(30),                                                   // Install sshd
             enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"), // Configure sshd
             enter!("systemctl restart sshd"),                            // Start sshd
-        ]);
+        ])?;
 
         // Wait for SSH
         let ssh = qemu.ssh()?;

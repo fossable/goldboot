@@ -7,7 +7,7 @@ use std::{default::Default, error::Error, fs};
 use validator::Validate;
 
 /// The global configuration
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct Config {
     /// The image name
     #[validate(length(min = 1))]
@@ -74,8 +74,14 @@ fn default_vnc_port() -> Option<u16> {
 impl Config {
     /// Read config from working directory
     pub fn load() -> Result<Config, Box<dyn Error>> {
-        debug!("Loading config");
-        Ok(serde_json::from_slice(&fs::read("goldboot.json")?)?)
+        debug!("Loading config from ./goldboot.json");
+
+        // Load config and validate it before returning
+        let config: Config = serde_json::from_slice(&fs::read("goldboot.json")?)?;
+        config.validate()?;
+
+        debug!("Loaded config: {:#?}", &config);
+        Ok(config)
     }
 
     pub fn get_profiles(&self) -> Vec<&dyn Profile> {
@@ -104,7 +110,7 @@ impl Config {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Partition {
     pub r#type: String,
     pub size: String,
@@ -113,7 +119,7 @@ pub struct Partition {
 }
 
 /// A generic provisioner
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Provisioner {
     pub r#type: String,
 
@@ -124,12 +130,12 @@ pub struct Provisioner {
     pub shell: ShellProvisioner,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AnsibleProvisioner {
     pub playbook: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ShellProvisioner {
     pub script: Option<String>,
 }

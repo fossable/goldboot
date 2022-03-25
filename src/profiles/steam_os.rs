@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct SteamOsProfile {
     pub iso_url: String,
 
@@ -36,8 +36,13 @@ impl Profile for SteamOsProfile {
     fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image_path, "virtio");
-        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
+        qemuargs.drive.push(format!(
+            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+        ));
+        qemuargs.drive.push(format!(
+            "file={},media=cdrom",
+            MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+        ));
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
@@ -47,7 +52,7 @@ impl Profile for SteamOsProfile {
             wait!(20), // Wait for boot
             enter!(),
             wait!(600),
-        ]);
+        ])?;
 
         // Wait for SSH
         let ssh = qemu.ssh()?;

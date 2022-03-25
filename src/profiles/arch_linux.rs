@@ -18,8 +18,9 @@ const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 #[folder = "res/arch_linux/"]
 struct Resources;
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinuxProfile {
+    #[validate(length(max = 64))]
     pub root_password: String,
 
     pub mirrorlist: Vec<String>,
@@ -120,8 +121,13 @@ impl Profile for ArchLinuxProfile {
     fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image_path, "virtio");
-        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
+        qemuargs.drive.push(format!(
+            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+        ));
+        qemuargs.drive.push(format!(
+            "file={},media=cdrom",
+            MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+        ));
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
@@ -133,7 +139,7 @@ impl Profile for ArchLinuxProfile {
             enter!(self.root_password),
             enter!(self.root_password),     // Configure root password
             enter!("systemctl start sshd"), // Start sshd
-        ]);
+        ])?;
 
         // Wait for SSH
         let ssh = qemu.ssh()?;

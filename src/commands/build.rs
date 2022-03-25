@@ -1,15 +1,23 @@
 use crate::commands::image::ImageMetadata;
 use crate::qemu::allocate_image;
 use crate::{config::Config, image_library_path};
-use log::debug;
+use log::{debug, info};
 use simple_error::bail;
 use std::{error::Error, fs};
 
 pub fn build() -> Result<(), Box<dyn Error>> {
-    debug!("Starting build");
+    println!("⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
+    println!("⬜　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛　⬜");
+    println!("⬜　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛⬛⬜");
+    println!("⬜⬛⬛⬛　⬛⬛⬛　⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛　⬜");
+    println!("⬜⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬜");
+    println!("⬜⬛⬛⬛　⬛⬛⬛　⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬜");
+    println!("⬜　　⬛　　　　　　　　　　　　　　　　　　　　　　　　　⬜");
+    println!("⬜⬛⬛⬛　　　　　　　　　　　　　　　　　　　　　　　　　⬜");
+    println!("⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
 
     // Load goldboot.json in the current directory
-    let mut config = Config::load()?;
+    let config = Config::load()?;
 
     // Prepare to build profiles
     let profiles = config.get_profiles();

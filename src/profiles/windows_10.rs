@@ -16,7 +16,7 @@ use validator::Validate;
 #[folder = "res/windows_10/"]
 struct Resources;
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Windows10Profile {
     username: String,
 
@@ -72,8 +72,13 @@ impl Profile for Windows10Profile {
     fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image_path, "ide");
-        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
+        qemuargs.drive.push(format!(
+            "file={image_path},if=ide,cache=writeback,discard=ignore,format=qcow2"
+        ));
+        qemuargs.drive.push(format!(
+            "file={},media=cdrom",
+            MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+        ));
 
         // Write the Autounattend.xml file
         //self.create_unattended().write(&context)?;
@@ -90,7 +95,7 @@ impl Profile for Windows10Profile {
         qemu.vnc.boot_command(vec![
             wait!(4), // Wait for boot
             enter!(),
-        ]);
+        ])?;
 
         // Wait for SSH
         let ssh = qemu.ssh()?;

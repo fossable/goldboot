@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct UbuntuServerProfile {
     pub version: String,
     pub username: String,

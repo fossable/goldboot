@@ -1,38 +1,61 @@
-use log::debug;
+use log::{debug, info};
 use sha1::{Digest, Sha1};
 use simple_error::bail;
 use std::error::Error;
+use std::fs::File;
+use std::io::BufWriter;
 use std::net::TcpStream;
 use std::time::Duration;
 use vnc::client::Event;
 
 pub struct VncScreenshot {
     pub data: Vec<u8>,
+    pub width: u16,
+    pub height: u16,
 }
 
 impl VncScreenshot {
-    pub fn new(width: usize, height: usize) -> VncScreenshot {
-        Self {
-            data: vec![0; width * height],
-        }
-    }
-
     pub fn hash(&self) -> String {
         hex::encode(Sha1::new().chain_update(&self.data).finalize())
     }
 
-    pub fn put_pixels(&mut self, rect: vnc::Rect, pixels: &Vec<u8>) {
-        // TODO
+    pub fn write_png(&self, output_path: &str) -> Result<(), Box<dyn Error>> {
+        let ref mut w = BufWriter::new(File::create(output_path)?);
+
+        let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
+        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().unwrap();
+        writer.write_image_data(&self.data).unwrap();
+        Ok(())
+    }
+
+    /// Compute a percentage of how similar the given screenshot is to this one.
+    pub fn similarity(&self, _other: &VncScreenshot) -> f32 {
+        0.0
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Cmd {
     Enter,
     Spacebar,
     Tab,
+
+    /// Input the left super button.
     LeftSuper,
+
+    /// Input the given text characters with a half-second delay between each.
     Type(String),
+
+    /// Wait the given amount of seconds.
     Wait(u64),
+
+    /// Wait for the screen to match the given hash.
+    WaitScreen(String),
+
+    /// Wait for a section of the screen to match the given hash.
+    WaitScreenRect(String, vnc::Rect),
 }
 
 pub struct VncConnection {
@@ -52,91 +75,151 @@ impl VncConnection {
             })?;
 
         let (width, height) = vnc.size();
-        let vnc_format = vnc.format();
-        debug!("Format: {:?}", vnc_format);
+
+        vnc.set_format(vnc::PixelFormat {
+            bits_per_pixel: 8,
+            depth: 8,
+            big_endian: false,
+            true_colour: true,
+            red_max: 8,
+            green_max: 8,
+            blue_max: 4,
+            red_shift: 5,
+            green_shift: 2,
+            blue_shift: 0,
+        })?;
 
         debug!("Connected to VNC ({} x {})", width, height);
 
         // Qemu hacks
-        vnc.set_encodings(&[vnc::Encoding::Zrle, vnc::Encoding::DesktopSize])
-            .unwrap();
+        vnc.set_encodings(&[vnc::Encoding::Raw, vnc::Encoding::DesktopSize])?;
 
         Ok(Self {
-            width: width,
-            height: height,
+            width,
+            height,
             vnc: vnc,
             debug: true,
         })
     }
 
     pub fn screenshot(&mut self) -> Result<VncScreenshot, Box<dyn Error>> {
-        let mut screen = VncScreenshot::new(self.width.into(), self.height.into());
 
-        self.vnc
-            .request_update(
-                vnc::Rect {
-                    left: 0,
-                    top: 0,
-                    width: self.width,
-                    height: self.height,
-                },
-                false,
-            )
-            .unwrap();
-
-        for event in self.vnc.poll_iter() {
+    	// Attempt to clear the framebuffer, but don't discard any resize events
+    	for event in self.vnc.poll_iter() {
             match event {
-                Event::Disconnected(None) => bail!("Disconnected"),
-                Event::Disconnected(Some(error)) => bail!("Disconnected"),
                 Event::Resize(width, height) => {
                     self.width = width;
                     self.height = height;
                 }
-                Event::PutPixels(vnc_rect, ref pixels) => {
-                    screen.put_pixels(vnc_rect, pixels);
-                }
-                _ => {}
+                _ => {},
             }
         }
 
-        Ok(screen)
+        loop {
+            let request_rect = vnc::Rect {
+                left: 0,
+                top: 0,
+                width: self.width,
+                height: self.height,
+            };
+
+            // Request a full screen update
+            self.vnc.request_update(request_rect, false).unwrap();
+
+            for event in self.vnc.poll_iter() {
+                match event {
+                    Event::Resize(width, height) => {
+                        self.width = width;
+                        self.height = height;
+                    }
+                    Event::PutPixels(vnc_rect, ref pixels) => {
+                        if vnc_rect == request_rect {
+                            return Ok(VncScreenshot {
+                                width: vnc_rect.width,
+                                height: vnc_rect.height,
+                                data: pixels.clone(),
+                            });
+                        }
+                    }
+                    _ => bail!("VNC poll failed"),
+                }
+            }
+        }
     }
 
-    pub fn type_key(&mut self, text: String) -> Result<(), Box<dyn Error>> {
-        let chr = 0x01000000 + text.chars().next().unwrap() as u32;
-        self.vnc.send_key_event(true, chr)?;
-        self.vnc.send_key_event(false, chr)?;
-        Ok(())
+    fn handle_breakpoint(&mut self, cmd: &Cmd) -> Result<(), Box<dyn Error>> {
+        info!(
+            "(breakpoint)['c' to continue, 's' to screenshot, 'q' to quit] Next command: {:?}",
+            cmd
+        );
+
+        loop {
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line).unwrap();
+            match line.chars().next().unwrap() {
+                'c' => break Ok(()),
+                's' => {
+                    let screenshot = self.screenshot()?;
+                    info!("Current screen hash: {}", screenshot.hash());
+                    screenshot.write_png("/tmp/test.png")?;
+                }
+                'q' => panic!(),
+                _ => continue,
+            }
+        }
     }
 
     pub fn boot_command(&mut self, command: Vec<Vec<Cmd>>) -> Result<(), Box<dyn Error>> {
-        let mut line = String::new();
-
         for step in command {
             for item in step {
+                if self.debug {
+                    self.handle_breakpoint(&item)?;
+                }
                 match item {
                     Cmd::Type(text) => {
-                        if self.debug {
-                            println!("Waiting to type '{text}'");
-
-                            // TEMP
-                            loop {
-                                println!("hash: {}", self.screenshot()?.hash());
-                                std::thread::sleep(Duration::from_secs(5));
-                            }
-
-                            std::io::stdin().read_line(&mut line).unwrap();
+                        for ch in text.chars() {
+                            self.vnc.send_key_event(true, 0x01000000 + ch as u32)?;
+                            self.vnc.send_key_event(false, 0x01000000 + ch as u32)?;
+                            std::thread::sleep(Duration::from_millis(200));
                         }
-                        self.type_key(text)?;
                     }
                     Cmd::Wait(duration) => {
                         debug!("Waiting {} seconds", &duration);
                         std::thread::sleep(Duration::from_secs(duration));
                     }
-                    Cmd::Enter => {}
+                    Cmd::WaitScreen(hash) => {
+                        debug!("Waiting for screen hash to equal: {}", &hash);
+                        loop {
+                            std::thread::sleep(Duration::from_secs(1));
+                            if self.screenshot()?.hash() == hash {
+                            	// Don't continue immediately
+                            	std::thread::sleep(Duration::from_secs(1));
+                                break;
+                            }
+                        }
+                    }
+                    Cmd::WaitScreenRect(hash, rect) => {
+                    	debug!("Waiting for screen hash to equal: {}", &hash);
+                        loop {
+                            std::thread::sleep(Duration::from_secs(1));
+                            // TODO add rect
+                            if self.screenshot()?.hash() == hash {
+                            	// Don't continue immediately
+                            	std::thread::sleep(Duration::from_secs(1));
+                                break;
+                            }
+                        }
+                    }
+                    Cmd::Enter => {
+                        self.vnc.send_key_event(true, 0xff0d)?;
+                        self.vnc.send_key_event(false, 0xff0d)?;
+                    }
                     Cmd::Tab => {}
                     Cmd::Spacebar => {}
-                    Cmd::LeftSuper => {}
+                    Cmd::LeftSuper => {
+                        self.vnc.send_key_event(true, 0xffeb)?;
+                        self.vnc.send_key_event(false, 0xffeb)?;
+                    }
                 }
             }
         }
@@ -184,6 +267,18 @@ pub mod bootcmds {
         };
     }
 
+    macro_rules! wait_screen {
+        ($hash:expr) => {
+            vec![crate::vnc::Cmd::WaitScreen($hash)]
+        };
+    }
+
+    macro_rules! wait_screen_rect {
+        ($hash:expr, $top:expr, $left:expr, $width:expr, $height:expr) => {
+            vec![crate::vnc::Cmd::WaitScreenRect($hash.to_string(), vnc::Rect{top: $top, left: $left, width: $width, height: $height})]
+        };
+    }
+
     macro_rules! input {
         ($text:expr) => {
             vec![
@@ -205,4 +300,6 @@ pub mod bootcmds {
     pub(crate) use spacebar;
     pub(crate) use tab;
     pub(crate) use wait;
+    pub(crate) use wait_screen;
+    pub(crate) use wait_screen_rect;
 }

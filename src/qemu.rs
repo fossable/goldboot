@@ -17,9 +17,12 @@ fn ovmf_firmware() -> Option<String> {
         "/usr/share/OVMF/OVMF_CODE.fd",
     ] {
         if Path::new(&path).is_file() {
+            debug!("Located OVMF firmware at: {}", path.to_string());
             return Some(path.to_string());
         }
     }
+
+    debug!("Failed to locate OVMF firmware");
     None
 }
 
@@ -29,12 +32,15 @@ pub fn allocate_image(size: &str) -> Result<String, Box<dyn Error>> {
     std::fs::create_dir_all(&directory)?;
 
     let path = directory.join("1234").to_string_lossy().to_string();
+    debug!("Allocating new {} qcow2 volume: {}", size, path);
     if let Some(code) = Command::new("qemu-img")
         .arg("create")
         .arg("-f")
         .arg("qcow2")
         .arg(&path)
         .arg(size)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()
         .expect("Failed to launch qemu-img")
         .code()
@@ -51,6 +57,8 @@ pub fn allocate_image(size: &str) -> Result<String, Box<dyn Error>> {
 
 pub fn compact_image(path: &str) -> Result<(), Box<dyn Error>> {
     let tmp_path = format!("{}.out", &path);
+
+    debug!("Compacting qcow2 image");
     if let Some(code) = Command::new("qemu-img")
         .arg("convert")
         .arg("-c")
@@ -58,6 +66,8 @@ pub fn compact_image(path: &str) -> Result<(), Box<dyn Error>> {
         .arg("qcow2")
         .arg(&path)
         .arg(&tmp_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()
         .expect("Failed to launch qemu-img")
         .code()
@@ -154,6 +164,7 @@ pub struct QemuArgs {
     pub name: String,
     pub netdev: Vec<String>,
     pub vnc: Vec<String>,
+    pub smp: String,
 
     pub exe: String,
     pub vnc_port: u16,
@@ -170,6 +181,7 @@ impl QemuArgs {
             machine: String::from("type=pc,accel=kvm"),
             memory: config.memory.clone(),
             name: config.name.clone(),
+            smp: String::from("4,sockets=1,cores=4,threads=1"),
             netdev: vec![format!(
                 "user,id=user.0,hostfwd=tcp::{}-:22",
                 config.ssh_port.clone().unwrap()
@@ -191,17 +203,6 @@ impl QemuArgs {
         }
     }
 
-    pub fn add_drive(&mut self, path: &str, r#if: &str) {
-        self.drive.push(format!(
-            "file={},if={},cache=writeback,discard=ignore,format=qcow2",
-            path, r#if
-        ));
-    }
-
-    pub fn add_cdrom(&mut self, path: String) {
-        self.drive.push(format!("file={},media=cdrom", path));
-    }
-
     pub fn to_cmdline(&self) -> Vec<String> {
         let mut cmdline = vec![
             String::from("-name"),
@@ -214,6 +215,10 @@ impl QemuArgs {
             self.boot.clone(),
             String::from("-display"),
             String::from("gtk"),
+            String::from("-smp"),
+            self.smp.clone(),
+            String::from("-machine"),
+            self.machine.clone(),
         ];
 
         for global in &self.global {

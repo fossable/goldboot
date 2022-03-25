@@ -12,7 +12,7 @@ use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 
-#[derive(Clone, Serialize, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AlpineProfile {
     pub root_password: String,
 
@@ -45,8 +45,13 @@ impl Profile for AlpineProfile {
     fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
-        qemuargs.add_drive(image_path, "virtio");
-        qemuargs.add_cdrom(MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?);
+        qemuargs.drive.push(format!(
+            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+        ));
+        qemuargs.drive.push(format!(
+            "file={},media=cdrom",
+            MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+        ));
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
@@ -56,7 +61,7 @@ impl Profile for AlpineProfile {
             wait!(60),                                    // Wait for boot
             enter!("root"),                               // Login as root
             enter!("KEYMAPOPTS='us us' setup-alpine -q"), // Start quick install
-        ]);
+        ])?;
 
         // Wait for SSH
         let ssh = qemu.ssh()?;
