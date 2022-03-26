@@ -1,3 +1,4 @@
+use std::path::Path;
 use log::{debug, info};
 use sha1::{Digest, Sha1};
 use simple_error::bail;
@@ -19,7 +20,8 @@ impl VncScreenshot {
         hex::encode(Sha1::new().chain_update(&self.data).finalize())
     }
 
-    pub fn write_png(&self, output_path: &str) -> Result<(), Box<dyn Error>> {
+    pub fn write_png(&self, output_path: &Path) -> Result<(), Box<dyn Error>> {
+    	std::fs::create_dir_all(output_path.parent().unwrap())?;
         let ref mut w = BufWriter::new(File::create(output_path)?);
 
         let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
@@ -204,8 +206,8 @@ impl VncConnection {
                         "Captured screen hash: {} ({} x {})",
                         hash, screenshot.width, screenshot.height
                     );
-                    std::fs::create_dir_all("debug")?;
-                    screenshot.write_png(&format!("debug/{hash}.png"))?;
+
+                    screenshot.write_png(&Path::new(&format!("debug/{hash}.png")))?;
                 }
                 Some("q") => panic!(),
                 _ => continue,
@@ -286,7 +288,7 @@ impl VncConnection {
                 }
                 if self.record {
                     self.screenshot()?
-                        .write_png(&format!("debug/{step_number}.png"))?;
+                        .write_png(&Path::new(&format!("debug/{step_number}.png")))?;
                     step_number += 1;
                 }
             }
