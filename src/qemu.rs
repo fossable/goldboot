@@ -176,6 +176,14 @@ pub struct QemuArgs {
     pub vnc_port: u16,
 }
 
+fn get_machine() -> String {
+    if std::env::var("CI").is_ok() {
+        String::from("type=pc")
+    } else {
+        String::from("type=pc,accel=kvm")
+    }
+}
+
 impl QemuArgs {
     pub fn new(config: &Config) -> Self {
         Self {
@@ -184,7 +192,7 @@ impl QemuArgs {
             device: vec![String::from("virtio-net,netdev=user.0")],
             drive: vec![],
             global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
-            machine: String::from("type=pc,accel=kvm"),
+            machine: get_machine(),
             memory: config.memory.clone(),
             name: config.name.clone(),
             smp: String::from("4,sockets=1,cores=4,threads=1"),
