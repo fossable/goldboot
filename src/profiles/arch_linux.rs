@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::{error::Error, io::BufRead, io::BufReader};
 use validator::Validate;
+use log::info;
+use colored::*;
 
 const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 
@@ -122,9 +124,9 @@ impl Profile for ArchLinuxProfile {
         &self,
         config: &Config,
         image_path: &str,
-        record: bool,
-        debug: bool,
     ) -> Result<(), Box<dyn Error>> {
+        info!("Starting {} build", "ArchLinux".blue());
+
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -136,7 +138,7 @@ impl Profile for ArchLinuxProfile {
         ));
 
         // Start VM
-        let mut qemu = qemuargs.start_process(record, debug)?;
+        let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
         qemu.vnc.boot_command(vec![

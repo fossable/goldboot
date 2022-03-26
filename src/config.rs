@@ -61,6 +61,12 @@ pub struct Config {
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "UbuntuServer")]
     pub profile_ubuntu_server: Option<profiles::ubuntu_server::UbuntuServerProfile>,
+
+    #[serde(skip)]
+    pub build_record: bool,
+
+    #[serde(skip)]
+    pub build_debug: bool,
 }
 
 fn default_ssh_port() -> Option<u16> {

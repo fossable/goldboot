@@ -73,8 +73,6 @@ impl Profile for Windows10Profile {
         &self,
         config: &Config,
         image_path: &str,
-        record: bool,
-        debug: bool,
     ) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
@@ -95,7 +93,7 @@ impl Profile for Windows10Profile {
         //}
 
         // Start VM
-        let mut qemu = qemuargs.start_process(record, debug)?;
+        let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
         qemu.vnc.boot_command(vec![

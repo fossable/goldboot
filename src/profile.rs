@@ -7,8 +7,6 @@ pub trait Profile {
         &self,
         config: &Config,
         image_path: &str,
-        record: bool,
-        debug: bool,
     ) -> Result<(), Box<dyn Error>>;
 }
 

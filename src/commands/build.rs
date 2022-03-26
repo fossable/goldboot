@@ -19,7 +19,10 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     let start_time = Instant::now();
 
     // Load goldboot.json in the current directory
-    let config = Config::load()?;
+    let mut config = Config::load()?;
+
+    config.build_record = record;
+    config.build_debug = debug;
 
     // Prepare to build profiles
     let profiles = config.get_profiles();
@@ -38,7 +41,7 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
 
     // Build each profile
     for profile in profiles {
-        profile.build(&config, &image_path, record, debug)?;
+        profile.build(&config, &image_path)?;
     }
 
     // Install bootloader if we're multi booting

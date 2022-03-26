@@ -54,8 +54,6 @@ impl Profile for PopOsProfile {
         &self,
         config: &Config,
         image_path: &str,
-        record: bool,
-        debug: bool,
     ) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
@@ -68,7 +66,7 @@ impl Profile for PopOsProfile {
         ));
 
         // Start VM
-        let mut qemu = qemuargs.start_process(record, debug)?;
+        let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
         qemu.vnc.boot_command(vec![

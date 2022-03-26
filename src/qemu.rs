@@ -97,7 +97,7 @@ pub struct QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn new(args: &QemuArgs, record: bool, debug: bool) -> Result<QemuProcess, Box<dyn Error>> {
+    pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
         let cmdline = args.to_cmdline();
         debug!("Starting QEMU: {:?}", &cmdline);
 
@@ -109,7 +109,7 @@ impl QemuProcess {
 
         // Connect to VNC
         let vnc = loop {
-            match VncConnection::new("localhost", args.vnc_port, record, debug) {
+            match VncConnection::new("localhost", args.vnc_port, args.record, args.debug) {
                 Ok(vnc) => break Ok(vnc),
                 Err(_) => {
                     // Check process
@@ -164,6 +164,7 @@ pub struct QemuArgs {
     pub boot: String,
     pub device: Vec<String>,
     pub drive: Vec<String>,
+    pub display: String,
     pub global: Vec<String>,
     pub machine: String,
     pub memory: String,
@@ -174,14 +175,8 @@ pub struct QemuArgs {
 
     pub exe: String,
     pub vnc_port: u16,
-}
-
-fn get_machine() -> String {
-    if std::env::var("CI").is_ok() {
-        String::from("type=pc")
-    } else {
-        String::from("type=pc,accel=kvm")
-    }
+    pub record: bool,
+    pub debug: bool,
 }
 
 impl QemuArgs {
@@ -192,7 +187,16 @@ impl QemuArgs {
             device: vec![String::from("virtio-net,netdev=user.0")],
             drive: vec![],
             global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
-            machine: get_machine(),
+            machine: if std::env::var("CI").is_ok() {
+        String::from("type=pc")
+    } else {
+        String::from("type=pc,accel=kvm")
+    },
+            display: if config.build_debug {
+                String::from("gtk")
+            } else {
+                String::from("none")
+            },
             memory: config.memory.clone(),
             name: config.name.clone(),
             smp: String::from("4,sockets=1,cores=4,threads=1"),
@@ -214,6 +218,8 @@ impl QemuArgs {
             } else {
                 String::from("qemu-system-x86_64")
             },
+            record: config.build_record,
+            debug: config.build_debug,
         }
     }
 
@@ -228,7 +234,7 @@ impl QemuArgs {
             String::from("-boot"),
             self.boot.clone(),
             String::from("-display"),
-            String::from("gtk"),
+            self.display.clone(),
             String::from("-smp"),
             self.smp.clone(),
             String::from("-machine"),
@@ -263,7 +269,7 @@ impl QemuArgs {
         cmdline
     }
 
-    pub fn start_process(&self, record: bool, debug: bool) -> Result<QemuProcess, Box<dyn Error>> {
-        QemuProcess::new(self, record, debug)
+    pub fn start_process(&self) -> Result<QemuProcess, Box<dyn Error>> {
+        QemuProcess::new(self)
     }
 }
