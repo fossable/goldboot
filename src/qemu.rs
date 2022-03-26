@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::image_library_path;
 use crate::ssh::SshConnection;
 use crate::vnc::VncConnection;
-use log::debug;
+use log::{debug, info};
 use simple_error::bail;
 use std::error::Error;
 use std::path::Path;
@@ -55,10 +55,10 @@ pub fn allocate_image(size: &str) -> Result<String, Box<dyn Error>> {
     }
 }
 
-pub fn compact_image(path: &str) -> Result<(), Box<dyn Error>> {
+pub fn compact_qcow2(path: &str) -> Result<(), Box<dyn Error>> {
     let tmp_path = format!("{}.out", &path);
 
-    debug!("Compacting qcow2 image");
+    info!("Compacting image");
     if let Some(code) = Command::new("qemu-img")
         .arg("convert")
         .arg("-c")
@@ -75,8 +75,8 @@ pub fn compact_image(path: &str) -> Result<(), Box<dyn Error>> {
         if code != 0 {
             bail!("qemu-img failed with error code: {}", code);
         } else {
-            debug!(
-                "Compacted image size from {} to {}",
+            info!(
+                "Reduced image size from {} to {}",
                 std::fs::metadata(&path)?.len(),
                 std::fs::metadata(&tmp_path)?.len()
             );
@@ -97,7 +97,7 @@ pub struct QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
+    pub fn new(args: &QemuArgs, record: bool, debug: bool) -> Result<QemuProcess, Box<dyn Error>> {
         let cmdline = args.to_cmdline();
         debug!("Starting QEMU: {:?}", &cmdline);
 
@@ -109,7 +109,7 @@ impl QemuProcess {
 
         // Connect to VNC
         let vnc = loop {
-            match VncConnection::new("localhost", args.vnc_port) {
+            match VncConnection::new("localhost", args.vnc_port, record, debug) {
                 Ok(vnc) => break Ok(vnc),
                 Err(_) => {
                     // Check process
@@ -143,12 +143,18 @@ impl QemuProcess {
     }
 
     pub fn shutdown(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
-        // Send shutdown command
+        info!("Sending shutdown command");
         self.ssh()?.run(command)?;
 
-        // Wait for process to exit
-        self.child.wait().unwrap();
+        self.shutdown_wait()?;
+        Ok(())
+    }
 
+    pub fn shutdown_wait(&mut self) -> Result<(), Box<dyn Error>> {
+        info!("Waiting for shutdown");
+
+        // Wait for QEMU to exit
+        self.child.wait()?;
         Ok(())
     }
 }
@@ -249,7 +255,7 @@ impl QemuArgs {
         cmdline
     }
 
-    pub fn start_process(&self) -> Result<QemuProcess, Box<dyn Error>> {
-        QemuProcess::new(self)
+    pub fn start_process(&self, record: bool, debug: bool) -> Result<QemuProcess, Box<dyn Error>> {
+        QemuProcess::new(self, record, debug)
     }
 }

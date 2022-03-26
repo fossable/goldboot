@@ -39,6 +39,13 @@ jobs:
         run: |
           mkdir ArchLinux && cd ArchLinux
           goldboot init --profile ArchLinux --disk 1G
-          goldboot build --scale 2.5
+          goldboot build --record
           fallocate -l 1GiB /tmp/ArchLinux.raw
           goldboot image write --image ArchLinux --disk /tmp/ArchLinux.raw
+
+      - name: Store debug output
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Debug output
+          path: debug

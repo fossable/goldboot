@@ -43,16 +43,13 @@ struct CommandLine {
 enum Commands {
     /// Build a new image
     Build {
-        /// Scale all wait times to account for hardware of different speeds
-        #[clap(long)]
-        scale: Option<f64>,
+        /// Save a screenshot to ./debug after each boot command
+        #[clap(long, takes_value = false)]
+        record: bool,
 
-        /// Record the run to the given path for debugging
-        #[clap(long)]
-        record: Option<String>,
-        //
-        //#[clap(long, takes_value = false)]
-        //debug: bool,
+        /// Insert a breakpoint after each boot command
+        #[clap(long, takes_value = false)]
+        debug: bool,
     },
 
     /// Manage local images
@@ -192,13 +189,6 @@ pub fn build_headless_debug() -> bool {
     return true;
 }
 
-/// Scale all wait times to support faster or slower machines.
-pub fn scale_wait_time(seconds: u32) -> String {
-    unsafe { format!("{}s", (seconds as f64 * MULTIPLIER) as u64) }
-}
-
-static mut MULTIPLIER: f64 = 1f64;
-
 pub fn main() -> Result<(), Box<dyn Error>> {
     // Parse command line first
     let cl = CommandLine::parse();
@@ -208,16 +198,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build { scale, record } => {
-            // Set global multiplier
-            // TODO: unsafe can be refactored
-            if let Some(m) = scale {
-                unsafe {
-                    MULTIPLIER = *m;
-                }
-            }
-            commands::build::build()
-        }
+        Commands::Build { record, debug } => commands::build::build(*record, *debug),
         Commands::Registry { command } => match &command {
             RegistryCommands::Push { url } => commands::registry::push(),
             RegistryCommands::Pull { url } => commands::registry::pull(),

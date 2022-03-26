@@ -42,7 +42,13 @@ impl Default for AlpineProfile {
 }
 
 impl Profile for AlpineProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+    fn build(
+        &self,
+        config: &Config,
+        image_path: &str,
+        record: bool,
+        debug: bool,
+    ) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -54,7 +60,7 @@ impl Profile for AlpineProfile {
         ));
 
         // Start VM
-        let mut qemu = qemuargs.start_process()?;
+        let mut qemu = qemuargs.start_process(record, debug)?;
 
         // Send boot command
         qemu.vnc.boot_command(vec![
