@@ -6,6 +6,7 @@ on:
 
 env:
   RUST_LOG: debug
+  RUST_BACKTRACE: 1
 
 jobs:
   linux-x86_64:
