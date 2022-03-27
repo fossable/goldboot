@@ -140,8 +140,9 @@ impl QemuProcess {
         Ok(loop {
             std::thread::sleep(Duration::from_secs(5));
 
-            if let Ok(ssh) = SshConnection::new(port, &username, &password) {
-                break ssh;
+            match SshConnection::new(port, &username, &password) {
+                Ok(ssh) => break ssh,
+                Err(error) => debug!("{}", error),
             }
         })
     }

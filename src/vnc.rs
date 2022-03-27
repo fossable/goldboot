@@ -23,7 +23,6 @@ impl VncScreenshot {
 
     pub fn write_png(&self, output_path: &Path) -> Result<(), Box<dyn Error>> {
         std::fs::create_dir_all(output_path.parent().unwrap())?;
-        debug!("Saving screenshot to: {:?}", output_path);
         let ref mut w = BufWriter::new(File::create(output_path)?);
 
         let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
@@ -31,6 +30,8 @@ impl VncScreenshot {
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().unwrap();
         writer.write_image_data(&self.data).unwrap();
+
+        debug!("Saved screenshot to: {:?}", std::fs::canonicalize(output_path)?);
         Ok(())
     }
 
