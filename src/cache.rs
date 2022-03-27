@@ -2,7 +2,7 @@ use bzip2_rs::DecoderReader;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info};
 use sha1::{Digest, Sha1};
-use sha2::Sha256;
+use sha2::{Sha256, Sha512};
 use simple_error::bail;
 use std::cmp::min;
 use std::error::Error;
@@ -73,6 +73,12 @@ fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
         "sha256" | "SHA256" => {
             info!("Computing SHA256 checksum");
             let mut hasher = Sha256::new();
+            copy_progress(&mut file, &mut hasher, file_size, &progress)?;
+            hex::encode(hasher.finalize())
+        }
+        "sha512" | "SHA512" => {
+            info!("Computing SHA512 checksum");
+            let mut hasher = Sha512::new();
             copy_progress(&mut file, &mut hasher, file_size, &progress)?;
             hex::encode(hasher.finalize())
         }

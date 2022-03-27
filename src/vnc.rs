@@ -230,12 +230,17 @@ impl VncConnection {
     pub fn boot_command(&mut self, command: Vec<Vec<Cmd>>) -> Result<(), Box<dyn Error>> {
         info!("Running bootstrap sequence");
 
-        let progress = ProgressBar::new(command.iter().map(|v| v.len() as u64).sum());
+        let progress = if self.debug {
+        	ProgressBar::hidden()
+        } else {
+        	ProgressBar::new(command.iter().map(|v| v.len() as u64).sum())
+        };
         progress.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}]")
                 .progress_chars("=>-"),
         );
+        progress.enable_steady_tick(100);
 
         let mut step_number = 0;
         for step in command {
@@ -373,7 +378,7 @@ pub mod bootcmds {
 
     macro_rules! wait_screen {
         ($hash:expr) => {
-            vec![crate::vnc::Cmd::WaitScreen($hash)]
+            vec![crate::vnc::Cmd::WaitScreen($hash.to_string())]
         };
     }
 

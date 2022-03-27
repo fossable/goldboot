@@ -2,8 +2,10 @@
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/logo-bg-256.png" />
 </p>
 
-`goldboot` simplifies building and deploying bare-metal golden images to server
-or desktop environments.
+[![Build](https://github.com/goldboot/goldboot/workflows/.github/workflows/test.yml/badge.svg)](https://github.com/goldboot/goldboot/actions?query=workflow%3A.github%2Fworkflows%2Ftest.yml)
+
+`goldboot` simplifies the process of building and deploying golden images to
+bare-metal.
 
 Warning: this tool is totally unfinshed and should be used for testing only! Proceed
 at your own risk!
@@ -13,8 +15,10 @@ at your own risk!
 Golden images contain your operating system, applications, software patches, and
 configuration all rolled into one easily deployable package.
 
-`goldboot` is designed to greatly simplify the process of building and deploying
-to bare-metal.
+Using golden images to keep a large number of servers consistent might be the most
+obvious use-case, but `goldboot` can build images for desktop workstations too.
+Imagine booting a brand-new install of your favorite OS with all applications and
+custom configuration already present!
 
 ### Reset Security
 
@@ -34,6 +38,8 @@ For this reason, the size of golden images should be kept to a minimum. They are
 therefore not ideal for storing large databases, archives, logs, etc.
 
 ## Getting Started
+
+Let's build a Windows 10 image since Windows known for its laborious install process.
 
 First, create a directory which can later be added to version control:
 ```sh
@@ -55,7 +61,7 @@ a Windows install (thanks Microsoft):
 "iso_checksum": "sha1:08fbb24627fa768f869c09f44c5d6c1e53a57a6f"
 ```
 
-Next, add some scripts to provision the install:
+Next, create some scripts to provision the install:
 
 ```sh
 # Example provisioner script
@@ -67,7 +73,7 @@ And add it to the goldboot config in the order they should be executed:
 "provisioners": [
 	{
 		"type": "shell",
-		"script": "disable_hibernate.ps1"
+		"scripts": ["disable_hibernate.ps1"]
 	}
 ]
 ```

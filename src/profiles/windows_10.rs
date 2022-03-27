@@ -7,12 +7,11 @@ use crate::{
     vnc::bootcmds::{enter, wait},
     windows::{Component, ComputerName, Settings, UnattendXml},
 };
-use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
-#[derive(RustEmbed)]
+#[derive(rust_embed::RustEmbed)]
 #[folder = "res/windows_10/"]
 struct Resources;
 

@@ -15,6 +15,7 @@ pub mod profiles {
     pub mod alpine;
     pub mod arch_linux;
     pub mod debian;
+    pub mod mac_os;
     pub mod pop_os;
     pub mod steam_deck;
     pub mod steam_os;

@@ -97,8 +97,11 @@ pub struct QemuProcess {
 
 impl QemuProcess {
     pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
+
+        info!("Spawning new virtual machine");
+
         let cmdline = args.to_cmdline();
-        debug!("Starting QEMU: {:?}", &cmdline);
+        debug!("QEMU arguments: {:?}", &cmdline);
 
         // Start the VM
         let mut child = Command::new(&args.exe)
@@ -166,6 +169,7 @@ impl QemuProcess {
 pub struct QemuArgs {
     pub bios: String,
     pub boot: String,
+    pub cpu: Option<String>,
     pub device: Vec<String>,
     pub drive: Vec<String>,
     pub display: String,
@@ -176,6 +180,8 @@ pub struct QemuArgs {
     pub netdev: Vec<String>,
     pub vnc: Vec<String>,
     pub smp: String,
+    pub smbios: Option<String>,
+    pub usbdevice: Vec<String>,
 
     pub exe: String,
     pub vnc_port: u16,
@@ -188,6 +194,8 @@ impl QemuArgs {
         Self {
             bios: ovmf_firmware().unwrap(),
             boot: String::from("once=d"),
+            cpu: None,
+            smbios: None,
             device: vec![String::from("virtio-net,netdev=user.0")],
             drive: vec![],
             global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
@@ -222,6 +230,7 @@ impl QemuArgs {
             } else {
                 String::from("qemu-system-x86_64")
             },
+            usbdevice: vec![],
             record: config.build_record,
             debug: config.build_debug,
         }
@@ -244,6 +253,21 @@ impl QemuArgs {
             String::from("-machine"),
             self.machine.clone(),
         ];
+
+        if let Some(cpu) = &self.cpu {
+            cmdline.push(String::from("-cpu"));
+            cmdline.push(cpu.clone());
+        }
+
+        if let Some(smbios) = &self.smbios {
+            cmdline.push(String::from("-smbios"));
+            cmdline.push(smbios.clone());
+        }
+
+        for usbdevice in &self.usbdevice {
+            cmdline.push(String::from("-usbdevice"));
+            cmdline.push(usbdevice.clone());
+        }
 
         for global in &self.global {
             cmdline.push(String::from("-global"));

@@ -93,6 +93,10 @@ pub fn init(
                     config.profile_steam_deck =
                         Some(profiles::steam_deck::SteamDeckProfile::default())
                 }
+                "MacOS" => {
+                    config.profile_mac_os =
+                        Some(profiles::mac_os::MacOsProfile::default())
+                }
                 "PopOs" => config.profile_pop_os = Some(profiles::pop_os::PopOsProfile::default()),
                 _ => panic!("Unknown profile"),
             }

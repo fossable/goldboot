@@ -4,14 +4,22 @@ use crate::qemu::QemuArgs;
 use crate::{
     config::Config,
     profile::Profile,
-    vnc::bootcmds::{enter, wait},
+    vnc::bootcmds::{enter, wait_screen},
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum SteamOsVersion {
+    Brewmaster2_195,
+}
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct SteamOsProfile {
+
+    pub version: SteamOsVersion,
+
     pub iso_url: String,
 
     pub iso_checksum: String,
@@ -28,9 +36,10 @@ impl Default for SteamOsProfile {
             iso_url: String::from(
                 "https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso",
             ),
-            iso_checksum: String::from("none"),
+            iso_checksum: String::from("sha512:0ce55048d2c5e8a695f309abe22303dded003c93386ad28c6daafc977b3d5b403ed94d7c38917c8c837a2b1fe560184cf3cc12b9f2c4069fd70ed0deab47eb7c"),
             root_password: String::from("root"),
             provisioners: None,
+            version: SteamOsVersion::Brewmaster2_195,
         }
     }
 }
@@ -53,10 +62,12 @@ impl Profile for SteamOsProfile {
         // Send boot command
         #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            // Initial wait
-            wait!(20),
+            // Wait for bootloader
+            wait_screen!("28fe084e08242584908114a5d21960fdf072adf9"),
+            // Start automated install
             enter!(),
-            wait!(600),
+            // Wait for completion
+            wait_screen!(""),
         ])?;
 
         // Wait for SSH

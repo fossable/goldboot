@@ -65,6 +65,9 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none", rename = "UbuntuServer")]
     pub profile_ubuntu_server: Option<profiles::ubuntu_server::UbuntuServerProfile>,
 
+    #[serde(skip_serializing_if = "Option::is_none", rename = "MacOS")]
+    pub profile_mac_os: Option<profiles::mac_os::MacOsProfile>,
+
     #[serde(skip)]
     pub build_record: bool,
 
@@ -112,6 +115,9 @@ impl Config {
             profiles.push(profile);
         }
         if let Some(profile) = &self.profile_steam_deck {
+            profiles.push(profile);
+        }
+        if let Some(profile) = &self.profile_mac_os {
             profiles.push(profile);
         }
 
