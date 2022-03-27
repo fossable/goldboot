@@ -146,7 +146,7 @@ impl Profile for ArchLinuxProfile {
             // Configure root password
             enter!("passwd"), enter!(self.root_password), enter!(self.root_password),
             // Start sshd
-            enter!("systemctl start sshd"),
+            enter!("systemctl restart sshd"),
         ])?;
 
         // Wait for SSH

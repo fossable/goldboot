@@ -137,12 +137,19 @@ impl QemuProcess {
     ) -> Result<SshConnection, Box<dyn Error>> {
         info!("Waiting for SSH connection");
 
+        let mut i = 0;
+
         Ok(loop {
+            i += 1;
             std::thread::sleep(Duration::from_secs(5));
 
             match SshConnection::new(port, &username, &password) {
                 Ok(ssh) => break ssh,
                 Err(error) => debug!("{}", error),
+            }
+
+            if i > 25 {
+                bail!("Maximum iterations reached");
             }
         })
     }

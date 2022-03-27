@@ -313,17 +313,17 @@ pub mod bootcmds {
             vec![
                 crate::vnc::Cmd::Type($text.to_string()),
                 crate::vnc::Cmd::Enter,
-                crate::vnc::Cmd::Wait(1),
+                crate::vnc::Cmd::Wait(2),
             ]
         };
         () => {
-            vec![crate::vnc::Cmd::Enter, crate::vnc::Cmd::Wait(1)]
+            vec![crate::vnc::Cmd::Enter, crate::vnc::Cmd::Wait(2)]
         };
     }
 
     macro_rules! spacebar {
         () => {
-            vec![crate::vnc::Cmd::Spacebar, crate::vnc::Cmd::Wait(1)]
+            vec![crate::vnc::Cmd::Spacebar, crate::vnc::Cmd::Wait(2)]
         };
     }
 
@@ -332,11 +332,11 @@ pub mod bootcmds {
             vec![
                 crate::vnc::Cmd::Type($text.to_string()),
                 crate::vnc::Cmd::Tab,
-                crate::vnc::Cmd::Wait(1),
+                crate::vnc::Cmd::Wait(2),
             ]
         };
         () => {
-            vec![crate::vnc::Cmd::Tab, crate::vnc::Cmd::Wait(1)]
+            vec![crate::vnc::Cmd::Tab, crate::vnc::Cmd::Wait(2)]
         };
     }
 
@@ -377,7 +377,7 @@ pub mod bootcmds {
 
     macro_rules! leftSuper {
         () => {
-            vec![crate::vnc::Cmd::LeftSuper, crate::vnc::Cmd::Wait(1)]
+            vec![crate::vnc::Cmd::LeftSuper, crate::vnc::Cmd::Wait(2)]
         };
     }
 
