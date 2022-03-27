@@ -7,16 +7,16 @@
 `goldboot` simplifies the process of building and deploying golden images to
 bare-metal.
 
-Warning: this tool is totally unfinshed and should be used for testing only! Proceed
-at your own risk!
+**Warning: this tool is totally unfinshed and should be used for testing only! Proceed
+at your own risk!**
 
 ## Golden Images
 
 Golden images contain your operating system, applications, software patches, and
 configuration all rolled into one easily deployable package.
 
-Using golden images to keep a large number of servers consistent might be the most
-obvious use-case, but `goldboot` can build images for desktop workstations too.
+Keeping a large number of servers consistent might be the most obvious benefit to
+golden images, but `goldboot` can also build images for desktop workstations too.
 Imagine booting a brand-new install of your favorite OS with all applications and
 custom configuration already present!
 
@@ -36,6 +36,12 @@ has drifted from the golden image.
 
 For this reason, the size of golden images should be kept to a minimum. They are
 therefore not ideal for storing large databases, archives, logs, etc.
+
+## Operating System Compatibility Matrix
+
+| OS Name    | Architectures   | Provisioners | Multiboot |
+|------------|-----------------|--------------|-----------|
+| ![Arch Linux](/.github/images/platforms/arch_linux.png) Arch Linux | x86_64, aarch64 | Yes | Yes |
 
 ## Getting Started
 
@@ -83,8 +89,22 @@ Now, build the image:
 goldboot build
 ```
 
-And finally deploy it to a physical disk:
+And finally the last step is to deploy it to a physical disk. There are two alternative
+ways to do this.
+
+#### Option 1: Apply the image to an existing disk
+
 ```sh
 # THIS WILL OVERWRITE /dev/sdX! TAKE A BACKUP FIRST!
 goldboot image write WindowsMachine /dev/sdX
 ```
+
+#### Option 2: Create a bootable USB containing the image
+
+```sh
+# THIS WILL OVERWRITE /dev/sdX! TAKE A BACKUP FIRST!
+goldboot make_usb --disk /dev/sdX --include WindowsMachine
+```
+
+Once the USB is created, you can use it to boot into the goldboot live environment
+and select an image to write.
