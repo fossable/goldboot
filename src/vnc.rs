@@ -211,7 +211,7 @@ impl VncConnection {
                         hash, screenshot.width, screenshot.height
                     );
 
-                    screenshot.write_png(&Path::new(&format!("debug/{hash}.png")))?;
+                    screenshot.write_png(&Path::new(&format!("screenshots/{hash}.png")))?;
                 }
                 Some("q") => {
                 	self.debug = false;
@@ -226,9 +226,6 @@ impl VncConnection {
         let mut step_number = 1;
         for step in command {
             for item in step {
-                if self.debug {
-                    self.handle_breakpoint(&item)?;
-                }
                 match item {
                     Cmd::Type(text) => {
                         for ch in text.chars() {
@@ -285,11 +282,20 @@ impl VncConnection {
                         }
                     }
                     Cmd::Enter => {
+                    	if self.debug {
+		                    self.handle_breakpoint(&item)?;
+		                }
                         self.vnc.send_key_event(true, 0xff0d)?;
                         self.vnc.send_key_event(false, 0xff0d)?;
                     }
-                    Cmd::Tab => {}
-                    Cmd::Spacebar => {}
+                    Cmd::Tab => {
+                    	self.vnc.send_key_event(true, 0xff09)?;
+                        self.vnc.send_key_event(false, 0xff09)?;
+                    }
+                    Cmd::Spacebar => {
+                    	self.vnc.send_key_event(true, 0x0020)?;
+                        self.vnc.send_key_event(false, 0x0020)?;
+                    }
                     Cmd::LeftSuper => {
                         self.vnc.send_key_event(true, 0xffeb)?;
                         self.vnc.send_key_event(false, 0xffeb)?;
@@ -297,7 +303,7 @@ impl VncConnection {
                 }
                 if self.record {
                     self.screenshot()?
-                        .write_png(&Path::new(&format!("debug/{step_number}.png")))?;
+                        .write_png(&Path::new(&format!("screenshots/{step_number}.png")))?;
                     step_number += 1;
                 }
             }
