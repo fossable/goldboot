@@ -4,15 +4,15 @@ use crate::qemu::QemuArgs;
 use crate::{
     config::{Partition, Provisioner},
     profile::Profile,
-    vnc::bootcmds::{enter, wait},
+    vnc::bootcmds::{enter, wait, wait_screen_rect},
 };
+use colored::*;
+use log::info;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::{error::Error, io::BufRead, io::BufReader};
 use validator::Validate;
-use log::info;
-use colored::*;
 
 const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 
@@ -120,11 +120,7 @@ impl Default for ArchLinuxProfile {
 }*/
 
 impl Profile for ArchLinuxProfile {
-    fn build(
-        &self,
-        config: &Config,
-        image_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         info!("Starting {} build", "ArchLinux".blue());
 
         let mut qemuargs = QemuArgs::new(&config);
@@ -141,24 +137,31 @@ impl Profile for ArchLinuxProfile {
         let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
+        #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            wait!(60), // Wait for boot
-            enter!("passwd"),
-            enter!(self.root_password),
-            enter!(self.root_password),     // Configure root password
-            enter!("systemctl start sshd"), // Start sshd
+            // Initial wait
+            wait!(60),
+            // Wait for login
+            wait_screen_rect!("f45a6ae2e3f794404a39e86edd6977852923ab36", 100, 0, 1024, 100),
+            // Configure root password
+            enter!("passwd"), enter!(self.root_password), enter!(self.root_password),
+            // Start sshd
+            enter!("systemctl start sshd"),
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh()?;
+        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
 
         // Run provisioners
-        for provisioner in &self.provisioners {
-            // TODO
+        if let Some(provisioners) = &self.provisioners {
+            for provisioner in provisioners {
+                provisioner.run(&ssh)?;
+            }
         }
 
         // Shutdown
-        qemu.shutdown("poweroff")?;
+        ssh.shutdown("poweroff")?;
+        qemu.shutdown_wait()?;
         Ok(())
     }
 }

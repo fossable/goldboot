@@ -30,11 +30,7 @@ impl Default for SteamDeckProfile {
 }
 
 impl Profile for SteamDeckProfile {
-    fn build(
-        &self,
-        config: &Config,
-        image_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -56,12 +52,18 @@ impl Profile for SteamDeckProfile {
         // Send boot command
         #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            wait!(20), // Initial wait
-            wait_screen_rect!("ba99ede257ef4ee2056a328eb3feffa65e821e0d", 0, 0, 1024, 700), // Wait for login
-            leftSuper!(), enter!("terminal"), // Open terminal
-            enter!("sed -i '/zenity/d' ./tools/repair_device.sh"), // Disable Zenity prompt
-            enter!("sed -i 's/systemctl reboot/systemctl poweroff/' ./tools/repair_device.sh"), // Poweroff instead of reboot on completion
-            enter!("./tools/repair_reimage.sh"), // Begin reimage
+            // Initial wait
+            wait!(20),
+            // Wait for login
+            wait_screen_rect!("ba99ede257ef4ee2056a328eb3feffa65e821e0d", 0, 0, 1024, 700),
+            // Open terminal
+            leftSuper!(), enter!("terminal"),
+            // Disable Zenity prompt
+            enter!("sed -i '/zenity/d' ./tools/repair_device.sh"),
+            // Poweroff instead of reboot on completion
+            enter!("sed -i 's/systemctl reboot/systemctl poweroff/' ./tools/repair_device.sh"),
+            // Begin reimage
+            enter!("./tools/repair_reimage.sh"),
         ])?;
 
         // Wait for shutdown

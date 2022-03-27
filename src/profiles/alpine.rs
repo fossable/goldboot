@@ -42,11 +42,7 @@ impl Default for AlpineProfile {
 }
 
 impl Profile for AlpineProfile {
-    fn build(
-        &self,
-        config: &Config,
-        image_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -61,14 +57,18 @@ impl Profile for AlpineProfile {
         let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
+        #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            wait!(60),                                    // Wait for boot
-            enter!("root"),                               // Login as root
-            enter!("KEYMAPOPTS='us us' setup-alpine -q"), // Start quick install
+            // Initial wait
+            wait!(60),
+            // Root login
+            enter!("root"),
+            // Start quick install
+            enter!("KEYMAPOPTS='us us' setup-alpine -q"),
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh()?;
+        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {
@@ -76,7 +76,8 @@ impl Profile for AlpineProfile {
         }
 
         // Shutdown
-        qemu.shutdown("poweroff")?;
+        ssh.shutdown("poweroff")?;
+        qemu.shutdown_wait()?;
         Ok(())
     }
 }

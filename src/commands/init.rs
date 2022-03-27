@@ -18,7 +18,6 @@ fn guess_memory_size() -> u64 {
 
 pub fn init(
     profiles: &Vec<String>,
-    template: &Option<String>,
     name: &Option<String>,
     memory: &Option<String>,
     disk: &Option<String>,
@@ -32,9 +31,13 @@ pub fn init(
     // Create a new config to be filled in according to the given arguments
     let mut config = Config::default();
 
-    // Set name equal to directory name
-    if let Some(name) = env::current_dir()?.file_name() {
-        config.name = name.to_str().unwrap().to_string();
+    if let Some(name) = name {
+        config.name = name.to_string();
+    } else {
+        // Set name equal to directory name
+        if let Some(name) = env::current_dir()?.file_name() {
+            config.name = name.to_str().unwrap().to_string();
+        }
     }
 
     // Setup the config for the given base profile
@@ -94,10 +97,6 @@ pub fn init(
                 _ => panic!("Unknown profile"),
             }
         }
-    }
-    // Setup the config for the given packer template
-    else if let Some(template_value) = template {
-        config.packer_template = Some(template_value.to_owned());
     }
 
     // Finally write out the config

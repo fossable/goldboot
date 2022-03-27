@@ -93,7 +93,6 @@ pub fn compact_qcow2(path: &str) -> Result<(), Box<dyn Error>> {
 pub struct QemuProcess {
     pub child: Child,
     pub vnc: VncConnection,
-    ssh: Option<SshConnection>,
 }
 
 impl QemuProcess {
@@ -127,27 +126,24 @@ impl QemuProcess {
             }
         }?;
 
-        Ok(Self {
-            child,
-            vnc,
-            ssh: None,
+        Ok(Self { child, vnc })
+    }
+
+    pub fn ssh_wait(
+        &mut self,
+        port: u16,
+        username: &str,
+        password: &str,
+    ) -> Result<SshConnection, Box<dyn Error>> {
+        info!("Waiting for SSH connection");
+
+        Ok(loop {
+            std::thread::sleep(Duration::from_secs(5));
+
+            if let Ok(ssh) = SshConnection::new(port, &username, &password) {
+                break ssh;
+            }
         })
-    }
-
-    pub fn ssh(&self) -> Result<SshConnection, Box<dyn Error>> {
-        //if let Some(ssh) = &self.ssh {
-        //    Ok(ssh)
-        //} else {
-        Ok(SshConnection {})
-        //}
-    }
-
-    pub fn shutdown(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
-        info!("Sending shutdown command");
-        self.ssh()?.run(command)?;
-
-        self.shutdown_wait()?;
-        Ok(())
     }
 
     pub fn shutdown_wait(&mut self) -> Result<(), Box<dyn Error>> {
@@ -188,10 +184,10 @@ impl QemuArgs {
             drive: vec![],
             global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
             machine: if std::env::var("CI").is_ok() {
-        String::from("type=pc")
-    } else {
-        String::from("type=pc,accel=kvm")
-    },
+                String::from("type=pc")
+            } else {
+                String::from("type=pc,accel=kvm")
+            },
             display: if config.build_debug {
                 String::from("gtk")
             } else {

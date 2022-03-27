@@ -69,11 +69,7 @@ impl Windows10Profile {
 }
 
 impl Profile for Windows10Profile {
-    fn build(
-        &self,
-        config: &Config,
-        image_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -96,13 +92,14 @@ impl Profile for Windows10Profile {
         let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
+        #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            wait!(4), // Wait for boot
+            wait!(4),
             enter!(),
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh()?;
+        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), &self.username, &self.password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {
@@ -110,7 +107,8 @@ impl Profile for Windows10Profile {
         }
 
         // Shutdown
-        qemu.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
+        ssh.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
+        qemu.shutdown_wait()?;
         Ok(())
 
         /*builder.floppy_files = Some(vec![

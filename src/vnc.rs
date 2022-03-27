@@ -1,11 +1,12 @@
-use std::path::Path;
 use log::{debug, info};
+use rand::Rng;
 use sha1::{Digest, Sha1};
 use simple_error::bail;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufWriter;
 use std::net::TcpStream;
+use std::path::Path;
 use std::time::Duration;
 use vnc::client::Event;
 
@@ -21,7 +22,8 @@ impl VncScreenshot {
     }
 
     pub fn write_png(&self, output_path: &Path) -> Result<(), Box<dyn Error>> {
-    	std::fs::create_dir_all(output_path.parent().unwrap())?;
+        std::fs::create_dir_all(output_path.parent().unwrap())?;
+        debug!("Saving screenshot to: {:?}", output_path);
         let ref mut w = BufWriter::new(File::create(output_path)?);
 
         let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
@@ -46,7 +48,8 @@ impl VncScreenshot {
         // TODO use copy_from_slice instead
         for y in 0..rect.height as usize {
             for x in 0..rect.width as usize {
-                data[y * w + x] = self.data[y * self.width as usize + (x + rect.left as usize)];
+                data[y * w + x] = self.data
+                    [(y + rect.top as usize) * self.width as usize + (x + rect.left as usize)];
             }
         }
 
@@ -177,7 +180,7 @@ impl VncConnection {
     fn handle_breakpoint(&mut self, cmd: &Cmd) -> Result<(), Box<dyn Error>> {
         loop {
             info!(
-                "(breakpoint)['c' to continue, 's' to screenshot, 'q' to quit] Next command: {:?}",
+                "(breakpoint)['c' to continue, 's' to screenshot, 'q' to quit debugging] Next command: {:?}",
                 cmd
             );
 
@@ -209,7 +212,10 @@ impl VncConnection {
 
                     screenshot.write_png(&Path::new(&format!("debug/{hash}.png")))?;
                 }
-                Some("q") => panic!(),
+                Some("q") => {
+                	self.debug = false;
+                	break Ok(());
+                },
                 _ => continue,
             }
         }
@@ -255,7 +261,9 @@ impl VncConnection {
                     Cmd::WaitScreen(hash) => {
                         debug!("Waiting for screen hash to equal: {}", &hash);
                         loop {
-                            std::thread::sleep(Duration::from_secs(1));
+                            std::thread::sleep(Duration::from_millis(
+                                rand::thread_rng().gen_range(500..1000),
+                            ));
                             if self.screenshot()?.hash() == hash {
                                 // Don't continue immediately
                                 std::thread::sleep(Duration::from_secs(1));

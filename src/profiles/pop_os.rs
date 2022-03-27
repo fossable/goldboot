@@ -50,11 +50,7 @@ impl Default for PopOsProfile {
 }
 
 impl Profile for PopOsProfile {
-    fn build(
-        &self,
-        config: &Config,
-        image_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -70,47 +66,67 @@ impl Profile for PopOsProfile {
 
         // Send boot command
         qemu.vnc.boot_command(vec![
-            wait!(120), // Wait for boot
-            enter!(),   // Select language: English
-            enter!(),   // Select location: United States
+            // Wait for boot
+            wait!(120),
+            // Select language: English
             enter!(),
-            enter!(), // Select keyboard layout: US
+            // Select location: United States
+            enter!(),
+            // Select keyboard layout: US
+            enter!(),
+            enter!(),
+            // Select clean install
             spacebar!(),
-            enter!(), // Select clean install
+            enter!(),
+            // Select disk
             spacebar!(),
-            enter!(),              // Select disk
-            enter!(self.username), // Configure username
+            enter!(),
+            // Configure username
+            enter!(self.username),
+            // Configure password
             input!(self.password),
             tab!(),
-            enter!(self.password), // Configure password
-            enter!(),              // Enable disk encryption
+            enter!(self.password),
+            // Enable disk encryption
+            enter!(),
+            // Wait for installation (avoiding screen timeouts)
             wait!(250),
             spacebar!(),
-            wait!(250),            // Wait for installation (avoiding screen timeouts)
-            enter!(),              // Reboot
-            wait!(30),             // Wait for reboot
-            enter!(self.password), // Unlock disk
-            wait!(30),             // Wait for login prompt
+            wait!(250),
+            // Reboot
             enter!(),
-            enter!(self.password), // Login
-            wait!(60),             // Wait for login
+            wait!(30),
+            // Unlock disk
+            enter!(self.password),
+            wait!(30),
+            // Login
+            enter!(),
+            enter!(self.password),
+            wait!(60),
+            // Open terminal
             leftSuper!(),
-            enter!("terminal"), // Open terminal
+            enter!("terminal"),
+            // Root login
             enter!("sudo su -"),
-            enter!(self.password), // Root login
+            enter!(self.password),
+            // Change root password
             enter!("passwd"),
             enter!(self.root_password),
-            enter!(self.root_password), // Change root password
+            enter!(self.root_password),
+            // Update package cache
             enter!("apt update"),
-            wait!(30), // Update package cache
+            wait!(30),
+            // Install sshd
             enter!("apt install -y openssh-server"),
-            wait!(30),                                                   // Install sshd
-            enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"), // Configure sshd
-            enter!("systemctl restart sshd"),                            // Start sshd
+            wait!(30),
+            // Configure sshd
+            enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"),
+            // Start sshd
+            enter!("systemctl restart sshd"),
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh()?;
+        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {
@@ -118,7 +134,8 @@ impl Profile for PopOsProfile {
         }
 
         // Shutdown
-        qemu.shutdown("poweroff")?;
+        ssh.shutdown("poweroff")?;
+        qemu.shutdown_wait()?;
         Ok(())
     }
 }

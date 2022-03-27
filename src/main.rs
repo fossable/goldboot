@@ -79,10 +79,6 @@ enum Commands {
         /// List available profiles and exit
         #[clap(long, takes_value = false)]
         list_profiles: bool,
-
-        /// An existing packer template
-        #[clap(long)]
-        template: Option<String>,
     },
 
     /// Create a bootable USB drive
@@ -209,12 +205,11 @@ pub fn main() -> Result<(), Box<dyn Error>> {
             memory,
             disk,
             list_profiles,
-            template,
         } => {
             if *list_profiles {
                 profile::list_profiles()
             } else {
-                commands::init::init(profile, template, name, memory, disk)
+                commands::init::init(profile, name, memory, disk)
             }
         }
         Commands::MakeUsb {

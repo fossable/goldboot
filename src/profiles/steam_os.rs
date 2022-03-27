@@ -16,6 +16,8 @@ pub struct SteamOsProfile {
 
     pub iso_checksum: String,
 
+    pub root_password: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provisioners: Option<Vec<Provisioner>>,
 }
@@ -27,17 +29,14 @@ impl Default for SteamOsProfile {
                 "https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso",
             ),
             iso_checksum: String::from("none"),
+            root_password: String::from("root"),
             provisioners: None,
         }
     }
 }
 
 impl Profile for SteamOsProfile {
-    fn build(
-        &self,
-        config: &Config,
-        image_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(
@@ -52,14 +51,16 @@ impl Profile for SteamOsProfile {
         let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
+        #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            wait!(20), // Wait for boot
+            // Initial wait
+            wait!(20),
             enter!(),
             wait!(600),
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh()?;
+        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {
@@ -67,7 +68,8 @@ impl Profile for SteamOsProfile {
         }
 
         // Shutdown
-        qemu.shutdown("poweroff")?;
+        ssh.shutdown("poweroff")?;
+        qemu.shutdown_wait()?;
         Ok(())
     }
 }

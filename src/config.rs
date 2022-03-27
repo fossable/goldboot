@@ -1,8 +1,11 @@
 use crate::profile::Profile;
 use crate::profiles;
+use crate::ssh::SshConnection;
 use log::debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use simple_error::bail;
+use std::process::Command;
 use std::{default::Default, error::Error, fs};
 use validator::Validate;
 
@@ -136,6 +139,40 @@ pub struct Provisioner {
     pub shell: ShellProvisioner,
 }
 
+impl Provisioner {
+    pub fn run(&self, ssh: &SshConnection) -> Result<(), Box<dyn Error>> {
+        // Check for inline command
+        if let Some(command) = &self.shell.inline {
+            if ssh.exec(command)? != 0 {
+                bail!("Provisioning failed");
+            }
+        }
+
+        // Check for shell scripts to upload
+        for script in &self.shell.scripts {
+            ssh.upload(script, ".gb_script")?;
+
+            // Execute it
+            ssh.exec(".gb_script")?;
+        }
+
+        // Run an ansible playbook
+        if let Some(playbook) = &self.ansible.playbook {
+            if let Some(code) = Command::new("ansible-playbook")
+                .arg("-u")
+                .arg(ssh.username.clone())
+                .arg("-p")
+                .arg(ssh.password.clone())
+                .arg(&playbook)
+                .status()
+                .expect("Failed to launch ansible-playbook")
+                .code()
+            {}
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AnsibleProvisioner {
     pub playbook: Option<String>,
@@ -143,5 +180,6 @@ pub struct AnsibleProvisioner {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ShellProvisioner {
-    pub script: Option<String>,
+    pub scripts: Vec<String>,
+    pub inline: Option<String>,
 }
