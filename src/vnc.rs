@@ -1,3 +1,5 @@
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use log::{debug, info};
 use rand::Rng;
 use sha1::{Digest, Sha1};
@@ -31,7 +33,10 @@ impl VncScreenshot {
         let mut writer = encoder.write_header().unwrap();
         writer.write_image_data(&self.data).unwrap();
 
-        debug!("Saved screenshot to: {:?}", std::fs::canonicalize(output_path)?);
+        debug!(
+            "Saved screenshot to: {:?}",
+            std::fs::canonicalize(output_path)?
+        );
         Ok(())
     }
 
@@ -214,20 +219,34 @@ impl VncConnection {
                     screenshot.write_png(&Path::new(&format!("screenshots/{hash}.png")))?;
                 }
                 Some("q") => {
-                	self.debug = false;
-                	break Ok(());
-                },
+                    self.debug = false;
+                    break Ok(());
+                }
                 _ => continue,
             }
         }
     }
 
     pub fn boot_command(&mut self, command: Vec<Vec<Cmd>>) -> Result<(), Box<dyn Error>> {
-        let mut step_number = 1;
+        info!("Running bootstrap sequence");
+
+        let progress = ProgressBar::new(command.iter().map(|v| v.len() as u64).sum());
+        progress.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}]")
+                .progress_chars("=>-"),
+        );
+
+        let mut step_number = 0;
         for step in command {
             for item in step {
+            	progress.set_position(step_number);
+            	step_number += 1;
                 match item {
-                    Cmd::Type(text) => {
+                    Cmd::Type(ref text) => {
+                        if self.debug {
+                            self.handle_breakpoint(&item)?;
+                        }
                         for ch in text.chars() {
                             if ch.is_uppercase() {
                                 self.vnc.send_key_event(true, 0xffe1)?;
@@ -282,18 +301,18 @@ impl VncConnection {
                         }
                     }
                     Cmd::Enter => {
-                    	if self.debug {
-		                    self.handle_breakpoint(&item)?;
-		                }
+                        if self.debug {
+                            self.handle_breakpoint(&item)?;
+                        }
                         self.vnc.send_key_event(true, 0xff0d)?;
                         self.vnc.send_key_event(false, 0xff0d)?;
                     }
                     Cmd::Tab => {
-                    	self.vnc.send_key_event(true, 0xff09)?;
+                        self.vnc.send_key_event(true, 0xff09)?;
                         self.vnc.send_key_event(false, 0xff09)?;
                     }
                     Cmd::Spacebar => {
-                    	self.vnc.send_key_event(true, 0x0020)?;
+                        self.vnc.send_key_event(true, 0x0020)?;
                         self.vnc.send_key_event(false, 0x0020)?;
                     }
                     Cmd::LeftSuper => {
@@ -304,10 +323,10 @@ impl VncConnection {
                 if self.record {
                     self.screenshot()?
                         .write_png(&Path::new(&format!("screenshots/{step_number}.png")))?;
-                    step_number += 1;
                 }
             }
         }
+        progress.finish();
         Ok(())
     }
 }

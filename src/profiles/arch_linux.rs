@@ -142,7 +142,7 @@ impl Profile for ArchLinuxProfile {
             // Initial wait
             wait!(60),
             // Wait for login
-            wait_screen_rect!("f45a6ae2e3f794404a39e86edd6977852923ab36", 100, 0, 1024, 100), wait!(5),
+            wait_screen_rect!("426f88982ab5cb075a9e59578d06e9c28530e43c", 100, 0, 1024, 400),
             // Configure root password
             enter!("passwd"), enter!(self.root_password), enter!(self.root_password),
             // Start sshd

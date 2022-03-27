@@ -1,4 +1,4 @@
-use log::{info,debug};
+use log::{debug, info};
 use std::error::Error;
 use std::fs::File;
 use std::net::TcpStream;
