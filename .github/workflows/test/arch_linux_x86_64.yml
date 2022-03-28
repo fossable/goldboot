@@ -1,0 +1,36 @@
+on:
+  workflow_run:
+    workflows: [build]
+    types:
+      - completed
+
+jobs:
+  test:
+    name: Test Linux x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y qemu-system-x86 ovmf
+          sudo mkdir -p /var/lib/goldboot/images
+          sudo chmod -R 777 /var/lib/goldboot
+
+      - name: Install goldboot
+        uses: actions/download-artifact@v3
+        with:
+          name: build-x86_64
+          path: /usr/bin/goldboot
+
+      - name: Test ArchLinux profile
+        run: |
+          goldboot init --profile ArchLinux --disk 1G
+          goldboot build --record
+          fallocate -l 1GiB /tmp/ArchLinux.raw
+          #goldboot image write --image ArchLinux --disk /tmp/ArchLinux.raw
+
+      - name: Store debug output
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Debug output
+          path: './*/screenshots'

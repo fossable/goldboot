@@ -1,0 +1,30 @@
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  linux-x86_64:
+    name: Test Linux x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rust-src
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build and install
+        run: |
+          cargo build --target x86_64-unknown-linux-gnu
+
+      - name: Store build output
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-x86_64
+          path: target/x86_64-unknown-linux-gnu/debug/goldboot
