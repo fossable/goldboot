@@ -2,7 +2,7 @@
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/logo-bg-256.png" />
 </p>
 
-![Build](https://github.com/goldboot/goldboot/workflows/.github/workflows/test.yml/badge.svg)
+![Build](https://github.com/goldboot/goldboot/workflows/.github/workflows/build.yml/badge.svg)
 
 `goldboot` simplifies the process of building and deploying golden images to
 bare-metal.
@@ -74,14 +74,14 @@ The following table shows planned support (nothing here is fully complete yet).
 
 | OS Name    | Testing         | Provisioners | Multiboot |
 |------------|-----------------|--------------|-----------|
-| ![Alpine](/.github/images/platforms/alpine.png) Alpine Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/alpine_aarch64.yml/badge.svg) | Yes | Yes |
-| ![Arch Linux](/.github/images/platforms/arch.png) Arch Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/arch_linux_aarch64.yml/badge.svg) | Yes | Yes |
-| ![Debian](/.github/images/platforms/debian.png) Debian | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/debian_aarch64.yml/badge.svg) | Yes | Yes |
-| ![macOS](/.github/images/platforms/mac_os.png) macOS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/mac_os_x86_64.yml/badge.svg) | Yes | No |
-| ![Pop!_OS](/.github/images/platforms/pop_os.png) Pop!\_OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/pop_os_x86_64.yml/badge.svg) | Yes | Yes |
-| ![Windows 10](/.github/images/platforms/windows_10.png) Windows 10 | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/windows_10_x86_64.yml/badge.svg) | Yes | No |
-| ![Steam Deck](/.github/images/platforms/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/steam_deck_x86_64.yml/badge.svg) | No | Yes |
-| ![Steam OS](/.github/images/platforms/steam_os.png) Steam OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test/steam_os_x86_64.yml/badge.svg) | Yes | Yes |
+| ![Alpine](/.github/images/platforms/alpine.png) Alpine Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg) | Yes | Yes |
+| ![Arch Linux](/.github/images/platforms/arch.png) Arch Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes | Yes |
+| ![Debian](/.github/images/platforms/debian.png) Debian | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg) | Yes | Yes |
+| ![macOS](/.github/images/platforms/mac_os.png) macOS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg) | Yes | No |
+| ![Pop!_OS](/.github/images/platforms/pop_os.png) Pop!\_OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg) | Yes | Yes |
+| ![Windows 10](/.github/images/platforms/windows_10.png) Windows 10 | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg) | Yes | No |
+| ![Steam Deck](/.github/images/platforms/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg) | No | Yes |
+| ![Steam OS](/.github/images/platforms/steam_os.png) Steam OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg) | Yes | Yes |
 
 ## Getting Started
 
