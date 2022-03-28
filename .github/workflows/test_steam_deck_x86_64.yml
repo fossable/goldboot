@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: Test Arch Linux x86_64
+    name: Test Steam Deck x86_64
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -26,10 +26,8 @@ jobs:
 
       - name: Run goldboot
         run: |
-          goldboot init --profile ArchLinux --disk 1G
+          goldboot init --profile SteamDeck --disk 64G
           goldboot build --record
-          fallocate -l 1GiB /tmp/ArchLinux.raw
-          #goldboot image write --image ArchLinux --disk /tmp/ArchLinux.raw
 
       - name: Store debug output
         if: always()
