@@ -33,6 +33,13 @@ pub mod commands {
     pub mod registry;
 }
 
+pub mod ui {
+    pub mod write_image;
+    pub mod abort_wait;
+    pub mod select_image;
+    pub mod select_device;
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct CommandLine {
@@ -100,6 +107,13 @@ enum Commands {
     Registry {
         #[clap(subcommand)]
         command: RegistryCommands,
+    },
+
+    /// Launch the GUI
+    Gui {
+        /// Write an image via the GUI
+        #[clap(long, takes_value = false)]
+        write_image: bool,
     },
 }
 
@@ -227,6 +241,10 @@ pub fn main() -> Result<(), Box<dyn Error>> {
                 disk,
                 confirm,
             } => commands::image::write(image, disk),
+        },
+        Commands::Gui { write_image } => {
+            crate::ui::write_image::start_ui();
+            Ok(())
         },
     }
 }
