@@ -1,3 +1,4 @@
+use std::fs::File;
 use crate::profile::Profile;
 use crate::profiles;
 use crate::ssh::SshConnection;
@@ -156,7 +157,7 @@ impl Provisioner {
 
         // Check for shell scripts to upload
         for script in &self.shell.scripts {
-            ssh.upload(script, ".gb_script")?;
+            ssh.upload(&mut File::open(script)?, ".gb_script")?;
 
             // Execute it
             ssh.exec(".gb_script")?;

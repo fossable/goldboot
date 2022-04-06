@@ -1,8 +1,7 @@
 use crate::config::Config;
 use crate::image_library_path;
 use log::debug;
-use qcow::levels::ClusterDescriptor;
-use qcow::*;
+use gb_image::levels::ClusterDescriptor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -138,7 +137,7 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
 
     let mut f = File::open("foo.txt").unwrap();
 
-    let qcow2 = qcow::open(image.path_qcow2())?.unwrap_qcow2();
+    let qcow2 = gb_image::open(image.path_qcow2())?;
     let mut file = BufReader::new(File::open(image.path_qcow2())?);
 
     let mut offset = 0u64;
@@ -153,7 +152,7 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
                             if cluster.host_cluster_offset != 0 {
                                 debug!("Uncompressed cluster: {:?}", cluster);
                                 l2_entry
-                                    .read_contents(&mut file, &mut buffer, CompressionType::Zlib)
+                                    .read_contents(&mut file, &mut buffer, gb_image::CompressionType::Zlib)
                                     .unwrap();
                                 f.seek(SeekFrom::Start(offset)).unwrap();
                                 f.write_all(&buffer).unwrap();

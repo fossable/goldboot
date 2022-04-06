@@ -1,6 +1,7 @@
+use std::io::Read;
 use log::{debug, info};
 use std::error::Error;
-use std::fs::File;
+use std::io::Cursor;
 use std::net::TcpStream;
 use std::path::Path;
 
@@ -35,10 +36,16 @@ impl SshConnection {
         Ok(())
     }
 
-    pub fn upload(&self, source: &str, dest: &str) -> Result<(), Box<dyn Error>> {
+    pub fn upload_exec(&self, source: Vec<u8>) -> Result<(), Box<dyn Error>> {
+        self.upload(&mut Cursor::new(source), "tmp.script")?;
+        self.exec("tmp.script")?;
+        self.exec("rm -f tmp.script")?;
+        Ok(())
+    }
+
+    pub fn upload(&self, source: &mut impl Read, dest: &str) -> Result<(), Box<dyn Error>> {
         let mut remote_file = self.session.scp_send(Path::new(dest), 0o700, 10, None)?;
-        let mut local_file = File::open(source)?;
-        std::io::copy(&mut local_file, &mut remote_file)?;
+        std::io::copy(source, &mut remote_file)?;
 
         remote_file.send_eof()?;
         remote_file.wait_eof()?;

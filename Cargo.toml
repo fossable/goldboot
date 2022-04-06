@@ -18,7 +18,8 @@ tempfile = "3.3.0"
 validator = { version = "0.12", features = ["derive"] }
 rust-embed = "6.3.0"
 sysinfo = "0.23.5"
-qcow = { version="1.2.0", default-features = false }
+gb-image = { git = "https://github.com/goldboot/image" }
+goldboot-graphics = { git = "https://github.com/goldboot/graphics" }
 simple-error = "0.2.3"
 whoami = "1.2.1"
 bzip2-rs = "0.1.2"
@@ -28,3 +29,6 @@ rand = "0.8.5"
 png = "0.17.5"
 colored = "2"
 ssh2 = "0.9"
+block-utils = "0.10.6"
+ubyte = "0.10"
+gtk4 = "0.4.7"
