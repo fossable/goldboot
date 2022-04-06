@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use crate::cache::MediaCache;
 use crate::config::Config;
 use crate::qemu::QemuArgs;
@@ -8,7 +9,6 @@ use crate::{
 };
 use colored::*;
 use log::info;
-use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::{error::Error, io::BufRead, io::BufReader};
@@ -16,7 +16,7 @@ use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 
-#[derive(RustEmbed)]
+#[derive(rust_embed::RustEmbed)]
 #[folder = "res/arch_linux/"]
 struct Resources;
 
@@ -152,6 +152,11 @@ impl Profile for ArchLinuxProfile {
         // Wait for SSH
         let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
 
+        // Run install script
+        if let Some(mut resource) = Resources::get("install.sh") {
+            ssh.upload_exec(resource.data.to_vec())?;
+        }
+
         // Run provisioners
         if let Some(provisioners) = &self.provisioners {
             for provisioner in provisioners {
@@ -162,6 +167,17 @@ impl Profile for ArchLinuxProfile {
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fetch_latest_iso() -> Result<(), Box<dyn Error>> {
+        fetch_latest_iso()?;
         Ok(())
     }
 }
