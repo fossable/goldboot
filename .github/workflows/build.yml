@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build Linux x86_64
+    name: Build Linux
     runs-on: ubuntu-latest
     steps:
       - name: Install rust nightly
@@ -72,7 +72,7 @@ jobs:
           name: Debug output
           path: './*/screenshots'
 
-test-aarch64:
+  test-aarch64:
     name: Test ${{ matrix.profile }} aarch64
     runs-on: ubuntu-latest
     needs: build
