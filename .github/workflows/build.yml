@@ -12,7 +12,6 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          echo $PATH
           sudo apt-get update
           sudo apt-get install -y libudev-dev libgtk2.0-dev
 
@@ -41,6 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         profile: [ArchLinux, Alpine, Windows10, MacOS]
     steps:
@@ -55,7 +55,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: build-x86_64
-          path: /usr/bin
+          path: /home/runner/.local/bin
 
       - name: Install dependencies
         run: |
@@ -84,6 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         profile: [ArchLinux]
     steps:
@@ -98,7 +99,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: build-aarch64
-          path: /usr/bin
+          path: /home/runner/.local/bin
 
       - name: Install dependencies
         run: |
