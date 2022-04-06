@@ -63,7 +63,7 @@ jobs:
           sudo apt-get install -y qemu-system-x86 ovmf
           sudo mkdir -p /var/lib/goldboot/images
           sudo chmod -R 777 /var/lib/goldboot
-          sudo chmod +x /usr/bin/goldboot
+          sudo chmod +x /home/runner/.local/bin/goldboot
 
       - name: Run goldboot
         run: |
@@ -106,7 +106,7 @@ jobs:
           sudo apt-get install -y qemu-system-aarch64 ovmf
           sudo mkdir -p /var/lib/goldboot/images
           sudo chmod -R 777 /var/lib/goldboot
-          sudo chmod +x /usr/bin/goldboot
+          sudo chmod +x /home/runner/.local/bin/goldboot
 
       - name: Run goldboot
         run: |
