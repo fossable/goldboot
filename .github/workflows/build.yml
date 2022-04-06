@@ -12,6 +12,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y libudev-dev libgtk2.0-dev
 
       - name: Install rust nightly
@@ -57,6 +58,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y qemu-system-x86 ovmf
           sudo mkdir -p /var/lib/goldboot/images
           sudo chmod -R 777 /var/lib/goldboot
