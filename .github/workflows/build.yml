@@ -12,6 +12,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
+          echo $PATH
           sudo apt-get update
           sudo apt-get install -y libudev-dev libgtk2.0-dev
 
@@ -41,7 +42,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        profile: [ArchLinux, Alpine]
+        profile: [ArchLinux, Alpine, Windows10, MacOS]
     steps:
       - name: Increase free space
         uses: easimon/maximize-build-space@master
@@ -54,7 +55,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: build-x86_64
-          path: /usr/bin/goldboot
+          path: /usr/bin
 
       - name: Install dependencies
         run: |
@@ -97,7 +98,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: build-aarch64
-          path: /usr/bin/goldboot
+          path: /usr/bin
 
       - name: Install dependencies
         run: |
