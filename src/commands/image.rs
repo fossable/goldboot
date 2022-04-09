@@ -1,7 +1,8 @@
 use crate::config::Config;
 use crate::image_library_path;
+use goldboot_image::levels::ClusterDescriptor;
+use goldboot_image::CompressionType;
 use log::debug;
-use gb_image::levels::ClusterDescriptor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -137,14 +138,14 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
 
     let mut f = File::open("foo.txt").unwrap();
 
-    let qcow2 = gb_image::open(image.path_qcow2())?;
+    let qcow2 = goldboot_image::Qcow2::open(image.path_qcow2())?;
     let mut file = BufReader::new(File::open(image.path_qcow2())?);
 
     let mut offset = 0u64;
     let mut buffer = [0u8, 1 << qcow2.header.cluster_bits];
 
     for l1_entry in qcow2.l1_table {
-        if l1_entry.l2_offset != 0 {
+        if l1_entry.l2_offset() != 0 {
             if let Some(l2_table) = l1_entry.read_l2(&mut file, qcow2.header.cluster_bits) {
                 for l2_entry in l2_table {
                     match &l2_entry.cluster_descriptor {
@@ -152,7 +153,7 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
                             if cluster.host_cluster_offset != 0 {
                                 debug!("Uncompressed cluster: {:?}", cluster);
                                 l2_entry
-                                    .read_contents(&mut file, &mut buffer, gb_image::CompressionType::Zlib)
+                                    .read_contents(&mut file, &mut buffer, CompressionType::Zlib)
                                     .unwrap();
                                 f.seek(SeekFrom::Start(offset)).unwrap();
                                 f.write_all(&buffer).unwrap();

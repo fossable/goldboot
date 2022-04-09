@@ -26,33 +26,17 @@ fn ovmf_firmware() -> Option<String> {
     None
 }
 
-/// Allocate a new temporary image of the requested size.
-pub fn allocate_image(size: &str) -> Result<String, Box<dyn Error>> {
+/// Allocate a new temporary image.
+pub fn allocate_image(config: &Config) -> Result<String, Box<dyn Error>> {
     let directory = image_library_path().join("tmp");
     std::fs::create_dir_all(&directory)?;
 
-    let path = directory.join("1234").to_string_lossy().to_string();
-    debug!("Allocating new {} qcow2 volume: {}", size, path);
-    if let Some(code) = Command::new("qemu-img")
-        .arg("create")
-        .arg("-f")
-        .arg("qcow2")
-        .arg(&path)
-        .arg(size)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .expect("Failed to launch qemu-img")
-        .code()
-    {
-        if code != 0 {
-            bail!("qemu-img failed with error code: {}", code);
-        } else {
-            Ok(path)
-        }
-    } else {
-        panic!();
-    }
+    let path = directory.join(&config.name);
+    let path_string = path.to_string_lossy().to_string();
+
+    debug!("Allocating new {} image: {}", config.disk_size, path_string);
+    goldboot_image::Qcow2::create(&path, 256000000000, serde_json::to_vec(&config)?)?;
+    Ok(path_string)
 }
 
 pub fn compact_qcow2(path: &str) -> Result<(), Box<dyn Error>> {
@@ -97,7 +81,6 @@ pub struct QemuProcess {
 
 impl QemuProcess {
     pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
-
         info!("Spawning new virtual machine");
 
         let cmdline = args.to_cmdline();

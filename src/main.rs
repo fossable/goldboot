@@ -34,10 +34,10 @@ pub mod commands {
 }
 
 pub mod ui {
-    pub mod write_image;
     pub mod abort_wait;
-    pub mod select_image;
     pub mod select_device;
+    pub mod select_image;
+    pub mod write_image;
 }
 
 #[derive(Parser, Debug)]
@@ -245,6 +245,6 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         Commands::Gui { write_image } => {
             crate::ui::write_image::start_ui();
             Ok(())
-        },
+        }
     }
 }

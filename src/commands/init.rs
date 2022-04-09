@@ -28,6 +28,10 @@ pub fn init(
         bail!("This directory has already been initialized. Delete goldboot.json to reinitialize.");
     }
 
+    if profiles.len() == 0 {
+        bail!("Specify at least one base profile with --profile");
+    }
+
     // Create a new config to be filled in according to the given arguments
     let mut config = Config::default();
 
@@ -40,66 +44,55 @@ pub fn init(
         }
     }
 
-    // Setup the config for the given base profile
-    if profiles.len() > 0 {
-        // Generate QEMU flags for this hardware
-        //config.qemuargs = generate_qemuargs()?;
+    // Generate QEMU flags for this hardware
+    //config.qemuargs = generate_qemuargs()?;
 
-        // Set current platform
-        config.arch = if cfg!(target_arch = "x86_64") {
-            Some("x86_64".into())
-        } else if cfg!(target_arch = "aarch64") {
-            Some("aarch64".into())
-        } else {
-            panic!("Unsupported platform");
-        };
+    // Set current platform
+    config.arch = if cfg!(target_arch = "x86_64") {
+        Some("x86_64".into())
+    } else if cfg!(target_arch = "aarch64") {
+        Some("aarch64".into())
+    } else {
+        panic!("Unsupported platform");
+    };
 
-        // Set an arbitrary disk size unless given a value
-        config.disk_size = if let Some(disk_size) = disk {
-            disk_size.to_string()
-        } else {
-            format!("{}b", guess_disk_size())
-        };
+    // Set an arbitrary disk size unless given a value
+    config.disk_size = if let Some(disk_size) = disk {
+        disk_size.to_string()
+    } else {
+        format!("{}b", guess_disk_size())
+    };
 
-        // Set an arbitrary memory size unless given a value
-        config.memory = if let Some(memory_size) = memory {
-            memory_size.to_string()
-        } else {
-            format!("{}", guess_memory_size())
-        };
+    // Set an arbitrary memory size unless given a value
+    config.memory = if let Some(memory_size) = memory {
+        memory_size.to_string()
+    } else {
+        format!("{}", guess_memory_size())
+    };
 
-        // Run profile-specific initialization
-        for profile in profiles {
-            match profile.as_str() {
-                "Alpine" => {
-                    config.profile_alpine = Some(profiles::alpine::AlpineProfile::default())
-                }
-                "ArchLinux" => {
-                    config.profile_arch_linux =
-                        Some(profiles::arch_linux::ArchLinuxProfile::default())
-                }
-                "Windows10" => {
-                    config.profile_windows_10 =
-                        Some(profiles::windows_10::Windows10Profile::default())
-                }
-                "UbuntuServer" => {
-                    config.profile_ubuntu_server =
-                        Some(profiles::ubuntu_server::UbuntuServerProfile::default())
-                }
-                "SteamOS" => {
-                    config.profile_steam_os = Some(profiles::steam_os::SteamOsProfile::default())
-                }
-                "SteamDeck" => {
-                    config.profile_steam_deck =
-                        Some(profiles::steam_deck::SteamDeckProfile::default())
-                }
-                "MacOS" => {
-                    config.profile_mac_os =
-                        Some(profiles::mac_os::MacOsProfile::default())
-                }
-                "PopOs" => config.profile_pop_os = Some(profiles::pop_os::PopOsProfile::default()),
-                _ => panic!("Unknown profile"),
+    // Run profile-specific initialization
+    for profile in profiles {
+        match profile.as_str() {
+            "Alpine" => config.profile_alpine = Some(profiles::alpine::AlpineProfile::default()),
+            "ArchLinux" => {
+                config.profile_arch_linux = Some(profiles::arch_linux::ArchLinuxProfile::default())
             }
+            "Windows10" => {
+                config.profile_windows_10 = Some(profiles::windows_10::Windows10Profile::default())
+            }
+            "UbuntuServer" => {
+                config.profile_ubuntu_server =
+                    Some(profiles::ubuntu_server::UbuntuServerProfile::default())
+            }
+            "SteamOS" => {
+                config.profile_steam_os = Some(profiles::steam_os::SteamOsProfile::default())
+            }
+            "SteamDeck" => {
+                config.profile_steam_deck = Some(profiles::steam_deck::SteamDeckProfile::default())
+            }
+            "MacOS" => config.profile_mac_os = Some(profiles::mac_os::MacOsProfile::default()),
+            "PopOs" => config.profile_pop_os = Some(profiles::pop_os::PopOsProfile::default()),
+            _ => panic!("Unknown profile"),
         }
     }
 

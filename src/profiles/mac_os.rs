@@ -3,7 +3,7 @@ use crate::qemu::QemuArgs;
 use crate::{
     config::Config,
     profile::Profile,
-    vnc::bootcmds::{enter, wait_screen_rect, tab},
+    vnc::bootcmds::{enter, tab, wait_screen_rect},
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -20,7 +20,6 @@ pub enum MacOsVersion {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct MacOsProfile {
-
     pub version: MacOsVersion,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,36 +56,45 @@ impl Profile for MacOsProfile {
         qemuargs.device.push(format!("ich9-ahci,id=sata"));
         qemuargs.device.push(format!("usb-ehci,id=ehci"));
         qemuargs.device.push(format!("nec-usb-xhci,id=xhci"));
-        qemuargs.device.push(format!("isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"));
+        qemuargs.device.push(format!(
+            "isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
+        ));
         qemuargs.usbdevice.push(format!("keyboard"));
         qemuargs.usbdevice.push(format!("tablet"));
         qemuargs.global.push(format!("nec-usb-xhci.msi=off"));
 
         // Add boot partition
         qemuargs.drive.push(format!(
-            "file={}/OpenCore.qcow2,id=OpenCore,if=none,format=qcow2", tmp.path().to_string_lossy()
+            "file={}/OpenCore.qcow2,id=OpenCore,if=none,format=qcow2",
+            tmp.path().to_string_lossy()
         ));
-        qemuargs.device.push(format!("ide-hd,bus=sata.2,drive=OpenCore"));
+        qemuargs
+            .device
+            .push(format!("ide-hd,bus=sata.2,drive=OpenCore"));
 
         // Add install media
         qemuargs.drive.push(format!(
             "file=/home/cilki/OSX-KVM/BaseSystem.img,id=InstallMedia,if=none,format=raw"
         ));
-        qemuargs.device.push(format!("ide-hd,bus=sata.3,drive=InstallMedia"));
+        qemuargs
+            .device
+            .push(format!("ide-hd,bus=sata.3,drive=InstallMedia"));
 
         // Add system drive
         qemuargs.drive.push(format!(
             "file={image_path},id=System,if=none,cache=writeback,discard=ignore,format=qcow2"
         ));
-        qemuargs.device.push(format!("ide-hd,bus=sata.4,drive=System"));
+        qemuargs
+            .device
+            .push(format!("ide-hd,bus=sata.4,drive=System"));
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
 
         // Send boot command
         match self.version {
-        	MacOsVersion::Monterey => {
-        		#[rustfmt::skip]
+            MacOsVersion::Monterey => {
+                #[rustfmt::skip]
 		        qemu.vnc.boot_command(vec![
 		            enter!(),
 		            enter!("diskutil eraseDisk APFS System disk0"),
@@ -100,7 +108,7 @@ impl Profile for MacOsProfile {
 		            // Start sshd
 		            enter!("launchctl load -w /System/Library/LaunchDaemons/ssh.plist"),
 		        ])?;
-        	}
+            }
         }
 
         // Wait for SSH

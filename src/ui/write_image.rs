@@ -1,7 +1,7 @@
-use gtk4::prelude::*;
-use gtk4 as gtk;
-use crate::ui::select_image::SelectImageView;
 use crate::ui::select_device::SelectDeviceView;
+use crate::ui::select_image::SelectImageView;
+use gtk4 as gtk;
+use gtk4::prelude::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/"]

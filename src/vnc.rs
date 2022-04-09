@@ -231,9 +231,9 @@ impl VncConnection {
         info!("Running bootstrap sequence");
 
         let progress = if self.debug {
-        	ProgressBar::hidden()
+            ProgressBar::hidden()
         } else {
-        	ProgressBar::new(command.iter().map(|v| v.len() as u64).sum())
+            ProgressBar::new(command.iter().map(|v| v.len() as u64).sum())
         };
         progress.set_style(
             ProgressStyle::default_bar()
@@ -245,13 +245,17 @@ impl VncConnection {
         let mut step_number = 0;
         for step in command {
             for item in step {
-            	progress.set_position(step_number);
-            	step_number += 1;
+                progress.set_position(step_number);
+                step_number += 1;
+
+                if self.debug {
+                    match &item {
+                        Cmd::Wait(_) => {}
+                        _ => self.handle_breakpoint(&item)?,
+                    }
+                }
                 match item {
                     Cmd::Type(ref text) => {
-                        if self.debug {
-                            self.handle_breakpoint(&item)?;
-                        }
                         for ch in text.chars() {
                             if ch.is_uppercase() {
                                 self.vnc.send_key_event(true, 0xffe1)?;
@@ -306,9 +310,6 @@ impl VncConnection {
                         }
                     }
                     Cmd::Enter => {
-                        if self.debug {
-                            self.handle_breakpoint(&item)?;
-                        }
                         self.vnc.send_key_event(true, 0xff0d)?;
                         self.vnc.send_key_event(false, 0xff0d)?;
                     }

@@ -1,4 +1,3 @@
-use std::io::Cursor;
 use crate::cache::MediaCache;
 use crate::config::Config;
 use crate::qemu::QemuArgs;
@@ -11,6 +10,7 @@ use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
+use std::io::Cursor;
 use std::{error::Error, io::BufRead, io::BufReader};
 use validator::Validate;
 

@@ -17,7 +17,6 @@ pub enum SteamOsVersion {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct SteamOsProfile {
-
     pub version: SteamOsVersion,
 
     pub iso_url: String,

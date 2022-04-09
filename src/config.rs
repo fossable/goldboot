@@ -1,4 +1,3 @@
-use std::fs::File;
 use crate::profile::Profile;
 use crate::profiles;
 use crate::ssh::SshConnection;
@@ -6,6 +5,7 @@ use log::debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
+use std::fs::File;
 use std::process::Command;
 use std::{default::Default, error::Error, fs};
 use validator::Validate;
@@ -24,9 +24,6 @@ pub struct Config {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arch: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub packer_template: Option<String>,
 
     /// The amount of memory to allocate to the VM
     pub memory: String,

@@ -1,12 +1,13 @@
 use crate::commands::image::ImageMetadata;
 use crate::config::Config;
+use colored::*;
 use log::{debug, info};
 use simple_error::bail;
 use std::time::Instant;
 use std::{error::Error, fs};
-use colored::*;
 
-pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
+#[rustfmt::skip]
+fn print_banner() {
     println!("⬜{}⬜", "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
     println!("⬜{}⬜", "　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛　".truecolor(200, 171, 55));
     println!("⬜{}⬜", "　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛⬛".truecolor(200, 171, 55));
@@ -16,6 +17,10 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     println!("⬜{}⬜", "　　⬛　　　　　　　　　　　　　　　　　　　　　　　　　".truecolor(200, 171, 55));
     println!("⬜{}⬜", "⬛⬛⬛　　　　　　　　　　　　　　　　　　　　　　　　　".truecolor(200, 171, 55));
     println!("⬜{}⬜", "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
+}
+
+pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
+    print_banner();
 
     let start_time = Instant::now();
 
@@ -33,7 +38,7 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     }
 
     // Create an initial image that will be attached as storage to each VM
-    let image_path = crate::qemu::allocate_image(&config.disk_size)?;
+    let image_path = crate::qemu::allocate_image(&config)?;
 
     // Create partitions if we're multi booting
     if profiles.len() > 1 {

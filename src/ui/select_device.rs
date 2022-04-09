@@ -1,9 +1,8 @@
-use std::error::Error;
 use log::info;
+use std::error::Error;
 
 #[derive(Debug, Clone)]
 struct DiskEntry {
-
     pub name: String,
 
     /// The disk size in bytes
@@ -14,7 +13,6 @@ struct DiskEntry {
 }
 
 impl DiskEntry {
-
     pub fn search() -> Result<Vec<DiskEntry>, Box<dyn Error>> {
         let mut disks = Vec::new();
 
@@ -32,6 +30,6 @@ impl DiskEntry {
 }
 
 pub struct SelectDeviceView {
-	devices: Vec<DiskEntry>,
-	selected: i32,
+    devices: Vec<DiskEntry>,
+    selected: i32,
 }

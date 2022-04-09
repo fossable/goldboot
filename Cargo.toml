@@ -18,7 +18,7 @@ tempfile = "3.3.0"
 validator = { version = "0.12", features = ["derive"] }
 rust-embed = "6.3.0"
 sysinfo = "0.23.5"
-gb-image = { git = "https://github.com/goldboot/image" }
+goldboot-image = { git = "https://github.com/goldboot/image" }
 goldboot-graphics = { git = "https://github.com/goldboot/graphics" }
 simple-error = "0.2.3"
 whoami = "1.2.1"
