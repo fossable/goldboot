@@ -1,0 +1,11 @@
+[package]
+name = "goldboot-registry"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = {version = "4.0.0-beta.21", features = ["rustls"]}
+env_logger = "0.9"
+log = { version = "0.4.11", default-features = false }
+rustls = "0.20.2"
+rustls-pemfile = "0.2.1"

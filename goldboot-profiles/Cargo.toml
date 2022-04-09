@@ -1,0 +1,14 @@
+[package]
+name = "goldboot-profiles"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+env_logger = "0.9"
+goldboot-core = { path="../goldboot-core" }
+log = { version = "0.4.11", default-features = false }
+reqwest = { version = "0.11.9", features=["blocking", "stream"] }
+rust-embed = "6.3.0"
+simple-error = "0.2.3"
+tempfile = "3.3.0"
+whoami = "1.2.1"

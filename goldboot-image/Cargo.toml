@@ -1,0 +1,10 @@
+[package]
+name = "goldboot-image"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+binrw = "0.8.4"
+modular-bitfield = "0.11.2"
+flate2 = { version = "1" , features = ["zlib-ng-compat"], default-features = false }
+zstd = "0.9.0"

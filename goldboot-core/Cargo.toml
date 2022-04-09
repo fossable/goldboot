@@ -1,0 +1,21 @@
+[package]
+name = "goldboot-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bzip2-rs = "0.1.2"
+env_logger = "0.9"
+hex = "0.4.3"
+log = { version = "0.4.11", default-features = false }
+png = "0.17.5"
+quick-xml = { version = "0.22.0", features = ["serialize"] }
+rand = "0.8.5"
+serde = { version="1",features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10.1"
+sha2 = "0.10.2"
+simple-error = "0.2.3"
+ssh2 = "0.9"
+validator = { version = "0.12", features = ["derive"] }
+vnc = "0.4"

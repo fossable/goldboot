@@ -15,6 +15,8 @@ struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum MacOsVersion {
+    Catalina,
+    BigSur,
     Monterey,
 }
 
