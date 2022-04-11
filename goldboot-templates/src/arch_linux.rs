@@ -1,16 +1,10 @@
-use crate::cache::MediaCache;
-use crate::config::Config;
-use crate::qemu::QemuArgs;
-use crate::{
-    config::{Partition, Provisioner},
-    profile::Profile,
-    vnc::bootcmds::{enter, wait, wait_screen_rect},
-};
+use goldboot_core::cache::MediaCache;
+use goldboot_core::qemu::QemuArgs;
+use goldboot_core::*;
 use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::io::Cursor;
 use std::{error::Error, io::BufRead, io::BufReader};
 use validator::Validate;
 
@@ -21,7 +15,7 @@ const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ArchLinuxProfile {
+pub struct ArchLinuxTemplate {
     #[validate(length(max = 64))]
     pub root_password: String,
 
@@ -40,7 +34,7 @@ pub struct ArchLinuxProfile {
     pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl ArchLinuxProfile {
+impl ArchLinuxTemplate {
     pub fn format_mirrorlist(&self) -> String {
         self.mirrorlist
             .iter()
@@ -69,7 +63,7 @@ pub fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
     bail!("Failed to request latest ISO");
 }
 
-impl Default for ArchLinuxProfile {
+impl Default for ArchLinuxTemplate {
     fn default() -> Self {
         let (iso_url, iso_checksum) = fetch_latest_iso().unwrap_or((
             format!("{DEFAULT_MIRROR}/iso/latest/archlinux-2022.03.01-x86_64.iso"),
@@ -86,47 +80,14 @@ impl Default for ArchLinuxProfile {
     }
 }
 
-/*impl Profile for ArchLinuxProfile {
-    fn generate_template(&self, context: &Path) -> Result<PackerTemplate, Box<dyn Error>> {
-        let mut template = PackerTemplate::default();
-
-        // Create install provisioner
-        template.provisioners.push(PackerProvisioner {
-            r#type: String::from("shell"),
-            ansible: None,
-            shell: Some(ShellPackerProvisioner {
-                scripts: Some(vec![String::from("install.sh")]),
-                expect_disconnect: Some(true),
-                environment_vars: Some(vec![
-                    format!("GB_MIRRORLIST={}", self.format_mirrorlist()),
-                    format!("GB_ROOT_PASSWORD={}", self.root_password),
-                ]),
-            }),
-        });
-
-        // Add user provisioners
-        if let Some(provisioners) = &self.provisioners {
-            provisioners
-                .iter()
-                .map(|p| p.into())
-                .for_each(|p| template.provisioners.push(p));
-        }
-
-        // Copy scripts
-        if let Some(resource) = Resources::get("install.sh") {
-            std::fs::write(context.join("install.sh"), resource.data)?;
-        }
-    }
-}*/
-
-impl Profile for ArchLinuxProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+impl Template for ArchLinuxTemplate {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
         info!("Starting {} build", "ArchLinux".blue());
 
-        let mut qemuargs = QemuArgs::new(&config);
+        let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
@@ -150,11 +111,14 @@ impl Profile for ArchLinuxProfile {
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
+        let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
         // Run install script
         if let Some(mut resource) = Resources::get("install.sh") {
-            ssh.upload_exec(resource.data.to_vec())?;
+            ssh.upload_exec(resource.data.to_vec(), vec![
+                format!("GB_MIRRORLIST={}", self.format_mirrorlist()),
+                format!("GB_ROOT_PASSWORD={}", self.root_password),
+            ])?;
         }
 
         // Run provisioners

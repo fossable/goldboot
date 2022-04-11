@@ -1,5 +1,3 @@
-use indicatif::ProgressBar;
-use indicatif::ProgressStyle;
 use log::{debug, info};
 use rand::Rng;
 use sha1::{Digest, Sha1};
@@ -230,22 +228,9 @@ impl VncConnection {
     pub fn boot_command(&mut self, command: Vec<Vec<Cmd>>) -> Result<(), Box<dyn Error>> {
         info!("Running bootstrap sequence");
 
-        let progress = if self.debug {
-            ProgressBar::hidden()
-        } else {
-            ProgressBar::new(command.iter().map(|v| v.len() as u64).sum())
-        };
-        progress.set_style(
-            ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}]")
-                .progress_chars("=>-"),
-        );
-        progress.enable_steady_tick(100);
-
         let mut step_number = 0;
         for step in command {
             for item in step {
-                progress.set_position(step_number);
                 step_number += 1;
 
                 if self.debug {
@@ -332,62 +317,67 @@ impl VncConnection {
                 }
             }
         }
-        progress.finish();
         Ok(())
     }
 }
 
 pub mod bootcmds {
 
+    #[macro_export]
     macro_rules! enter {
         ($text:expr) => {
             vec![
-                crate::vnc::Cmd::Type($text.to_string()),
-                crate::vnc::Cmd::Enter,
-                crate::vnc::Cmd::Wait(2),
+                goldboot_core::vnc::Cmd::Type($text.to_string()),
+                goldboot_core::vnc::Cmd::Enter,
+                goldboot_core::vnc::Cmd::Wait(2),
             ]
         };
         () => {
-            vec![crate::vnc::Cmd::Enter, crate::vnc::Cmd::Wait(2)]
+            vec![goldboot_core::vnc::Cmd::Enter, goldboot_core::vnc::Cmd::Wait(2)]
         };
     }
 
+    #[macro_export]
     macro_rules! spacebar {
         () => {
-            vec![crate::vnc::Cmd::Spacebar, crate::vnc::Cmd::Wait(2)]
+            vec![goldboot_core::vnc::Cmd::Spacebar, goldboot_core::vnc::Cmd::Wait(2)]
         };
     }
 
+    #[macro_export]
     macro_rules! tab {
         ($text:expr) => {
             vec![
-                crate::vnc::Cmd::Type($text.to_string()),
-                crate::vnc::Cmd::Tab,
-                crate::vnc::Cmd::Wait(2),
+                goldboot_core::vnc::Cmd::Type($text.to_string()),
+                goldboot_core::vnc::Cmd::Tab,
+                goldboot_core::vnc::Cmd::Wait(2),
             ]
         };
         () => {
-            vec![crate::vnc::Cmd::Tab, crate::vnc::Cmd::Wait(2)]
+            vec![goldboot_core::vnc::Cmd::Tab, goldboot_core::vnc::Cmd::Wait(2)]
         };
     }
 
+    #[macro_export]
     macro_rules! wait {
         ($duration:expr) => {
-            vec![crate::vnc::Cmd::Wait($duration)]
+            vec![goldboot_core::vnc::Cmd::Wait($duration)]
         };
     }
 
+    #[macro_export]
     macro_rules! wait_screen {
         ($hash:expr) => {
-            vec![crate::vnc::Cmd::WaitScreen($hash.to_string())]
+            vec![goldboot_core::vnc::Cmd::WaitScreen($hash.to_string())]
         };
     }
 
+    #[macro_export]
     macro_rules! wait_screen_rect {
         ($hash:expr, $top:expr, $left:expr, $width:expr, $height:expr) => {
-            vec![crate::vnc::Cmd::WaitScreenRect(
+            vec![goldboot_core::vnc::Cmd::WaitScreenRect(
                 $hash.to_string(),
-                vnc::Rect {
+                crate::vnc::Rect {
                     top: $top,
                     left: $left,
                     width: $width,
@@ -397,27 +387,20 @@ pub mod bootcmds {
         };
     }
 
+    #[macro_export]
     macro_rules! input {
         ($text:expr) => {
             vec![
-                crate::vnc::Cmd::Type($text.to_string()),
-                crate::vnc::Cmd::Wait(1),
+                goldboot_core::vnc::Cmd::Type($text.to_string()),
+                goldboot_core::vnc::Cmd::Wait(1),
             ]
         };
     }
 
+    #[macro_export]
     macro_rules! leftSuper {
         () => {
-            vec![crate::vnc::Cmd::LeftSuper, crate::vnc::Cmd::Wait(2)]
+            vec![goldboot_core::vnc::Cmd::LeftSuper, goldboot_core::vnc::Cmd::Wait(2)]
         };
     }
-
-    pub(crate) use enter;
-    pub(crate) use input;
-    pub(crate) use leftSuper;
-    pub(crate) use spacebar;
-    pub(crate) use tab;
-    pub(crate) use wait;
-    pub(crate) use wait_screen;
-    pub(crate) use wait_screen_rect;
 }

@@ -1,14 +1,9 @@
-use crate::cache::MediaCache;
-use crate::config::Provisioner;
-use crate::qemu::QemuArgs;
-use crate::{
-    config::Config,
-    profile::Profile,
-    vnc::bootcmds::{enter, wait_screen},
-};
+use goldboot_core::cache::MediaCache;
+use goldboot_core::qemu::QemuArgs;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+use goldboot_core::*;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum SteamOsVersion {
@@ -16,7 +11,7 @@ pub enum SteamOsVersion {
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct SteamOsProfile {
+pub struct SteamOsTemplate {
     pub version: SteamOsVersion,
 
     pub iso_url: String,
@@ -29,7 +24,7 @@ pub struct SteamOsProfile {
     pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl Default for SteamOsProfile {
+impl Default for SteamOsTemplate {
     fn default() -> Self {
         Self {
             iso_url: String::from(
@@ -43,12 +38,12 @@ impl Default for SteamOsProfile {
     }
 }
 
-impl Profile for SteamOsProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
-        let mut qemuargs = QemuArgs::new(&config);
+impl Template for SteamOsTemplate {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
@@ -70,7 +65,7 @@ impl Profile for SteamOsProfile {
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
+        let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {

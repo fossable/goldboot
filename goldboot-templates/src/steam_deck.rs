@@ -1,22 +1,18 @@
 use crate::cache::MediaCache;
 use crate::qemu::QemuArgs;
-use crate::{
-    config::Config,
-    profile::Profile,
-    vnc::bootcmds::{enter, leftSuper, wait, wait_screen_rect},
-};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+use goldboot_core::*;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct SteamDeckProfile {
+pub struct SteamDeckTemplate {
     pub recovery_url: String,
 
     pub recovery_checksum: String,
 }
 
-impl Default for SteamDeckProfile {
+impl Default for SteamDeckTemplate {
     fn default() -> Self {
         Self {
             recovery_url: String::from(
@@ -29,8 +25,8 @@ impl Default for SteamDeckProfile {
     }
 }
 
-impl Profile for SteamDeckProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+impl Template for SteamDeckTemplate {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(

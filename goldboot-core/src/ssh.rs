@@ -36,7 +36,7 @@ impl SshConnection {
         Ok(())
     }
 
-    pub fn upload_exec(&self, source: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub fn upload_exec(&self, source: Vec<u8>, env: Vec<String>) -> Result<(), Box<dyn Error>> {
         self.upload(&mut Cursor::new(source), "tmp.script")?;
         self.exec("tmp.script")?;
         self.exec("rm -f tmp.script")?;

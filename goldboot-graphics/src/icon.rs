@@ -48,7 +48,6 @@ pub fn icon_svg(background: bool) -> Svg {
 }
 
 pub fn generate_rects() -> Vec<Rect> {
-
     let mut rects = Vec::new();
 
     for r in 0..ICON_MATRIX.len() {

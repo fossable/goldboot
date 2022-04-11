@@ -1,22 +1,16 @@
 use crate::cache::MediaCache;
-use crate::config::Config;
-use crate::config::Provisioner;
 use crate::qemu::QemuArgs;
-use crate::{
-    profile::Profile,
-    vnc::bootcmds::{enter, wait},
-    windows::{Component, ComputerName, Settings, UnattendXml},
-};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+use goldboot_core::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/windows_10/"]
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct Windows10Profile {
+pub struct Windows10Template {
     username: String,
 
     password: String,
@@ -31,7 +25,7 @@ pub struct Windows10Profile {
     pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl Default for Windows10Profile {
+impl Default for Windows10Template {
     fn default() -> Self {
         Self {
             username: String::from("admin"),
@@ -44,7 +38,7 @@ impl Default for Windows10Profile {
     }
 }
 
-impl Windows10Profile {
+impl Windows10Template {
     fn create_unattended(&self) -> UnattendXml {
         UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
@@ -67,8 +61,8 @@ impl Windows10Profile {
     }
 }
 
-impl Profile for Windows10Profile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+impl Template for Windows10Template {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(

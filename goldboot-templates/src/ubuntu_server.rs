@@ -1,19 +1,17 @@
-use crate::cache::MediaCache;
-use crate::config::Config;
-use crate::qemu::QemuArgs;
-use crate::{
-    config::{Partition, Provisioner},
-    profile::Profile,
-    vnc::bootcmds::{enter, wait},
-};
-use serde::{Deserialize, Serialize};
+use goldboot_core::cache::MediaCache;
+use goldboot_core::qemu::QemuArgs;
 use std::error::Error;
+use goldboot_core::*;
+use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum UbuntuServerVersion {
+    Jammy,
+}
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AlpineProfile {
+pub struct UbuntuServerTemplate {
     pub root_password: String,
 
     /// The installation media URL
@@ -22,6 +20,8 @@ pub struct AlpineProfile {
     /// A hash of the installation media
     pub iso_checksum: String,
 
+    pub version: UbuntuServerVersion,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partitions: Option<Vec<Partition>>,
 
@@ -29,24 +29,25 @@ pub struct AlpineProfile {
     pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl Default for AlpineProfile {
+impl Default for UbuntuServerTemplate {
     fn default() -> Self {
         Self {
             root_password: String::from("root"),
-            iso_url: String::from("https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-standard-3.15.0-x86_64.iso"),
+            iso_url: format!(""),
             iso_checksum: String::from("none"),
+            version: UbuntuServerVersion::Jammy,
             partitions: None,
             provisioners: None,
         }
     }
 }
 
-impl Profile for AlpineProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
-        let mut qemuargs = QemuArgs::new(&config);
+impl Template for UbuntuServerTemplate {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
@@ -59,16 +60,10 @@ impl Profile for AlpineProfile {
         // Send boot command
         #[rustfmt::skip]
         qemu.vnc.boot_command(vec![
-            // Initial wait
-            wait!(60),
-            // Root login
-            enter!("root"),
-            // Start quick install
-            enter!("KEYMAPOPTS='us us' setup-alpine -q"),
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
+        let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {

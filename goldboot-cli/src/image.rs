@@ -15,21 +15,6 @@ use std::{
 };
 use validator::Validate;
 
-/// Represents a local image.
-#[derive(Clone, Serialize, Deserialize, Validate)]
-pub struct ImageMetadata {
-    pub sha256: String,
-
-    /// The image size in bytes
-    pub size: u64,
-
-    pub generate_time: u64,
-
-    pub parent_image: String,
-
-    pub config: Config,
-}
-
 impl ImageMetadata {
     /// Write the image metadata to the library and return the metadata hash
     pub fn write(&self) -> Result<(), Box<dyn Error>> {

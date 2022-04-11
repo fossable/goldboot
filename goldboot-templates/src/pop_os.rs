@@ -1,14 +1,9 @@
 use crate::cache::MediaCache;
-use crate::config::Provisioner;
 use crate::qemu::QemuArgs;
-use crate::{
-    config::Config,
-    profile::Profile,
-    vnc::bootcmds::{enter, input, leftSuper, spacebar, tab, wait},
-};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+use goldboot_core::*;
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub enum PopOsVersions {
@@ -18,7 +13,7 @@ pub enum PopOsVersions {
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct PopOsProfile {
+pub struct PopOsTemplate {
     pub version: PopOsVersions,
 
     pub username: String,
@@ -35,7 +30,7 @@ pub struct PopOsProfile {
     pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl Default for PopOsProfile {
+impl Default for PopOsTemplate {
     fn default() -> Self {
         Self {
             version: PopOsVersions::V21_10,
@@ -49,8 +44,8 @@ impl Default for PopOsProfile {
     }
 }
 
-impl Profile for PopOsProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+impl Template for PopOsTemplate {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         qemuargs.drive.push(format!(

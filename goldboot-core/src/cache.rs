@@ -1,5 +1,6 @@
+use indicatif::ProgressStyle;
+use indicatif::ProgressBar;
 use bzip2_rs::DecoderReader;
-use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info};
 use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};
@@ -94,7 +95,7 @@ fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub struct MediaCache {}
+pub struct MediaCache;
 
 impl MediaCache {
     pub fn get(url: String, checksum: &str) -> Result<String, Box<dyn Error>> {

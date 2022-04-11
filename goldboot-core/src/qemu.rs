@@ -1,81 +1,16 @@
-use crate::config::Config;
-use crate::image_library_path;
+use crate::BuildContext;
 use crate::ssh::SshConnection;
 use crate::vnc::VncConnection;
 use log::{debug, info};
 use simple_error::bail;
 use std::error::Error;
-use std::path::Path;
+
 use std::process::Child;
 use std::process::Command;
 use std::time::Duration;
 
-/// Search filesystem for UEFI firmware
-fn ovmf_firmware() -> Option<String> {
-    for path in vec![
-        "/usr/share/ovmf/x64/OVMF.fd",
-        "/usr/share/OVMF/OVMF_CODE.fd",
-    ] {
-        if Path::new(&path).is_file() {
-            debug!("Located OVMF firmware at: {}", path.to_string());
-            return Some(path.to_string());
-        }
-    }
-
-    debug!("Failed to locate OVMF firmware");
-    None
-}
-
-/// Allocate a new temporary image.
-pub fn allocate_image(config: &Config) -> Result<String, Box<dyn Error>> {
-    let directory = image_library_path().join("tmp");
-    std::fs::create_dir_all(&directory)?;
-
-    let path = directory.join(&config.name);
-    let path_string = path.to_string_lossy().to_string();
-
-    debug!("Allocating new {} image: {}", config.disk_size, path_string);
-    goldboot_image::Qcow2::create(&path, 256000000000, serde_json::to_vec(&config)?)?;
-    Ok(path_string)
-}
-
-pub fn compact_qcow2(path: &str) -> Result<(), Box<dyn Error>> {
-    let tmp_path = format!("{}.out", &path);
-
-    info!("Compacting image");
-    if let Some(code) = Command::new("qemu-img")
-        .arg("convert")
-        .arg("-c")
-        .arg("-O")
-        .arg("qcow2")
-        .arg(&path)
-        .arg(&tmp_path)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .expect("Failed to launch qemu-img")
-        .code()
-    {
-        if code != 0 {
-            bail!("qemu-img failed with error code: {}", code);
-        } else {
-            info!(
-                "Reduced image size from {} to {}",
-                std::fs::metadata(&path)?.len(),
-                std::fs::metadata(&tmp_path)?.len()
-            );
-
-            // Replace the original before returning
-            std::fs::rename(&tmp_path, &path)?;
-            Ok(())
-        }
-    } else {
-        panic!();
-    }
-}
-
 pub struct QemuProcess {
-    pub child: Child,
+    pub process: Child,
     pub vnc: VncConnection,
 }
 
@@ -87,7 +22,7 @@ impl QemuProcess {
         debug!("QEMU arguments: {:?}", &cmdline);
 
         // Start the VM
-        let mut child = Command::new(&args.exe)
+        let mut process = Command::new(&args.exe)
             .args(cmdline.iter())
             .spawn()
             .unwrap();
@@ -98,7 +33,7 @@ impl QemuProcess {
                 Ok(vnc) => break Ok(vnc),
                 Err(_) => {
                     // Check process
-                    match child.try_wait() {
+                    match process.try_wait() {
                         Ok(Some(status)) => {
                             bail!("Qemu exited early")
                         }
@@ -112,7 +47,7 @@ impl QemuProcess {
             }
         }?;
 
-        Ok(Self { child, vnc })
+        Ok(Self { process, vnc })
     }
 
     pub fn ssh_wait(
@@ -144,7 +79,7 @@ impl QemuProcess {
         info!("Waiting for shutdown");
 
         // Wait for QEMU to exit
-        self.child.wait()?;
+        self.process.wait()?;
         Ok(())
     }
 }
@@ -173,9 +108,9 @@ pub struct QemuArgs {
 }
 
 impl QemuArgs {
-    pub fn new(config: &Config) -> Self {
+    pub fn new(context: &BuildContext) -> Self {
         Self {
-            bios: ovmf_firmware().unwrap(),
+            bios: context.ovmf_path.clone(),
             boot: String::from("once=d"),
             cpu: None,
             smbios: None,
@@ -187,24 +122,24 @@ impl QemuArgs {
             } else {
                 String::from("type=pc,accel=kvm")
             },
-            display: if config.build_debug {
+            display: if context.debug {
                 String::from("gtk")
             } else {
                 String::from("none")
             },
-            memory: config.memory.clone(),
-            name: config.name.clone(),
+            memory: context.config.memory.clone(),
+            name: context.config.name.clone(),
             smp: String::from("4,sockets=1,cores=4,threads=1"),
             netdev: vec![format!(
                 "user,id=user.0,hostfwd=tcp::{}-:22",
-                config.ssh_port.clone().unwrap()
+                context.ssh_port
             )],
             vnc: vec![format!(
                 "127.0.0.1:{}",
-                config.vnc_port.clone().unwrap() % 5900
+                context.vnc_port % 5900
             )],
-            vnc_port: config.vnc_port.unwrap(),
-            exe: if let Some(arch) = &config.arch {
+            vnc_port: context.vnc_port,
+            exe: if let Some(arch) = &context.config.arch {
                 match arch.as_str() {
                     "x86_64" => String::from("qemu-system-x86_64"),
                     "aarch64" => String::from("qemu-system-aarch64"),
@@ -214,8 +149,8 @@ impl QemuArgs {
                 String::from("qemu-system-x86_64")
             },
             usbdevice: vec![],
-            record: config.build_record,
-            debug: config.build_debug,
+            record: context.record,
+            debug: context.debug,
         }
     }
 

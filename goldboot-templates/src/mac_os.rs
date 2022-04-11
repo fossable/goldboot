@@ -1,13 +1,9 @@
 use crate::config::Provisioner;
 use crate::qemu::QemuArgs;
-use crate::{
-    config::Config,
-    profile::Profile,
-    vnc::bootcmds::{enter, tab, wait_screen_rect},
-};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+use goldboot_core::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/mac_os/"]
@@ -21,24 +17,26 @@ pub enum MacOsVersion {
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct MacOsProfile {
+pub struct MacOsTemplate {
     pub version: MacOsVersion,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl Default for MacOsProfile {
+impl Default for MacOsTemplate {
     fn default() -> Self {
         Self {
-            provisioners: None,
+            provisioners: Some(vec![
+                ShellProvisioner::inline("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""),
+            ]),
             version: MacOsVersion::Monterey,
         }
     }
 }
 
-impl Profile for MacOsProfile {
-    fn build(&self, config: &Config, image_path: &str) -> Result<(), Box<dyn Error>> {
+impl Template for MacOsTemplate {
+    fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&config);
 
         // Acquire temporary directory for this one

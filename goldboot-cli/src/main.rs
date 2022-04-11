@@ -4,41 +4,12 @@ use clap::{Parser, Subcommand};
 use sha2::{Digest, Sha256};
 use std::{env, error::Error, path::PathBuf};
 
+pub mod build;
 pub mod cache;
-pub mod config;
-pub mod profile;
-pub mod qemu;
-pub mod ssh;
-pub mod vnc;
-pub mod windows;
-pub mod profiles {
-    pub mod alpine;
-    pub mod arch_linux;
-    pub mod debian;
-    pub mod mac_os;
-    pub mod pop_os;
-    pub mod steam_deck;
-    pub mod steam_os;
-    pub mod ubuntu_desktop;
-    pub mod ubuntu_server;
-    pub mod windows_10;
-    pub mod windows_11;
-    pub mod windows_7;
-}
-pub mod commands {
-    pub mod build;
-    pub mod image;
-    pub mod init;
-    pub mod make_usb;
-    pub mod registry;
-}
-
-pub mod ui {
-    pub mod abort_wait;
-    pub mod select_device;
-    pub mod select_image;
-    pub mod write_image;
-}
+pub mod image;
+pub mod init;
+pub mod make_usb;
+pub mod registry;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -107,13 +78,6 @@ enum Commands {
     Registry {
         #[clap(subcommand)]
         command: RegistryCommands,
-    },
-
-    /// Launch the GUI
-    Gui {
-        /// Write an image via the GUI
-        #[clap(long, takes_value = false)]
-        write_image: bool,
     },
 }
 
@@ -209,10 +173,10 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build { record, debug } => commands::build::build(*record, *debug),
+        Commands::Build { record, debug } => crate::build::build(*record, *debug),
         Commands::Registry { command } => match &command {
-            RegistryCommands::Push { url } => commands::registry::push(),
-            RegistryCommands::Pull { url } => commands::registry::pull(),
+            RegistryCommands::Push { url } => crate::registry::push(),
+            RegistryCommands::Pull { url } => crate::registry::pull(),
         },
         Commands::Init {
             name,
@@ -224,27 +188,23 @@ pub fn main() -> Result<(), Box<dyn Error>> {
             if *list_profiles {
                 profile::list_profiles()
             } else {
-                commands::init::init(profile, name, memory, disk)
+                crate::init::init(profile, name, memory, disk)
             }
         }
         Commands::MakeUsb {
             disk,
             confirm,
             include,
-        } => commands::make_usb::make_usb(),
+        } => crate::make_usb::make_usb(),
         Commands::Image { command } => match &command {
-            ImageCommands::List {} => commands::image::list(),
-            ImageCommands::Info { image } => commands::image::info(image),
-            ImageCommands::Run { image } => commands::image::run(image),
+            ImageCommands::List {} => crate::image::list(),
+            ImageCommands::Info { image } => crate::image::info(image),
+            ImageCommands::Run { image } => crate::image::run(image),
             ImageCommands::Write {
                 image,
                 disk,
                 confirm,
-            } => commands::image::write(image, disk),
+            } => crate::image::write(image, disk),
         },
-        Commands::Gui { write_image } => {
-            crate::ui::write_image::start_ui();
-            Ok(())
-        }
     }
 }

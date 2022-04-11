@@ -5,6 +5,6 @@ members = [
     "goldboot-graphics",
     "goldboot-gui",
     "goldboot-image",
-    "goldboot-profiles",
     "goldboot-registry",
+    "goldboot-templates",
 ]

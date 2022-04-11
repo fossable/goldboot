@@ -1,4 +1,5 @@
 use crate::{config::Config, profiles};
+use goldboot_templates::*;
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
@@ -17,7 +18,7 @@ fn guess_memory_size() -> u64 {
 }
 
 pub fn init(
-    profiles: &Vec<String>,
+    templates: &Vec<String>,
     name: &Option<String>,
     memory: &Option<String>,
     disk: &Option<String>,
@@ -28,8 +29,8 @@ pub fn init(
         bail!("This directory has already been initialized. Delete goldboot.json to reinitialize.");
     }
 
-    if profiles.len() == 0 {
-        bail!("Specify at least one base profile with --profile");
+    if templates.len() == 0 {
+        bail!("Specify at least one template with --template");
     }
 
     // Create a new config to be filled in according to the given arguments
@@ -53,7 +54,7 @@ pub fn init(
     } else if cfg!(target_arch = "aarch64") {
         Some("aarch64".into())
     } else {
-        panic!("Unsupported platform");
+        bail!("Unsupported platform");
     };
 
     // Set an arbitrary disk size unless given a value
@@ -70,30 +71,32 @@ pub fn init(
         format!("{}", guess_memory_size())
     };
 
-    // Run profile-specific initialization
-    for profile in profiles {
-        match profile.as_str() {
-            "Alpine" => config.profile_alpine = Some(profiles::alpine::AlpineProfile::default()),
-            "ArchLinux" => {
-                config.profile_arch_linux = Some(profiles::arch_linux::ArchLinuxProfile::default())
-            }
-            "Windows10" => {
-                config.profile_windows_10 = Some(profiles::windows_10::Windows10Profile::default())
-            }
-            "UbuntuServer" => {
-                config.profile_ubuntu_server =
-                    Some(profiles::ubuntu_server::UbuntuServerProfile::default())
-            }
-            "SteamOS" => {
-                config.profile_steam_os = Some(profiles::steam_os::SteamOsProfile::default())
-            }
-            "SteamDeck" => {
-                config.profile_steam_deck = Some(profiles::steam_deck::SteamDeckProfile::default())
-            }
-            "MacOS" => config.profile_mac_os = Some(profiles::mac_os::MacOsProfile::default()),
-            "PopOs" => config.profile_pop_os = Some(profiles::pop_os::PopOsProfile::default()),
-            _ => panic!("Unknown profile"),
-        }
+    // Run template-specific initialization
+    templates = templates
+        .iter()
+        .map(|t| #[rustfmt::skip]
+            match t.to_lowercase() {
+                "alpine"         => serde_json::to_value(AlpineTemplate::default()),
+                "archlinux"      => serde_json::to_value(ArchLinuxTemplate::default()),
+                "debian"         => serde_json::to_value(DebianTemplate::default()),
+                "goldbootusb"    => serde_json::to_value(GoldbootUsbTemplate::default()),
+                "macos"          => serde_json::to_value(MacOsTemplate::default()),
+                "popos"          => serde_json::to_value(PopOsTemplate::default()),
+                "steamdeck"      => serde_json::to_value(SteamDeckTemplate::default()),
+                "steamos"        => serde_json::to_value(SteamOsTemplate::default()),
+                "ubuntudesktop"  => serde_json::to_value(UbuntuDesktopTemplate::default()),
+                "ubuntuserver"   => serde_json::to_value(UbuntuServerTemplate::default()),
+                "windows10"      => serde_json::to_value(Windows10Template::default()),
+                "windows11"      => serde_json::to_value(Windows11Template::default()),
+                "windows7"       => serde_json::to_value(Windows7Template::default()),
+                _                => bail!("Unknown template"),
+            })
+        .collect();
+
+    if templates.len() == 1 {
+        config.template = Some(templates.first()?);
+    } else {
+        config.templates = Some(templates);
     }
 
     // Finally write out the config

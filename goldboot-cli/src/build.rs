@@ -23,12 +23,7 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     print_banner();
 
     let start_time = Instant::now();
-
-    // Load goldboot.json in the current directory
-    let mut config = Config::load()?;
-
-    config.build_record = record;
-    config.build_debug = debug;
+    let context = BuildContext::new(Config::load()?, record, debug);
 
     // Prepare to build profiles
     let profiles = config.get_profiles();
@@ -38,7 +33,13 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     }
 
     // Create an initial image that will be attached as storage to each VM
-    let image_path = crate::qemu::allocate_image(&config)?;
+    let image_path = tmp.path().join("image.gb");
+    debug!("Allocating new {} image: {}", config.disk_size, image_path);
+    goldboot_image::Qcow2::create(
+        &image_path,
+        config.disk_size_bytes(),
+        serde_json::to_vec(&config)?,
+    )?;
 
     // Create partitions if we're multi booting
     if profiles.len() > 1 {
