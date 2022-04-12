@@ -1,9 +1,9 @@
-use crate::cache::MediaCache;
-use crate::qemu::QemuArgs;
+use goldboot_core::cache::MediaCache;
+use goldboot_core::qemu::QemuArgs;
+use goldboot_core::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
-use goldboot_core::*;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct SteamDeckTemplate {
@@ -27,14 +27,15 @@ impl Default for SteamDeckTemplate {
 
 impl Template for SteamDeckTemplate {
     fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
-        let mut qemuargs = QemuArgs::new(&config);
+        let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
             "file={},format=raw",
             MediaCache::get_bzip2(self.recovery_url.clone(), &self.recovery_checksum,)?
         ));
         qemuargs.drive.push(format!(
-            "file={image_path},if=none,cache=writeback,discard=ignore,format=qcow2,id=nvme"
+            "file={},if=none,cache=writeback,discard=ignore,format=qcow2,id=nvme",
+            context.image_path
         ));
 
         // Make the storage looks like an nvme drive

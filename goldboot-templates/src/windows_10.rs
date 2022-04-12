@@ -1,9 +1,10 @@
-use crate::cache::MediaCache;
-use crate::qemu::QemuArgs;
+use goldboot_core::cache::MediaCache;
+use goldboot_core::qemu::QemuArgs;
+use goldboot_core::windows::*;
+use goldboot_core::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
-use goldboot_core::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/windows_10/"]
@@ -63,10 +64,11 @@ impl Windows10Template {
 
 impl Template for Windows10Template {
     fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
-        let mut qemuargs = QemuArgs::new(&config);
+        let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={image_path},if=ide,cache=writeback,discard=ignore,format=qcow2"
+            "file={},if=ide,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
@@ -92,7 +94,7 @@ impl Template for Windows10Template {
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), &self.username, &self.password)?;
+        let ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {

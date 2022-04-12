@@ -1,11 +1,8 @@
-#![feature(derive_default_enum)]
-
 use clap::{Parser, Subcommand};
 use sha2::{Digest, Sha256};
 use std::{env, error::Error, path::PathBuf};
 
 pub mod build;
-pub mod cache;
 pub mod image;
 pub mod init;
 pub mod make_usb;
@@ -43,9 +40,9 @@ enum Commands {
         #[clap(long)]
         name: Option<String>,
 
-        /// A base profile which can be found with --list-profiles
+        /// A base template (which can be found with --list-templates)
         #[clap(long)]
-        profile: Vec<String>,
+        template: Vec<String>,
 
         /// The amount of memory the image can access
         #[clap(long)]
@@ -55,9 +52,9 @@ enum Commands {
         #[clap(long)]
         disk: Option<String>,
 
-        /// List available profiles and exit
+        /// List available templates and exit
         #[clap(long, takes_value = false)]
-        list_profiles: bool,
+        list_templates: bool,
     },
 
     /// Create a bootable USB drive
@@ -180,15 +177,15 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         },
         Commands::Init {
             name,
-            profile,
+            template,
             memory,
             disk,
-            list_profiles,
+            list_templates,
         } => {
-            if *list_profiles {
+            if *list_templates {
                 profile::list_profiles()
             } else {
-                crate::init::init(profile, name, memory, disk)
+                crate::init::init(template, name, memory, disk)
             }
         }
         Commands::MakeUsb {

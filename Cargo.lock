@@ -986,11 +986,15 @@ name = "goldboot-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "colored",
  "env_logger",
  "goldboot-core",
+ "goldboot-image",
  "goldboot-templates",
  "indicatif",
  "log 0.4.16",
+ "serde",
+ "serde_json",
  "simple-error",
  "tempfile",
 ]
@@ -1037,8 +1041,13 @@ version = "0.1.0"
 dependencies = [
  "block-utils",
  "env_logger",
+ "goldboot-core",
+ "goldboot-image",
  "gtk4",
  "log 0.4.16",
+ "rust-embed",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

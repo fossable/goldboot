@@ -29,18 +29,15 @@ pub trait Template {
 pub struct ImageMetadata {
     pub sha256: String,
 
-    /// The image size in bytes
+    /// The file size in bytes
     pub size: u64,
 
-    pub generate_time: u64,
-
-    pub parent_image: String,
+    pub last_modified: u64,
 
     pub config: Config,
 }
 
 pub struct BuildContext {
-
     pub tmp: tempfile::TempDir,
 
     pub record: bool,
@@ -59,7 +56,6 @@ pub struct BuildContext {
 }
 
 impl BuildContext {
-
     pub fn new(config: Config, record: bool, debug: bool) -> BuildContext {
         // Obtain a temporary directory
         let tmp = tempfile::tempdir().unwrap();
@@ -252,15 +248,29 @@ impl Provisioner {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct AnsibleProvisioner {
     pub playbook: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ShellProvisioner {
     pub scripts: Vec<String>,
     pub inline: Option<String>,
+}
+
+impl ShellProvisioner {
+    /// Create a new shell provisioner with inline command
+    pub fn inline(command: &str) -> Provisioner {
+        Provisioner {
+            r#type: String::from("shell"),
+            ansible: AnsibleProvisioner::default(),
+            shell: ShellProvisioner {
+                inline: Some(command.to_string()),
+                scripts: vec![],
+            },
+        }
+    }
 }
 
 #[cfg(test)]

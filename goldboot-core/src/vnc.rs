@@ -84,7 +84,7 @@ pub enum Cmd {
     WaitScreen(String),
 
     /// Wait for a section of the screen to match the given hash.
-    WaitScreenRect(String, vnc::Rect),
+    WaitScreenRect(String, u16, u16, u16, u16),
 }
 
 pub struct VncConnection {
@@ -282,12 +282,22 @@ impl VncConnection {
                             }
                         }
                     }
-                    Cmd::WaitScreenRect(hash, rect) => {
+                    Cmd::WaitScreenRect(hash, top, left, width, height) => {
                         debug!("Waiting for screen hash to equal: {}", &hash);
                         loop {
                             std::thread::sleep(Duration::from_secs(1));
                             // TODO add rect
-                            if self.screenshot()?.trim(rect)?.hash() == hash {
+                            if self
+                                .screenshot()?
+                                .trim(vnc::Rect {
+                                    top,
+                                    left,
+                                    width,
+                                    height,
+                                })?
+                                .hash()
+                                == hash
+                            {
                                 // Don't continue immediately
                                 std::thread::sleep(Duration::from_secs(1));
                                 break;
@@ -333,14 +343,20 @@ pub mod bootcmds {
             ]
         };
         () => {
-            vec![goldboot_core::vnc::Cmd::Enter, goldboot_core::vnc::Cmd::Wait(2)]
+            vec![
+                goldboot_core::vnc::Cmd::Enter,
+                goldboot_core::vnc::Cmd::Wait(2),
+            ]
         };
     }
 
     #[macro_export]
     macro_rules! spacebar {
         () => {
-            vec![goldboot_core::vnc::Cmd::Spacebar, goldboot_core::vnc::Cmd::Wait(2)]
+            vec![
+                goldboot_core::vnc::Cmd::Spacebar,
+                goldboot_core::vnc::Cmd::Wait(2),
+            ]
         };
     }
 
@@ -354,7 +370,10 @@ pub mod bootcmds {
             ]
         };
         () => {
-            vec![goldboot_core::vnc::Cmd::Tab, goldboot_core::vnc::Cmd::Wait(2)]
+            vec![
+                goldboot_core::vnc::Cmd::Tab,
+                goldboot_core::vnc::Cmd::Wait(2),
+            ]
         };
     }
 
@@ -377,12 +396,10 @@ pub mod bootcmds {
         ($hash:expr, $top:expr, $left:expr, $width:expr, $height:expr) => {
             vec![goldboot_core::vnc::Cmd::WaitScreenRect(
                 $hash.to_string(),
-                crate::vnc::Rect {
-                    top: $top,
-                    left: $left,
-                    width: $width,
-                    height: $height,
-                },
+                $top,
+                $left,
+                $width,
+                $height,
             )]
         };
     }
@@ -400,7 +417,10 @@ pub mod bootcmds {
     #[macro_export]
     macro_rules! leftSuper {
         () => {
-            vec![goldboot_core::vnc::Cmd::LeftSuper, goldboot_core::vnc::Cmd::Wait(2)]
+            vec![
+                goldboot_core::vnc::Cmd::LeftSuper,
+                goldboot_core::vnc::Cmd::Wait(2),
+            ]
         };
     }
 }

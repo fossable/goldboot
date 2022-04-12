@@ -1,5 +1,5 @@
-use crate::ui::select_device::SelectDeviceView;
-use crate::ui::select_image::SelectImageView;
+use crate::select_device::SelectDeviceView;
+use crate::select_image::SelectImageView;
 use gtk4 as gtk;
 use gtk4::prelude::*;
 

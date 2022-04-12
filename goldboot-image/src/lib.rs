@@ -76,7 +76,11 @@ impl Qcow2 {
         }
     }
 
-    pub fn create(path: &Path, size: u64, metadata: Vec<u8>) -> Result<Qcow2, Box<dyn Error>> {
+    pub fn create(
+        path: impl AsRef<Path>,
+        size: u64,
+        metadata: Vec<u8>,
+    ) -> Result<Qcow2, Box<dyn Error>> {
         let image = Qcow2::new(size, metadata);
         image.write_to(&mut File::create(path)?)?;
         Ok(image)

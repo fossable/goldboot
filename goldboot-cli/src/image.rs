@@ -1,4 +1,3 @@
-use crate::config::Config;
 use crate::image_library_path;
 use goldboot_image::levels::ClusterDescriptor;
 use goldboot_image::CompressionType;
@@ -83,8 +82,7 @@ impl ImageMetadata {
     pub fn find(image_name: &str) -> Result<ImageMetadata, Box<dyn Error>> {
         Ok(ImageMetadata::load()?
             .iter()
-            .find(|&metadata| metadata.config.name == image_name)
-            .unwrap()
+            .find(|&metadata| metadata.config.name == image_name)?
             .to_owned())
     }
 }

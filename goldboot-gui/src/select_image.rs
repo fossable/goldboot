@@ -1,4 +1,4 @@
-use crate::commands::image::ImageMetadata;
+use goldboot_core::*;
 use gtk4 as gtk;
 use gtk4::prelude::*;
 

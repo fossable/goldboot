@@ -1,9 +1,9 @@
-use crate::cache::MediaCache;
-use crate::qemu::QemuArgs;
+use goldboot_core::cache::MediaCache;
+use goldboot_core::qemu::QemuArgs;
+use goldboot_core::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
-use goldboot_core::*;
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub enum PopOsVersions {
@@ -46,10 +46,11 @@ impl Default for PopOsTemplate {
 
 impl Template for PopOsTemplate {
     fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
-        let mut qemuargs = QemuArgs::new(&config);
+        let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={image_path},if=virtio,cache=writeback,discard=ignore,format=qcow2"
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
@@ -121,7 +122,7 @@ impl Template for PopOsTemplate {
         ])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", &self.root_password)?;
+        let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
         // Run provisioners
         for provisioner in &self.provisioners {

@@ -1,6 +1,5 @@
-use crate::commands::image::ImageMetadata;
-use crate::config::Config;
 use colored::*;
+use goldboot_core::*;
 use log::{debug, info};
 use simple_error::bail;
 use std::time::Instant;
@@ -25,20 +24,22 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     let start_time = Instant::now();
     let context = BuildContext::new(Config::load()?, record, debug);
 
-    // Prepare to build profiles
-    let profiles = config.get_profiles();
+    // Prepare to build templates
+    let profiles = goldboot_templates::get_templates(&context.config)?;
     let profiles_len = profiles.len();
     if profiles_len == 0 {
         bail!("At least one base profile must be specified");
     }
 
     // Create an initial image that will be attached as storage to each VM
-    let image_path = tmp.path().join("image.gb");
-    debug!("Allocating new {} image: {}", config.disk_size, image_path);
+    debug!(
+        "Allocating new {} image: {}",
+        context.config.disk_size, context.image_path
+    );
     goldboot_image::Qcow2::create(
-        &image_path,
-        config.disk_size_bytes(),
-        serde_json::to_vec(&config)?,
+        &context.image_path,
+        context.config.disk_size_bytes(),
+        serde_json::to_vec(&context.config)?,
     )?;
 
     // Create partitions if we're multi booting
@@ -48,7 +49,7 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
 
     // Build each profile
     for profile in profiles {
-        profile.build(&config, &image_path)?;
+        profile.build(&context)?;
     }
 
     // Install bootloader if we're multi booting
@@ -57,16 +58,21 @@ pub fn build(record: bool, debug: bool) -> Result<(), Box<dyn Error>> {
     }
 
     // Attempt to reduce the size of image
-    crate::qemu::compact_qcow2(&image_path)?;
+    compact_image(&context.image_path)?;
 
     info!("Build completed in: {:?}", start_time.elapsed());
 
     // Create new image metadata
-    let metadata = ImageMetadata::new(config.clone())?;
-    metadata.write()?;
+    // TODO
+    let metadata = ImageMetadata {
+        sha256: String::from(""),
+        size: 0,
+        last_modified: 0,
+        config: context.config,
+    };
 
     // Move the image to the library
-    fs::rename(image_path, metadata.path_qcow2())?;
+    std::fs::copy(context.image_path, metadata.path_qcow2())?;
 
     Ok(())
 }

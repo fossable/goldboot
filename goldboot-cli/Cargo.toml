@@ -5,10 +5,14 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3.1.2", features = ["derive"] }
+colored = "2"
 env_logger = "0.9"
 goldboot-core = { path="../goldboot-core" }
+goldboot-image = { path="../goldboot-image" }
 goldboot-templates = { path="../goldboot-templates" }
 indicatif = "0.16.2"
 log = { version = "0.4.11", default-features = false }
+serde = { version="1",features = ["derive"] }
+serde_json = "1"
 simple-error = "0.2.3"
 tempfile = "3.3.0"

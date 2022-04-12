@@ -1,6 +1,6 @@
-use indicatif::ProgressStyle;
-use indicatif::ProgressBar;
 use bzip2_rs::DecoderReader;
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use log::{debug, info};
 use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};

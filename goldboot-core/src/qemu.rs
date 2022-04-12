@@ -1,6 +1,6 @@
-use crate::BuildContext;
 use crate::ssh::SshConnection;
 use crate::vnc::VncConnection;
+use crate::BuildContext;
 use log::{debug, info};
 use simple_error::bail;
 use std::error::Error;
@@ -134,10 +134,7 @@ impl QemuArgs {
                 "user,id=user.0,hostfwd=tcp::{}-:22",
                 context.ssh_port
             )],
-            vnc: vec![format!(
-                "127.0.0.1:{}",
-                context.vnc_port % 5900
-            )],
+            vnc: vec![format!("127.0.0.1:{}", context.vnc_port % 5900)],
             vnc_port: context.vnc_port,
             exe: if let Some(arch) = &context.config.arch {
                 match arch.as_str() {

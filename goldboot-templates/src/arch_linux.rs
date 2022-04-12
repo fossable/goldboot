@@ -1,7 +1,7 @@
+use colored::*;
 use goldboot_core::cache::MediaCache;
 use goldboot_core::qemu::QemuArgs;
 use goldboot_core::*;
-use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -87,7 +87,8 @@ impl Template for ArchLinuxTemplate {
         let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", context.image_path
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
@@ -115,10 +116,13 @@ impl Template for ArchLinuxTemplate {
 
         // Run install script
         if let Some(mut resource) = Resources::get("install.sh") {
-            ssh.upload_exec(resource.data.to_vec(), vec![
-                format!("GB_MIRRORLIST={}", self.format_mirrorlist()),
-                format!("GB_ROOT_PASSWORD={}", self.root_password),
-            ])?;
+            ssh.upload_exec(
+                resource.data.to_vec(),
+                vec![
+                    format!("GB_MIRRORLIST={}", self.format_mirrorlist()),
+                    format!("GB_ROOT_PASSWORD={}", self.root_password),
+                ],
+            )?;
         }
 
         // Run provisioners

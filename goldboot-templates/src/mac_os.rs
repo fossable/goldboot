@@ -1,9 +1,8 @@
-use crate::config::Provisioner;
-use crate::qemu::QemuArgs;
+use goldboot_core::qemu::QemuArgs;
+use goldboot_core::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
-use goldboot_core::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/mac_os/"]
@@ -37,14 +36,11 @@ impl Default for MacOsTemplate {
 
 impl Template for MacOsTemplate {
     fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
-        let mut qemuargs = QemuArgs::new(&config);
-
-        // Acquire temporary directory for this one
-        let tmp = tempfile::tempdir()?;
+        let mut qemuargs = QemuArgs::new(&context);
 
         // Copy OpenCore partition
         if let Some(resource) = Resources::get("OpenCore.qcow2") {
-            std::fs::write(tmp.path().join("OpenCore.qcow2"), resource.data)?;
+            std::fs::write(context.tmp.path().join("OpenCore.qcow2"), resource.data)?;
         }
 
         // Convert dmg to img
@@ -66,7 +62,7 @@ impl Template for MacOsTemplate {
         // Add boot partition
         qemuargs.drive.push(format!(
             "file={}/OpenCore.qcow2,id=OpenCore,if=none,format=qcow2",
-            tmp.path().to_string_lossy()
+            context.tmp.path().to_string_lossy()
         ));
         qemuargs
             .device
@@ -82,7 +78,8 @@ impl Template for MacOsTemplate {
 
         // Add system drive
         qemuargs.drive.push(format!(
-            "file={image_path},id=System,if=none,cache=writeback,discard=ignore,format=qcow2"
+            "file={},id=System,if=none,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path,
         ));
         qemuargs
             .device
@@ -109,10 +106,11 @@ impl Template for MacOsTemplate {
 		            enter!("launchctl load -w /System/Library/LaunchDaemons/ssh.plist"),
 		        ])?;
             }
+            _ => {}
         }
 
         // Wait for SSH
-        let ssh = qemu.ssh_wait(config.ssh_port.unwrap(), "root", "root")?;
+        let ssh = qemu.ssh_wait(context.ssh_port, "root", "root")?;
 
         // Run provisioners
         for provisioner in &self.provisioners {

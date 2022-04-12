@@ -1,8 +1,8 @@
 use goldboot_core::cache::MediaCache;
 use goldboot_core::qemu::QemuArgs;
-use std::error::Error;
 use goldboot_core::*;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -49,7 +49,8 @@ impl Template for DebianTemplate {
         let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", context.image_path
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",

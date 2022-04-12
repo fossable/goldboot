@@ -1,3 +1,4 @@
+use crate::*;
 use goldboot_core::cache::MediaCache;
 use goldboot_core::qemu::QemuArgs;
 use goldboot_core::*;
@@ -11,27 +12,28 @@ const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 pub struct AlpineTemplate {
     pub root_password: String,
 
-    /// The installation media URL
-    pub iso_url: String,
+    #[serde(flatten)]
+    pub iso: IsoContainer,
 
-    /// A hash of the installation media
-    pub iso_checksum: String,
+    #[serde(flatten)]
+    pub partitions: PartitionsContainer,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub partitions: Option<Vec<Partition>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provisioners: Option<Vec<Provisioner>>,
+    #[serde(flatten)]
+    pub provisioners: ProvisionersContainer,
 }
 
 impl Default for AlpineTemplate {
     fn default() -> Self {
         Self {
             root_password: String::from("root"),
-            iso_url: format!("{DEFAULT_MIRROR}/v3.15/releases/x86_64/alpine-standard-3.15.0-x86_64.iso"),
-            iso_checksum: String::from("none"),
-            partitions: None,
-            provisioners: None,
+            iso: IsoContainer {
+                iso_url: format!(
+                    "{DEFAULT_MIRROR}/v3.15/releases/x86_64/alpine-standard-3.15.0-x86_64.iso"
+                ),
+                iso_checksum: String::from("none"),
+            },
+            partitions: PartitionsContainer::default(),
+            provisioners: ProvisionersContainer::default(),
         }
     }
 }
@@ -41,11 +43,12 @@ impl Template for AlpineTemplate {
         let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2", context.image_path
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
-            MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+            MediaCache::get(self.iso.iso_url.clone(), &self.iso.iso_checksum)?
         ));
 
         // Start VM
@@ -66,7 +69,7 @@ impl Template for AlpineTemplate {
         let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
         // Run provisioners
-        for provisioner in &self.provisioners {
+        for provisioner in &self.provisioners.provisioners {
             // TODO
         }
 
