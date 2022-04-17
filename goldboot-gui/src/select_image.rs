@@ -30,7 +30,7 @@ impl ImageEntry {
             /*.filter(|entry| entry.unwrap().path().extension() == Some(".gb"))*/
             {
                 if let Ok(image_path) = read_result {
-                    if let Ok(image) = goldboot_image::Qcow2::open(image_path.path()) {
+                    if let Ok(image) = goldboot_image::GoldbootImage::open(image_path.path()) {
                         if let Ok(metadata) =
                             serde_json::from_slice::<ImageMetadata>(&image.header.metadata.data)
                         {

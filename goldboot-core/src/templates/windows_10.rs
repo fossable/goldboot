@@ -1,7 +1,7 @@
-use goldboot_core::cache::MediaCache;
-use goldboot_core::qemu::QemuArgs;
-use goldboot_core::windows::*;
-use goldboot_core::*;
+use crate::cache::MediaCache;
+use crate::qemu::QemuArgs;
+use crate::templates::*;
+use crate::windows::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;

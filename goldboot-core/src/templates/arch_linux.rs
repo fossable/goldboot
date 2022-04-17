@@ -1,7 +1,7 @@
 use colored::*;
-use goldboot_core::cache::MediaCache;
-use goldboot_core::qemu::QemuArgs;
-use goldboot_core::*;
+use crate::cache::MediaCache;
+use crate::qemu::QemuArgs;
+use crate::templates::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;

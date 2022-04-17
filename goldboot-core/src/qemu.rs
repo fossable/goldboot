@@ -9,6 +9,17 @@ use std::process::Child;
 use std::process::Command;
 use std::time::Duration;
 
+/// Get the QEMU system binary for the current platform
+pub fn current_qemu_binary() -> &'static str {
+    if cfg!(target_arch = "x86_64") {
+        "qemu-system-x86_64"
+    } else if cfg!(target_arch = "aarch64") {
+        "qemu-system-aarch64"
+    } else {
+        panic!("Unsupported platform");
+    }
+}
+
 pub struct QemuProcess {
     pub process: Child,
     pub vnc: VncConnection,

@@ -1,11 +1,10 @@
 use crate::*;
 
-/// Top-level header of Qcow format
+/// Qcow header version 3 with metadata extensions.
 #[derive(BinRead, BinWrite, Debug)]
 #[brw(magic = b"QFI\xfb")]
 pub struct QcowHeader {
-    /// Version of the QCOW format. Only version 2 or 3 is supported, future formats will throw
-    /// a parsing error upon being read.
+    /// Version of the QCOW format.
     pub version: u32,
 
     /// Offset into the image file at which the backing file name
@@ -104,21 +103,17 @@ pub struct QcowHeader {
     /// or must be zero (which means zlib).
     pub compression_type: CompressionType,
 
-    /// Metadata extension
-    pub metadata: GoldbootMetadata,
+    /// Metadata extension length
+    #[brw(magic = 0x80818080_u32)]
+    metadata_len: u32,
+
+    /// The metadata itself
+    #[br(count = metadata_len)]
+    #[bw()]
+    pub metadata: Vec<u8>,
 
     /// Marks the end of the extensions
     end: u32,
-}
-
-#[derive(BinRead, BinWrite, Debug)]
-#[brw(magic = 0x80818080_u32)]
-pub struct GoldbootMetadata {
-    len: u32,
-
-    #[br(count = len)]
-    #[bw()]
-    pub data: Vec<u8>,
 }
 
 /// Encryption method (if any) to use for image contents.
@@ -184,10 +179,8 @@ impl QcowHeader {
             refcount_order: 4,
             header_len: 112 + (4 + metadata.len()) as u32,
             compression_type: CompressionType::Zlib,
-            metadata: GoldbootMetadata {
-                len: metadata.len() as u32,
-                data: metadata,
-            },
+            metadata_len: metadata.len() as u32,
+            metadata,
             end: 0_u32,
         }
     }

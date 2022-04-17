@@ -1,7 +1,6 @@
-use crate::*;
-use goldboot_core::cache::MediaCache;
-use goldboot_core::qemu::QemuArgs;
-use goldboot_core::*;
+use crate::cache::*;
+use crate::qemu::QemuArgs;
+use crate::templates::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
@@ -10,6 +9,8 @@ const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AlpineTemplate {
+
+    /// The root account password
     pub root_password: String,
 
     #[serde(flatten)]
@@ -48,7 +49,7 @@ impl Template for AlpineTemplate {
         ));
         qemuargs.drive.push(format!(
             "file={},media=cdrom",
-            MediaCache::get(self.iso.iso_url.clone(), &self.iso.iso_checksum)?
+            MediaCache::get(self.iso.iso_url.clone(), &self.iso.iso_checksum, MediaFormat::Iso)?
         ));
 
         // Start VM

@@ -1,5 +1,5 @@
-use crate::{config::Config, profiles};
 use goldboot_templates::*;
+use goldboot_core::*;
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
@@ -17,6 +17,7 @@ fn guess_memory_size() -> u64 {
     return 2048;
 }
 
+#[rustfmt::skip]
 pub fn init(
     templates: &Vec<String>,
     name: &Option<String>,
@@ -72,31 +73,15 @@ pub fn init(
     };
 
     // Run template-specific initialization
-    templates = templates
-        .iter()
-        .map(|t| #[rustfmt::skip]
-            match t.to_lowercase() {
-                "alpine"         => serde_json::to_value(AlpineTemplate::default()),
-                "archlinux"      => serde_json::to_value(ArchLinuxTemplate::default()),
-                "debian"         => serde_json::to_value(DebianTemplate::default()),
-                "goldbootusb"    => serde_json::to_value(GoldbootUsbTemplate::default()),
-                "macos"          => serde_json::to_value(MacOsTemplate::default()),
-                "popos"          => serde_json::to_value(PopOsTemplate::default()),
-                "steamdeck"      => serde_json::to_value(SteamDeckTemplate::default()),
-                "steamos"        => serde_json::to_value(SteamOsTemplate::default()),
-                "ubuntudesktop"  => serde_json::to_value(UbuntuDesktopTemplate::default()),
-                "ubuntuserver"   => serde_json::to_value(UbuntuServerTemplate::default()),
-                "windows10"      => serde_json::to_value(Windows10Template::default()),
-                "windows11"      => serde_json::to_value(Windows11Template::default()),
-                "windows7"       => serde_json::to_value(Windows7Template::default()),
-                _                => bail!("Unknown template"),
-            })
-        .collect();
-
     if templates.len() == 1 {
-        config.template = Some(templates.first()?);
+        config.template = Some(get_default_template(&templates[0])?);
     } else {
-        config.templates = Some(templates);
+
+        let mut default_templates = Vec::new();
+        for template in templates {
+            default_templates.push(get_default_template(&template)?);
+        }
+        config.templates = Some(default_templates);
     }
 
     // Finally write out the config

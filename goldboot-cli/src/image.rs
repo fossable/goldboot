@@ -1,6 +1,7 @@
 use crate::image_library_path;
 use goldboot_image::levels::ClusterDescriptor;
 use goldboot_image::CompressionType;
+use goldboot_core::*;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -15,29 +16,6 @@ use std::{
 use validator::Validate;
 
 impl ImageMetadata {
-    /// Write the image metadata to the library and return the metadata hash
-    pub fn write(&self) -> Result<(), Box<dyn Error>> {
-        let metadata_json = serde_json::to_string(&self).unwrap();
-
-        // Write it to the library directory
-        fs::write(self.path_json(), &metadata_json).unwrap();
-        Ok(())
-    }
-
-    pub fn path_json(&self) -> PathBuf {
-        let metadata_json = serde_json::to_string(&self).unwrap();
-        let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
-
-        image_library_path().join(format!("{}.json", hash))
-    }
-
-    pub fn path_qcow2(&self) -> PathBuf {
-        let metadata_json = serde_json::to_string(&self).unwrap();
-        let hash = hex::encode(Sha256::new().chain_update(&metadata_json).finalize());
-
-        image_library_path().join(format!("{}.qcow2", hash))
-    }
-
     pub fn new(config: Config) -> Result<ImageMetadata, Box<dyn Error>> {
         let output = image_library_path().join("output").join(&config.name);
         Ok(ImageMetadata {
@@ -50,41 +28,7 @@ impl ImageMetadata {
         })
     }
 
-    /// Load images present in the local image library
-    pub fn load() -> Result<Vec<ImageMetadata>, Box<dyn Error>> {
-        let mut images = Vec::new();
-
-        for p in image_library_path().read_dir().unwrap() {
-            let path = p.unwrap().path();
-
-            if let Some(ext) = path.extension() {
-                let filename = path.file_stem().unwrap().to_str().unwrap().to_string();
-                if ext == "json" {
-                    // Hash the file and compare it to the filename
-                    let content = fs::read(&path).unwrap();
-
-                    if *Sha256::new().chain_update(content).finalize()
-                        == hex::decode(filename).unwrap()
-                    {
-                        let metadata: ImageMetadata =
-                            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-                        images.push(metadata);
-                    } else {
-                        debug!("Found corrupt file in image directory: {}", path.display());
-                    }
-                }
-            }
-        }
-
-        Ok(images)
-    }
-
-    pub fn find(image_name: &str) -> Result<ImageMetadata, Box<dyn Error>> {
-        Ok(ImageMetadata::load()?
-            .iter()
-            .find(|&metadata| metadata.config.name == image_name)?
-            .to_owned())
-    }
+    
 }
 
 pub fn info(image: &str) -> Result<(), Box<dyn Error>> {
@@ -121,7 +65,7 @@ pub fn write(image_name: &str, disk_name: &str) -> Result<(), Box<dyn Error>> {
 
     let mut f = File::open("foo.txt").unwrap();
 
-    let qcow2 = goldboot_image::Qcow2::open(image.path_qcow2())?;
+    let qcow2 = goldboot_image::GoldbootImage::open(image.path_qcow2())?;
     let mut file = BufReader::new(File::open(image.path_qcow2())?);
 
     let mut offset = 0u64;

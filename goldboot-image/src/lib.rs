@@ -36,7 +36,7 @@ pub use snapshots::*;
 /// and then using [`DynamicQcow::unwrap_qcow2`].
 #[derive(BinRead, BinWrite, Debug)]
 #[brw(big)]
-pub struct Qcow2 {
+pub struct GoldbootImage {
     /// Header of the qcow as parsed from the file, contains top-level data about the qcow
     pub header: QcowHeader,
 
@@ -51,25 +51,25 @@ pub struct Qcow2 {
     pub l1_table: Vec<L1Entry>,
 }
 
-impl Qcow2 {
+impl GoldbootImage {
     /// Get the size of a cluster in bytes from the qcow
     pub fn cluster_size(&self) -> u64 {
         self.header.cluster_size()
     }
 
     /// Open a qcow or qcow2 file from a path
-    pub fn open(path: impl AsRef<Path>) -> Result<Qcow2, Box<dyn Error>> {
+    pub fn open(path: impl AsRef<Path>) -> Result<GoldbootImage, Box<dyn Error>> {
         let path = path.as_ref();
         let mut file = BufReader::new(File::open(path)?);
 
-        Qcow2::load(&mut file)
+        GoldbootImage::load(&mut file)
     }
 
-    pub fn new(size: u64, metadata: Vec<u8>) -> Qcow2 {
+    pub fn new(size: u64, metadata: Vec<u8>) -> GoldbootImage {
         let header = QcowHeader::new(size, metadata);
         let l1_size = header.l1_size;
 
-        Qcow2 {
+        GoldbootImage {
             header: header,
             snapshots: vec![],
             l1_table: vec![L1Entry(0); l1_size as usize],
@@ -80,8 +80,8 @@ impl Qcow2 {
         path: impl AsRef<Path>,
         size: u64,
         metadata: Vec<u8>,
-    ) -> Result<Qcow2, Box<dyn Error>> {
-        let image = Qcow2::new(size, metadata);
+    ) -> Result<GoldbootImage, Box<dyn Error>> {
+        let image = GoldbootImage::new(size, metadata);
         image.write_to(&mut File::create(path)?)?;
         Ok(image)
     }
@@ -90,7 +90,7 @@ impl Qcow2 {
     ///
     /// **Note**: unlike [`open`] this does not buffer your I/O. Any buffering should be handled via a
     /// wrapper such as [`BufReader`] in order to ensure good performance where applicable.
-    pub fn load(reader: &mut (impl Read + Seek)) -> Result<Qcow2, Box<dyn Error>> {
+    pub fn load(reader: &mut (impl Read + Seek)) -> Result<GoldbootImage, Box<dyn Error>> {
         Ok(reader.read_be()?)
     }
 }
@@ -102,13 +102,13 @@ mod tests {
 
     #[test]
     fn test_load() -> Result<(), Box<dyn Error>> {
-        Qcow2::load(&mut File::open("test/empty.gb")?)?;
+        GoldbootImage::load(&mut File::open("test/empty.gb")?)?;
         Ok(())
     }
 
     #[test]
     fn test_new() -> Result<(), Box<dyn Error>> {
-        let image = Qcow2::new(5120000000, vec![]);
+        let image = GoldbootImage::new(5120000000, vec![]);
         image.write_to(&mut File::create("test.gb")?)?;
         Ok(())
     }

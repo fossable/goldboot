@@ -8,12 +8,12 @@ use std::io::{self, BufReader, Read, Seek};
 type BackingReader = Reader<'static, 'static, BufReader<File>>;
 
 /// A reader for reading from the guest virtual drive. Should be constructed using
-/// [`Qcow2::reader`].
+/// [`GoldbootImage::reader`].
 pub struct Reader<'qcow, 'reader, R>
 where
     R: Read + Seek,
 {
-    qcow: &'qcow Qcow2,
+    qcow: &'qcow GoldbootImage,
 
     backing_reader: Option<Box<BackingReader>>,
 
@@ -39,7 +39,7 @@ where
     current_cluster: Box<[u8]>,
 }
 
-impl Qcow2 {
+impl GoldbootImage {
     /// Create a reader for reading from the guest virtual drive
     pub fn reader<'qcow, 'reader, R>(
         &'qcow self,

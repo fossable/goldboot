@@ -52,6 +52,9 @@ enum Commands {
         #[clap(long)]
         disk: Option<String>,
 
+        #[clap(long, takes_value = false)]
+        mimic_hardware: bool,
+
         /// List available templates and exit
         #[clap(long, takes_value = false)]
         list_templates: bool,
@@ -117,15 +120,6 @@ enum ImageCommands {
     },
 }
 
-/// Return the image library path for the current platform.
-pub fn image_library_path() -> PathBuf {
-    if cfg!(target_os = "linux") {
-        PathBuf::from("/var/lib/goldboot/images")
-    } else {
-        panic!("Unsupported platform");
-    }
-}
-
 /// A simple cache for storing images that are not stored in the Packer cache.
 /// Most images here need some kind of transformation before they are bootable.
 pub fn image_cache_lookup(key: &str) -> PathBuf {
@@ -134,17 +128,6 @@ pub fn image_cache_lookup(key: &str) -> PathBuf {
 
     if cfg!(target_os = "linux") {
         PathBuf::from("/var/lib/goldboot/cache").join(hash)
-    } else {
-        panic!("Unsupported platform");
-    }
-}
-
-/// Get the QEMU system binary for the current platform
-pub fn current_qemu_binary() -> &'static str {
-    if cfg!(target_arch = "x86_64") {
-        "qemu-system-x86_64"
-    } else if cfg!(target_arch = "aarch64") {
-        "qemu-system-aarch64"
     } else {
         panic!("Unsupported platform");
     }
@@ -170,7 +153,15 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Dispatch command
     match &cl.command {
-        Commands::Build { record, debug } => crate::build::build(*record, *debug),
+        Commands::Build { record, debug } => {
+            debug!("Loading config from ./goldboot.json");
+ 
+            let config: Config = serde_json::from_slice(&std::fs::read("goldboot.json")?)?;
+            config.validate()?;
+            debug!("Loaded config: {:#?}", &config);
+
+            let mut build = BuildJob::new(config, *record, *debug, true);
+        },
         Commands::Registry { command } => match &command {
             RegistryCommands::Push { url } => crate::registry::push(),
             RegistryCommands::Pull { url } => crate::registry::pull(),

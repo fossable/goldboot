@@ -1,4 +1,4 @@
-use crate::Qcow2;
+use crate::GoldbootImage;
 use std::io::Seek;
 use std::io::Write;
 
@@ -6,7 +6,7 @@ pub struct Writer<'qcow, 'writer, W>
 where
     W: Write + Seek,
 {
-    qcow: &'qcow Qcow2,
+    qcow: &'qcow GoldbootImage,
 
     writer: &'writer mut W,
 
