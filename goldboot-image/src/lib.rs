@@ -1,9 +1,7 @@
 #![warn(missing_docs)]
 use binrw::{
-    io::{Read, Seek, SeekFrom},
-    until_exclusive, BinRead, BinReaderExt, BinWrite,
+    io::{Read, Seek, SeekFrom}, BinRead, BinReaderExt, BinWrite,
 };
-use modular_bitfield::prelude::*;
 
 use std::error::Error;
 use std::fs::File;
@@ -25,37 +23,25 @@ use levels::*;
 mod snapshots;
 pub use snapshots::*;
 
-/// Parsed representation of a qcow2 file.
-///
-/// Can be aquired by using one of:
-///
-/// * [`open`]
-/// * [`load`]
-/// * [`load_from_memory`]
-///
-/// and then using [`DynamicQcow::unwrap_qcow2`].
+/// Represents a goldboot image which is just a qcow2 file with special metadata.
 #[derive(BinRead, BinWrite, Debug)]
 #[brw(big)]
 pub struct GoldbootImage {
-    /// Header of the qcow as parsed from the file, contains top-level data about the qcow
+    /// The image header
     pub header: QcowHeader,
 
-    /// List of snapshots present within this qcow
+    /// The snapshot table
     #[br(seek_before = SeekFrom::Start(header.snapshots_offset), count = header.nb_snapshots)]
     #[bw(seek_before = SeekFrom::Start(header.snapshots_offset))]
     pub snapshots: Vec<Snapshot>,
 
-    /// Active table of [`L1Entry`]s used for handling lookups of contents
+    /// The "active" L1 table
     #[br(seek_before = SeekFrom::Start(header.l1_table_offset), count = header.l1_size)]
     #[bw(seek_before = SeekFrom::Start(header.l1_table_offset))]
     pub l1_table: Vec<L1Entry>,
 }
 
 impl GoldbootImage {
-    /// Get the size of a cluster in bytes from the qcow
-    pub fn cluster_size(&self) -> u64 {
-        self.header.cluster_size()
-    }
 
     /// Open a qcow or qcow2 file from a path
     pub fn open(path: impl AsRef<Path>) -> Result<GoldbootImage, Box<dyn Error>> {

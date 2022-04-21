@@ -134,17 +134,9 @@ pub enum EncryptionMethod {
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
 #[brw(repr(u8))]
 pub enum CompressionType {
-    /// Uses flate/zlib compression for any clusters which are compressed
-    Zlib = 0,
 
-    /// Uses zstandard compression for any clusters which are compressed
+    /// Uses zstandard for compressed clusters
     Zstd = 1,
-}
-
-impl Default for CompressionType {
-    fn default() -> Self {
-        Self::Zlib
-    }
 }
 
 impl QcowHeader {
@@ -178,7 +170,7 @@ impl QcowHeader {
             autoclear_features: 0,
             refcount_order: 4,
             header_len: 112 + (4 + metadata.len()) as u32,
-            compression_type: CompressionType::Zlib,
+            compression_type: CompressionType::Zstd,
             metadata_len: metadata.len() as u32,
             metadata,
             end: 0_u32,

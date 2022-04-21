@@ -3,8 +3,6 @@
 use crate::*;
 use std::io;
 
-use flate2::read::DeflateDecoder;
-
 /// An entry in an L1 table that can be used to lookup the location of an L2 table
 #[derive(BinRead, BinWrite, Debug, Clone)]
 pub struct L1Entry(pub u64);
@@ -105,43 +103,23 @@ impl L2Entry {
                     )?;
                 }
             }
-            ClusterDescriptor::Compressed(cluster) => match comp_type {
-                CompressionType::Zlib => {
-                    reader
-                        .seek(SeekFrom::Start(cluster.host_cluster_offset))
-                        .map_err(|_| {
-                            io::Error::new(
-                                io::ErrorKind::UnexpectedEof,
-                                "Seeked past the end of the file attempting to read the current \
-                                cluster",
-                            )
-                        })?;
+            ClusterDescriptor::Compressed(cluster) => {
+                reader
+                    .seek(SeekFrom::Start(cluster.host_cluster_offset))
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "Seeked past the end of the file attempting to read the current \
+                            cluster",
+                        )
+                    })?;
 
-                    let cluster_size = buf.len() as u64;
-                    let mut cluster = io::Cursor::new(buf);
-                    io::copy(
-                        &mut DeflateDecoder::new(reader).take(cluster_size),
-                        &mut cluster,
-                    )?;
-                }
-                CompressionType::Zstd => {
-                    reader
-                        .seek(SeekFrom::Start(cluster.host_cluster_offset))
-                        .map_err(|_| {
-                            io::Error::new(
-                                io::ErrorKind::UnexpectedEof,
-                                "Seeked past the end of the file attempting to read the current \
-                                cluster",
-                            )
-                        })?;
-
-                    let cluster_size = buf.len() as u64;
-                    let mut cluster = io::Cursor::new(buf);
-                    io::copy(
-                        &mut zstd::Decoder::new(reader)?.take(cluster_size),
-                        &mut cluster,
-                    )?;
-                }
+                let cluster_size = buf.len() as u64;
+                let mut cluster = io::Cursor::new(buf);
+                io::copy(
+                    &mut zstd::Decoder::new(reader)?.take(cluster_size),
+                    &mut cluster,
+                )?;
             },
         }
 

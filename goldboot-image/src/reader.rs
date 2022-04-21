@@ -2,10 +2,7 @@ use crate::levels::{L1Entry, L2Entry};
 use crate::*;
 
 use std::convert::TryInto;
-use std::fs::File;
-use std::io::{self, BufReader, Read, Seek};
-
-type BackingReader = Reader<'static, 'static, BufReader<File>>;
+use std::io::{self, Read, Seek};
 
 /// A reader for reading from the guest virtual drive. Should be constructed using
 /// [`GoldbootImage::reader`].
@@ -14,8 +11,6 @@ where
     R: Read + Seek,
 {
     qcow: &'qcow GoldbootImage,
-
-    backing_reader: Option<Box<BackingReader>>,
 
     /// inner reader used for reading/seeking in the host file (the qcow itself)
     reader: &'reader mut R,
@@ -64,7 +59,7 @@ impl GoldbootImage {
             .expect("No L2 table entries found")
             .clone();
 
-        let mut current_cluster = vec![0; self.cluster_size() as usize].into_boxed_slice();
+        let mut current_cluster = vec![0; self.header.cluster_size() as usize].into_boxed_slice();
         l2_cache
             .read_contents(
                 reader,
@@ -84,7 +79,6 @@ impl GoldbootImage {
             l1_key,
             l2_key,
             current_cluster,
-            backing_reader: None,
         }
     }
 }
@@ -98,15 +92,9 @@ where
         self.pos
     }
 
-    /// Returns a reference to a reader for the backing qcow file, if such a backing file exists.
-    pub fn get_backing_qcow_reader(&mut self) -> Option<&mut BackingReader> {
-        // TODO remove
-        self.backing_reader.as_deref_mut()
-    }
-
     fn update_l1_cache(&mut self) -> io::Result<()> {
-        let l2_entries = self.cluster_size() / (std::mem::size_of::<u64>() as u64);
-        let l1_key = (self.pos / self.cluster_size()) / l2_entries;
+        let l2_entries = self.qcow.header.cluster_size() / (std::mem::size_of::<u64>() as u64);
+        let l1_key = (self.pos / self.qcow.header.cluster_size()) / l2_entries;
 
         if self.l1_key != l1_key {
             self.l1_key = l1_key;
@@ -129,8 +117,8 @@ where
     }
 
     fn update_l2_cache(&mut self) -> io::Result<()> {
-        let l2_entries = self.cluster_size() / (std::mem::size_of::<u64>() as u64);
-        let l2_key = self.pos / self.cluster_size();
+        let l2_entries = self.qcow.header.cluster_size() / (std::mem::size_of::<u64>() as u64);
+        let l2_key = self.pos / self.qcow.header.cluster_size();
         let l2_index = l2_key % l2_entries;
 
         if self.l2_key != l2_key {
@@ -155,16 +143,6 @@ where
 
         Ok(())
     }
-
-    /// Get the size of a cluster within the qcow
-    pub fn cluster_size(&self) -> u64 {
-        self.qcow.cluster_size()
-    }
-
-    /// Get the number of cluster bits present in the underlying reader
-    pub fn cluster_bits(&self) -> u32 {
-        self.qcow.header.cluster_bits
-    }
 }
 
 impl<'qcow, 'reader, R> Read for Reader<'qcow, 'reader, R>
@@ -172,37 +150,23 @@ where
     R: Read + Seek,
 {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self.update_l2_cache() {
-            Ok(()) => {
-                let cluster_size = self.cluster_size();
-                let pos_in_cluster = self.pos % cluster_size;
-                let bytes_remaining_in_cluster = cluster_size - pos_in_cluster;
+        self.update_l2_cache()?;
 
-                let read_len = u64::min(bytes_remaining_in_cluster, buf.len() as u64);
-                let read_end: usize = (pos_in_cluster + read_len).try_into().unwrap();
-                let pos_in_cluster: usize = pos_in_cluster.try_into().unwrap();
+        let cluster_size = self.qcow.header.cluster_size();
+        let pos_in_cluster = self.pos % cluster_size;
+        let bytes_remaining_in_cluster = cluster_size - pos_in_cluster;
 
-                buf[..read_len as usize]
-                    .copy_from_slice(&self.current_cluster[pos_in_cluster..read_end]);
+        let read_len = u64::min(bytes_remaining_in_cluster, buf.len() as u64);
+        let read_end: usize = (pos_in_cluster + read_len).try_into().unwrap();
+        let pos_in_cluster: usize = pos_in_cluster.try_into().unwrap();
 
-                self.pos += read_len;
-                let _ = self.update_l2_cache();
+        buf[..read_len as usize]
+            .copy_from_slice(&self.current_cluster[pos_in_cluster..read_end]);
 
-                Ok(read_len as usize)
-            }
-            Err(err) => (move || {
-                let pos = self.pos;
-                let reader = self.get_backing_qcow_reader()?;
+        self.pos += read_len;
+        let _ = self.update_l2_cache();
 
-                reader.seek(SeekFrom::Start(pos)).ok()?;
-                let bytes_read = reader.read(buf).ok()?;
-
-                self.pos += bytes_read as u64;
-
-                Some(bytes_read)
-            })()
-            .ok_or(err),
-        }
+        Ok(read_len as usize)
     }
 }
 
