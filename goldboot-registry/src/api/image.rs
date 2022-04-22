@@ -1,14 +1,13 @@
-
 /// Get image info
 #[get("/images/{id}")]
 pub async fn info(id: web::Path<String>) -> impl Responder {
-    todo!();
+	todo!();
 }
 
 /// Get image list
 #[get("/images")]
 pub async fn list(id: web::Path<String>) -> impl Responder {
-    todo!();
+	todo!();
 }
 
 /// Push an image
@@ -24,17 +23,17 @@ pub async fn push(id: web::Path<String>, rq: actix_web::HttpRequest) -> impl Res
 	let mut file = File::create(&path)?;
 
 	std::io::copy(rq, file)?;
-    todo!();
+	todo!();
 }
 
 /// Get cluster data
 #[get("/images/{id}/clusters/{range}")]
 pub async fn clusters(id: web::Path<String>, range: web::Path<String>) -> impl Responder {
-    todo!();
+	todo!();
 }
 
 /// Get cluster hashes
 #[get("/images/{id}/hashes/{range}")]
 pub async fn hashes(id: web::Path<String>, range: web::Path<String>) -> impl Responder {
-    todo!();
+	todo!();
 }
