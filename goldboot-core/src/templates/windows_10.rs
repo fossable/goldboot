@@ -1,4 +1,4 @@
-use crate::{cache::MediaCache, qemu::QemuArgs, templates::*, windows::*};
+use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::*, windows::*};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;

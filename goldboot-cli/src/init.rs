@@ -35,7 +35,7 @@ pub fn init(
 	}
 
 	// Create a new config to be filled in according to the given arguments
-	let mut config = Config::default();
+	let mut config = BuildConfig::default();
 
 	if let Some(name) = name {
 		config.name = name.to_string();
@@ -76,7 +76,6 @@ pub fn init(
 	if templates.len() == 1 {
 		config.template = Some(get_default_template(&templates[0])?);
 	} else {
-
 		let mut default_templates = Vec::new();
 		for template in templates {
 			default_templates.push(get_default_template(&template)?);

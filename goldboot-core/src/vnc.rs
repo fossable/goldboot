@@ -332,26 +332,20 @@ pub mod bootcmds {
 	macro_rules! enter {
 		($text:expr) => {
 			vec![
-				goldboot_core::vnc::VncCmd::Type($text.to_string()),
-				goldboot_core::vnc::VncCmd::Enter,
-				goldboot_core::vnc::VncCmd::Wait(2),
+				crate::vnc::VncCmd::Type($text.to_string()),
+				crate::vnc::VncCmd::Enter,
+				crate::vnc::VncCmd::Wait(2),
 			]
 		};
 		() => {
-			vec![
-				goldboot_core::vnc::VncCmd::Enter,
-				goldboot_core::vnc::VncCmd::Wait(2),
-			]
+			vec![crate::vnc::VncCmd::Enter, crate::vnc::VncCmd::Wait(2)]
 		};
 	}
 
 	#[macro_export]
 	macro_rules! spacebar {
 		() => {
-			vec![
-				goldboot_core::vnc::VncCmd::Spacebar,
-				goldboot_core::vnc::VncCmd::Wait(2),
-			]
+			vec![crate::vnc::VncCmd::Spacebar, crate::vnc::VncCmd::Wait(2)]
 		};
 	}
 
@@ -359,37 +353,34 @@ pub mod bootcmds {
 	macro_rules! tab {
 		($text:expr) => {
 			vec![
-				goldboot_core::vnc::VncCmd::Type($text.to_string()),
-				goldboot_core::vnc::VncCmd::Tab,
-				goldboot_core::vnc::VncCmd::Wait(2),
+				crate::vnc::VncCmd::Type($text.to_string()),
+				crate::vnc::VncCmd::Tab,
+				crate::vnc::VncCmd::Wait(2),
 			]
 		};
 		() => {
-			vec![
-				goldboot_core::vnc::VncCmd::Tab,
-				goldboot_core::vnc::VncCmd::Wait(2),
-			]
+			vec![crate::vnc::VncCmd::Tab, crate::vnc::VncCmd::Wait(2)]
 		};
 	}
 
 	#[macro_export]
 	macro_rules! wait {
 		($duration:expr) => {
-			vec![goldboot_core::vnc::VncCmd::Wait($duration)]
+			vec![crate::vnc::VncCmd::Wait($duration)]
 		};
 	}
 
 	#[macro_export]
 	macro_rules! wait_screen {
 		($hash:expr) => {
-			vec![goldboot_core::vnc::VncCmd::WaitScreen($hash.to_string())]
+			vec![crate::vnc::VncCmd::WaitScreen($hash.to_string())]
 		};
 	}
 
 	#[macro_export]
 	macro_rules! wait_screen_rect {
 		($hash:expr, $top:expr, $left:expr, $width:expr, $height:expr) => {
-			vec![goldboot_core::vnc::VncCmd::WaitScreenRect(
+			vec![crate::vnc::VncCmd::WaitScreenRect(
 				$hash.to_string(),
 				$top,
 				$left,
@@ -403,8 +394,8 @@ pub mod bootcmds {
 	macro_rules! input {
 		($text:expr) => {
 			vec![
-				goldboot_core::vnc::VncCmd::Type($text.to_string()),
-				goldboot_core::vnc::VncCmd::Wait(1),
+				crate::vnc::VncCmd::Type($text.to_string()),
+				crate::vnc::VncCmd::Wait(1),
 			]
 		};
 	}
@@ -412,10 +403,7 @@ pub mod bootcmds {
 	#[macro_export]
 	macro_rules! leftSuper {
 		() => {
-			vec![
-				goldboot_core::vnc::VncCmd::LeftSuper,
-				goldboot_core::vnc::VncCmd::Wait(2),
-			]
+			vec![crate::vnc::VncCmd::LeftSuper, crate::vnc::VncCmd::Wait(2)]
 		};
 	}
 }

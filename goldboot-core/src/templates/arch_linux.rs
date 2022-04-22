@@ -1,4 +1,4 @@
-use crate::{cache::MediaCache, qemu::QemuArgs, templates::*};
+use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::*};
 use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};

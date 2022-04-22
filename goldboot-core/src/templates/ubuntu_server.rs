@@ -1,4 +1,4 @@
-use goldboot_core::{cache::MediaCache, qemu::QemuArgs, *};
+use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::Template, *};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;

@@ -1,3 +1,5 @@
+#![feature(derive_default_enum)]
+
 use crate::ssh::SshConnection;
 use log::{debug, info};
 use rand::Rng;
@@ -6,6 +8,7 @@ use simple_error::bail;
 use std::{default::Default, error::Error, fs, fs::File, path::Path, process::Command};
 use validator::Validate;
 
+pub mod build;
 pub mod cache;
 pub mod qemu;
 pub mod ssh;
@@ -27,7 +30,7 @@ pub struct ImageMetadata {
 
 	pub last_modified: u64,
 
-	pub config: Config,
+	pub config: BuildConfig,
 }
 
 /// Search filesystem for UEFI firmware.

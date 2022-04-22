@@ -15,7 +15,7 @@ use std::{
 use validator::Validate;
 
 impl ImageMetadata {
-	pub fn new(config: Config) -> Result<ImageMetadata, Box<dyn Error>> {
+	pub fn new(config: BuildConfig) -> Result<ImageMetadata, Box<dyn Error>> {
 		let output = image_library_path().join("output").join(&config.name);
 		Ok(ImageMetadata {
 			//name: output.file_stem().unwrap().to_str().unwrap().to_string(),

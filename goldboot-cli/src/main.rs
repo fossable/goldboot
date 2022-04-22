@@ -156,7 +156,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 		Commands::Build { record, debug } => {
 			debug!("Loading config from ./goldboot.json");
 
-			let config: Config = serde_json::from_slice(&std::fs::read("goldboot.json")?)?;
+			let config: BuildConfig = serde_json::from_slice(&std::fs::read("goldboot.json")?)?;
 			config.validate()?;
 			debug!("Loaded config: {:#?}", &config);
 

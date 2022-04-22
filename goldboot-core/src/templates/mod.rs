@@ -1,4 +1,4 @@
-use goldboot_core::*;
+use crate::*;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::error::Error;
@@ -91,7 +91,7 @@ impl TemplateType {
 	}
 }
 
-pub fn get_templates(config: &Config) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
+pub fn get_templates(config: &BuildConfig) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
 	// Precondition: only one of 'template' and 'templates' can exist
 	if config.template.is_some() && config.templates.is_some() {
 		bail!("'template' and 'templates' cannot be specified simultaneously");
