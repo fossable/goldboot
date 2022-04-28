@@ -1,4 +1,4 @@
-use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::*};
+use crate::{build::BuildWorker, cache::MediaCache, qemu::QemuArgs, templates::*};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
@@ -34,7 +34,7 @@ impl Default for MacOsTemplate {
 }
 
 impl Template for MacOsTemplate {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		// Copy OpenCore partition

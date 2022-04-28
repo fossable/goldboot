@@ -38,9 +38,9 @@ impl MediaCache {
 			if rs.status().is_success() {
 				let length = rs.content_length().ok_or("Failed to get content length")?;
 
-				let mut reader: Read = match format {
-					Iso => &rs,
-					Bzip2 => bzip2_rs::DecoderReader::new(rs),
+				let mut reader: Box<dyn Read> = match format {
+					Iso => Box::new(rs),
+					Bzip2 => Box::new(bzip2_rs::DecoderReader::new(rs)),
 				};
 
 				let mut file = File::create(&path)?;
@@ -98,6 +98,8 @@ fn cache_dir() -> PathBuf {
 	}
 }
 
+trait Hasher: Write + Digest {}
+
 fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
 	// "None" shortcut
 	if checksum == "none" {
@@ -109,35 +111,37 @@ fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
 		bail!("Invalid checksum: {}", checksum);
 	}
 
-	let mut hasher = match c[0] {
+	let mut file = File::open(&path)?;
+
+	let hash = match c[0] {
 		"sha1" | "SHA1" => {
 			info!("Computing SHA1 checksum");
-			Sha1::new()
+			let mut hasher = Sha1::new();
+			std::io::copy(&mut file, &mut hasher);
+			hex::encode(hasher.finalize())
 		}
 		"sha256" | "SHA256" => {
 			info!("Computing SHA256 checksum");
-			Sha256::new()
+			let mut hasher = Sha256::new();
+			std::io::copy(&mut file, &mut hasher);
+			hex::encode(hasher.finalize())
 		}
 		"sha512" | "SHA512" => {
 			info!("Computing SHA512 checksum");
-			Sha512::new()
+			let mut hasher = Sha512::new();
+			std::io::copy(&mut file, &mut hasher);
+			hex::encode(hasher.finalize())
 		}
 		_ => bail!("Unsupported hash"),
 	};
 
-	let mut file = File::open(&path)?;
-
-	if cfg!(feature = "progressbars") {
+	/*if cfg!(feature = "progressbars") {
 		let file_size = std::fs::metadata(&path)?.len();
 		let progress = ProgressBar::new(file_size);
 		progress.set_style(ProgressStyle::default_bar().template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").progress_chars("#>-"));
 
 		copy_with_progress(&mut file, &mut hasher, file_size, &progress)?;
-	} else {
-		std::io::copy(&mut file, &mut hasher);
-	}
-
-	let hash = hex::encode(hasher.finalize());
+	}*/
 
 	debug!("Computed: {}", &hash);
 	debug!("Expected: {}", &c[1]);

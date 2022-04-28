@@ -1,4 +1,10 @@
-use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::*, windows::*};
+use crate::{
+	build::BuildWorker,
+	cache::{MediaCache, MediaFormat},
+	qemu::QemuArgs,
+	templates::*,
+	windows::*,
+};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
@@ -60,7 +66,7 @@ impl Windows10Template {
 }
 
 impl Template for Windows10Template {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		qemuargs.drive.push(format!(
@@ -69,7 +75,7 @@ impl Template for Windows10Template {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
 		));
 
 		// Write the Autounattend.xml file

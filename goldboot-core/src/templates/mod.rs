@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{build::BuildWorker, *};
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::error::Error;
@@ -27,7 +27,12 @@ pub mod windows_7;
 
 /// Represents a "base configuration" that users can modify and use to build images.
 pub trait Template {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>>;
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
+
+	/// Get the template's multiboot config if applicable.
+	fn multiboot_container(&self) -> Option<MultibootContainer> {
+		None
+	}
 }
 
 pub enum TemplateType {
@@ -91,32 +96,6 @@ impl TemplateType {
 	}
 }
 
-pub fn get_templates(config: &BuildConfig) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
-	// Precondition: only one of 'template' and 'templates' can exist
-	if config.template.is_some() && config.templates.is_some() {
-		bail!("'template' and 'templates' cannot be specified simultaneously");
-	}
-
-	// Precondition: at least one of 'template' or 'templates' must exist
-	if config.template.is_none() && config.templates.is_none() {
-		bail!("No template(s) specified");
-	}
-
-	let mut templates: Vec<Box<dyn Template>> = Vec::new();
-
-	if let Some(template) = &config.template {
-		templates.push(parse_template(template.to_owned())?);
-	}
-
-	if let Some(template_array) = &config.templates {
-		for template in template_array {
-			templates.push(parse_template(template.to_owned())?);
-		}
-	}
-
-	Ok(templates)
-}
-
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct IsoContainer {
 	/// The installation media URL
@@ -126,9 +105,18 @@ pub struct IsoContainer {
 	pub iso_checksum: String,
 }
 
+//static RE_DISK_USAGE: Regex = Regex::new(r"[1-9][0-9]?%$").unwrap();
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct MultibootContainer {
+	//#[validate(regex = "RE_DISK_USAGE")]
 	pub disk_usage: String,
+}
+
+impl MultibootContainer {
+	pub fn percentage(&self) -> f64 {
+		0_f64
+	}
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]

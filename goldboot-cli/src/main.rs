@@ -1,12 +1,25 @@
 use clap::{Parser, Subcommand};
+use colored::*;
 use sha2::{Digest, Sha256};
 use std::{env, error::Error, path::PathBuf};
 
-pub mod build;
 pub mod image;
 pub mod init;
 pub mod make_usb;
 pub mod registry;
+
+#[rustfmt::skip]
+fn print_banner() {
+	println!("⬜{}⬜", "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
+	println!("⬜{}⬜", "　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛　".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛⬛".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "⬛⬛⬛　⬛⬛⬛　⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛　".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "⬛⬛⬛　⬛⬛⬛　⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "　　⬛　　　　　　　　　　　　　　　　　　　　　　　　　".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "⬛⬛⬛　　　　　　　　　　　　　　　　　　　　　　　　　".truecolor(200, 171, 55));
+	println!("⬜{}⬜", "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜");
+}
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -154,13 +167,19 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 	// Dispatch command
 	match &cl.command {
 		Commands::Build { record, debug } => {
+			print_banner();
 			debug!("Loading config from ./goldboot.json");
 
+			// Load build config from current directory
 			let config: BuildConfig = serde_json::from_slice(&std::fs::read("goldboot.json")?)?;
-			config.validate()?;
 			debug!("Loaded config: {:#?}", &config);
 
-			let mut build = BuildJob::new(config, *record, *debug, true);
+			// Fully verify config before proceeding
+			config.validate()?;
+
+			// Run the build finally
+			let mut job = BuildJob::new(config, *record, *debug, !env::var("CI").is_ok());
+			job.run()?;
 		}
 		Commands::Registry { command } => match &command {
 			RegistryCommands::Push { url } => crate::registry::push(),

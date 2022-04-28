@@ -1,4 +1,10 @@
-use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::Template, *};
+use crate::{
+	build::BuildWorker,
+	cache::{MediaCache, MediaFormat},
+	qemu::QemuArgs,
+	templates::Template,
+	*,
+};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
@@ -41,7 +47,7 @@ impl Default for UbuntuServerTemplate {
 }
 
 impl Template for UbuntuServerTemplate {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		qemuargs.drive.push(format!(
@@ -50,7 +56,7 @@ impl Template for UbuntuServerTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM

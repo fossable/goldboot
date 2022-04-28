@@ -1,4 +1,9 @@
-use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::*};
+use crate::{
+	build::BuildWorker,
+	cache::{MediaCache, MediaFormat},
+	qemu::QemuArgs,
+	templates::*,
+};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
@@ -24,12 +29,16 @@ impl Default for SteamDeckTemplate {
 }
 
 impl Template for SteamDeckTemplate {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		qemuargs.drive.push(format!(
 			"file={},format=raw",
-			MediaCache::get_bzip2(self.recovery_url.clone(), &self.recovery_checksum,)?
+			MediaCache::get(
+				self.recovery_url.clone(),
+				&self.recovery_checksum,
+				MediaFormat::Bzip2
+			)?
 		));
 		qemuargs.drive.push(format!(
 			"file={},if=none,cache=writeback,discard=ignore,format=qcow2,id=nvme",

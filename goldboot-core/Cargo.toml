@@ -10,6 +10,7 @@ progressbars = []
 bzip2-rs = "0.1.2"
 colored = "2"
 env_logger = "0.9"
+goldboot-image = { path="../goldboot-image" }
 hex = "0.4.3"
 indicatif = "0.16.2"
 log = { version = "0.4.11", default-features = false }

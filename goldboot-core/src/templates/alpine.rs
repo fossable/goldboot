@@ -1,10 +1,11 @@
-use crate::{build::BuildContext, cache::*, qemu::QemuArgs, templates::*};
+use crate::{build::BuildWorker, cache::*, qemu::QemuArgs, templates::*};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 
+/// Template for Alpine Linux images (https://www.alpinelinux.org).
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AlpineTemplate {
 	/// The root account password
@@ -18,6 +19,9 @@ pub struct AlpineTemplate {
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
+
+	#[serde(flatten)]
+	pub multiboot: MultibootContainer,
 }
 
 impl Default for AlpineTemplate {
@@ -32,12 +36,15 @@ impl Default for AlpineTemplate {
 			},
 			partitions: PartitionsContainer::default(),
 			provisioners: ProvisionersContainer::default(),
+			multiboot: MultibootContainer {
+				disk_usage: String::from("100%"),
+			},
 		}
 	}
 }
 
 impl Template for AlpineTemplate {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		qemuargs.drive.push(format!(
@@ -79,5 +86,9 @@ impl Template for AlpineTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn multiboot_container(&self) -> Option<MultibootContainer> {
+		Some(self.multiboot)
 	}
 }

@@ -1,4 +1,9 @@
-use crate::{build::BuildContext, cache::MediaCache, qemu::QemuArgs, templates::*};
+use crate::{
+	build::BuildWorker,
+	cache::{MediaCache, MediaFormat},
+	qemu::QemuArgs,
+	templates::*,
+};
 use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -82,7 +87,7 @@ impl Default for ArchLinuxTemplate {
 }
 
 impl Template for ArchLinuxTemplate {
-	fn build(&self, context: &BuildContext) -> Result<(), Box<dyn Error>> {
+	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		info!("Starting {} build", "ArchLinux".blue());
 
 		let mut qemuargs = QemuArgs::new(&context);
@@ -93,7 +98,7 @@ impl Template for ArchLinuxTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum)?
+			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM

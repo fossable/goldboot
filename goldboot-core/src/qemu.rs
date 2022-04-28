@@ -1,4 +1,4 @@
-use crate::{ssh::SshConnection, vnc::VncConnection, BuildContext};
+use crate::{build::BuildWorker, ssh::SshConnection, vnc::VncConnection};
 use log::{debug, info};
 use simple_error::bail;
 use std::error::Error;
@@ -118,7 +118,7 @@ pub struct QemuArgs {
 }
 
 impl QemuArgs {
-	pub fn new(context: &BuildContext) -> Self {
+	pub fn new(context: &BuildWorker) -> Self {
 		Self {
 			bios: context.ovmf_path.clone(),
 			boot: String::from("once=d"),

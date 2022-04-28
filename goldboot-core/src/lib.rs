@@ -1,8 +1,10 @@
 #![feature(derive_default_enum)]
 
-use crate::ssh::SshConnection;
+use crate::{
+	ssh::SshConnection,
+	templates::{Template, TemplateType},
+};
 use log::{debug, info};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::{default::Default, error::Error, fs, fs::File, path::Path, process::Command};
@@ -10,6 +12,7 @@ use validator::Validate;
 
 pub mod build;
 pub mod cache;
+pub mod image;
 pub mod qemu;
 pub mod ssh;
 pub mod templates;
@@ -19,19 +22,6 @@ pub mod windows;
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/"]
 struct Resources;
-
-/// Represents a local goldboot image.
-#[derive(Clone, Serialize, Deserialize, Validate)]
-pub struct ImageMetadata {
-	pub sha256: String,
-
-	/// The file size in bytes
-	pub size: u64,
-
-	pub last_modified: u64,
-
-	pub config: BuildConfig,
-}
 
 /// Search filesystem for UEFI firmware.
 pub fn find_ovmf() -> Option<String> {
@@ -121,6 +111,32 @@ pub struct BuildConfig {
 impl BuildConfig {
 	pub fn disk_size_bytes(&self) -> u64 {
 		self.disk_size.parse::<ubyte::ByteUnit>().unwrap().as_u64()
+	}
+
+	pub fn get_templates(&self) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
+		// Precondition: only one of 'template' and 'templates' can exist
+		if self.template.is_some() && self.templates.is_some() {
+			bail!("'template' and 'templates' cannot be specified simultaneously");
+		}
+
+		// Precondition: at least one of 'template' or 'templates' must exist
+		if self.template.is_none() && self.templates.is_none() {
+			bail!("No template(s) specified");
+		}
+
+		let mut templates: Vec<Box<dyn Template>> = Vec::new();
+
+		if let Some(template) = &self.template {
+			templates.push(TemplateType::parse_template(template.to_owned())?);
+		}
+
+		if let Some(template_array) = &self.templates {
+			for template in template_array {
+				templates.push(TemplateType::parse_template(template.to_owned())?);
+			}
+		}
+
+		Ok(templates)
 	}
 }
 
