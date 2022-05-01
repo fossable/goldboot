@@ -27,14 +27,11 @@ pub struct ArchLinuxTemplate {
 
 	pub mirrorlist: Vec<String>,
 
-	/// The installation media URL
-	pub iso_url: String,
+	#[serde(flatten)]
+	pub iso: IsoContainer,
 
-	/// A hash of the installation media
-	pub iso_checksum: String,
-
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub partitions: Option<Vec<Partition>>,
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
@@ -78,9 +75,16 @@ impl Default for ArchLinuxTemplate {
 		Self {
 			root_password: String::from("root"),
 			mirrorlist: vec![format!("{DEFAULT_MIRROR}/$repo/os/$arch",)],
-			iso_url: iso_url,
-			iso_checksum: iso_checksum,
-			partitions: None,
+			iso: IsoContainer {
+				url: iso_url,
+				checksum: iso_checksum,
+			},
+			general: GeneralContainer{
+				r#type: TemplateType::ArchLinux,
+				storage_size: String::from("10 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 			provisioners: None,
 		}
 	}
@@ -98,7 +102,7 @@ impl Template for ArchLinuxTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM
@@ -108,11 +112,14 @@ impl Template for ArchLinuxTemplate {
 		#[rustfmt::skip]
 		qemu.vnc.boot_command(vec![
 			// Initial wait
-			wait!(60),
+			wait!(50),
 			// Wait for login
-			wait_screen_rect!("426f88982ab5cb075a9e59578d06e9c28530e43c", 100, 0, 1024, 400),
+			wait_screen_rect!("5b3ca88689e9d671903b3040889c7fa1cb5f244a", 100, 0, 1024, 400),
 			// Configure root password
 			enter!("passwd"), enter!(self.root_password), enter!(self.root_password),
+			// Configure SSH
+			enter!("echo 'AcceptEnv *' >>/etc/ssh/sshd_config"),
+			enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"),
 			// Start sshd
 			enter!("systemctl restart sshd"),
 		])?;
@@ -121,12 +128,12 @@ impl Template for ArchLinuxTemplate {
 		let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run install script
-		if let Some(mut resource) = Resources::get("install.sh") {
+		if let Some(resource) = Resources::get("install.sh") {
 			ssh.upload_exec(
 				resource.data.to_vec(),
 				vec![
-					format!("GB_MIRRORLIST={}", self.format_mirrorlist()),
-					format!("GB_ROOT_PASSWORD={}", self.root_password),
+					("GB_MIRRORLIST", &self.format_mirrorlist()),
+					("GB_ROOT_PASSWORD", &self.root_password),
 				],
 			)?;
 		}
@@ -139,9 +146,13 @@ impl Template for ArchLinuxTemplate {
 		}
 
 		// Shutdown
-		ssh.shutdown("poweroff")?;
+		//ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }
 

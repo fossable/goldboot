@@ -15,13 +15,10 @@ pub struct AlpineTemplate {
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]
-	pub partitions: PartitionsContainer,
+	pub general: GeneralContainer,
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
-
-	#[serde(flatten)]
-	pub multiboot: MultibootContainer,
 }
 
 impl Default for AlpineTemplate {
@@ -29,16 +26,18 @@ impl Default for AlpineTemplate {
 		Self {
 			root_password: String::from("root"),
 			iso: IsoContainer {
-				iso_url: format!(
+				url: format!(
 					"{DEFAULT_MIRROR}/v3.15/releases/x86_64/alpine-standard-3.15.0-x86_64.iso"
 				),
-				iso_checksum: String::from("none"),
+				checksum: String::from("none"),
 			},
-			partitions: PartitionsContainer::default(),
+			general: GeneralContainer{
+				r#type: TemplateType::Alpine,
+				storage_size: String::from("5 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 			provisioners: ProvisionersContainer::default(),
-			multiboot: MultibootContainer {
-				disk_usage: String::from("100%"),
-			},
 		}
 	}
 }
@@ -54,8 +53,8 @@ impl Template for AlpineTemplate {
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
 			MediaCache::get(
-				self.iso.iso_url.clone(),
-				&self.iso.iso_checksum,
+				self.iso.url.clone(),
+				&self.iso.checksum,
 				MediaFormat::Iso
 			)?
 		));
@@ -88,7 +87,7 @@ impl Template for AlpineTemplate {
 		Ok(())
 	}
 
-	fn multiboot_container(&self) -> Option<MultibootContainer> {
-		Some(self.multiboot)
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

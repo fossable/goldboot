@@ -34,13 +34,13 @@ impl MediaCache {
 		}
 
 		if !path.is_file() {
-			let mut rs = reqwest::blocking::get(&url)?;
+			let rs = reqwest::blocking::get(&url)?;
 			if rs.status().is_success() {
 				let length = rs.content_length().ok_or("Failed to get content length")?;
 
 				let mut reader: Box<dyn Read> = match format {
-					Iso => Box::new(rs),
-					Bzip2 => Box::new(bzip2_rs::DecoderReader::new(rs)),
+					MediaFormat::Iso => Box::new(rs),
+					MediaFormat::Bzip2 => Box::new(bzip2_rs::DecoderReader::new(rs)),
 				};
 
 				let mut file = File::create(&path)?;

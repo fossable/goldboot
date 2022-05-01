@@ -1,16 +1,6 @@
-use goldboot_core::*;
-use goldboot_templates::*;
+use goldboot_core::{templates::TemplateType, *};
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
-
-/// Choose some arbitrary disk and get its size in bytes. The user will likely change it
-/// in the config later.
-fn guess_disk_size() -> u64 {
-	if cfg!(target_os = "unix") {
-		// TODO
-	}
-	return 64000000000;
-}
 
 /// Choose some arbitrary memory size in megabytes which is less than the amount of available free
 /// memory on the system.
@@ -58,13 +48,6 @@ pub fn init(
 		bail!("Unsupported platform");
 	};
 
-	// Set an arbitrary disk size unless given a value
-	config.disk_size = if let Some(disk_size) = disk {
-		disk_size.to_string()
-	} else {
-		format!("{}b", guess_disk_size())
-	};
-
 	// Set an arbitrary memory size unless given a value
 	config.memory = if let Some(memory_size) = memory {
 		memory_size.to_string()
@@ -73,15 +56,13 @@ pub fn init(
 	};
 
 	// Run template-specific initialization
-	if templates.len() == 1 {
-		config.template = Some(get_default_template(&templates[0])?);
-	} else {
-		let mut default_templates = Vec::new();
-		for template in templates {
-			default_templates.push(get_default_template(&template)?);
-		}
-		config.templates = Some(default_templates);
+	let mut default_templates = Vec::new();
+	for template in templates {
+		let t: TemplateType =
+			serde_json::from_str(format!("{{\"type\": \"{}\"}}", &template).as_str())?;
+		default_templates.push(t.get_default_template()?);
 	}
+	config.templates = default_templates;
 
 	// Finally write out the config
 	fs::write(config_path, serde_json::to_string_pretty(&config)?)?;

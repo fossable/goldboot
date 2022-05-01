@@ -65,11 +65,7 @@ impl GoldbootImage {
 
 		let mut current_cluster = vec![0; self.header.cluster_size() as usize].into_boxed_slice();
 		l2_cache
-			.read_contents(
-				reader,
-				&mut current_cluster[..],
-				qcow.header.compression_type,
-			)
+			.read_contents(reader, &mut current_cluster[..])
 			.or_else(|err| Err(err))
 			.expect("Failed to read first qcow cluster");
 
@@ -138,11 +134,8 @@ where
 			// empty cluster?
 			self.current_cluster.fill(0);
 		} else {
-			self.l2_cache.read_contents(
-				self.reader,
-				&mut self.current_cluster[..],
-				self.qcow.header.compression_type,
-			)?;
+			self.l2_cache
+				.read_contents(self.reader, &mut self.current_cluster[..])?;
 		}
 
 		Ok(())

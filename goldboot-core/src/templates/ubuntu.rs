@@ -2,51 +2,58 @@ use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
 	qemu::QemuArgs,
-	templates::Template,
-	*,
+	templates::*,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum UbuntuServerVersion {
+pub enum UbuntuVersion {
 	Jammy,
 }
 
+pub enum UbuntuEdition {
+	Server, Desktop,
+}
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct UbuntuServerTemplate {
+pub struct UbuntuTemplate {
 	pub root_password: String,
 
-	/// The installation media URL
-	pub iso_url: String,
+	#[serde(flatten)]
+	pub iso: IsoContainer,
 
-	/// A hash of the installation media
-	pub iso_checksum: String,
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 
-	pub version: UbuntuServerVersion,
-
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub partitions: Option<Vec<Partition>>,
+	pub version: UbuntuVersion,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
 }
 
-impl Default for UbuntuServerTemplate {
+impl Default for UbuntuTemplate {
 	fn default() -> Self {
 		Self {
 			root_password: String::from("root"),
-			iso_url: format!(""),
-			iso_checksum: String::from("none"),
-			version: UbuntuServerVersion::Jammy,
-			partitions: None,
+			iso: IsoContainer {
+				url: format!(""),
+				checksum: String::from("none"),
+			},
+			version: UbuntuVersion::Jammy,
+			general: GeneralContainer{
+				r#type: TemplateType::Ubuntu,
+				storage_size: String::from("15 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 			provisioners: None,
 		}
 	}
 }
 
-impl Template for UbuntuServerTemplate {
+impl Template for UbuntuTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
@@ -56,7 +63,7 @@ impl Template for UbuntuServerTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM
@@ -79,5 +86,9 @@ impl Template for UbuntuServerTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

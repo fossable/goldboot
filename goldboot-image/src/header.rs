@@ -163,7 +163,7 @@ impl QcowHeader {
 			refcount_table_clusters: 1,
 			nb_snapshots: 0,
 			snapshots_offset: 0,
-			incompatible_features: 0,
+			incompatible_features: 1 << 3, // Set compression bit
 			compatible_features: 0,
 			autoclear_features: 0,
 			refcount_order: 4,

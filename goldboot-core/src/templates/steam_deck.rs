@@ -13,6 +13,9 @@ pub struct SteamDeckTemplate {
 	pub recovery_url: String,
 
 	pub recovery_checksum: String,
+
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 }
 
 impl Default for SteamDeckTemplate {
@@ -24,6 +27,12 @@ impl Default for SteamDeckTemplate {
 			recovery_checksum: String::from(
 				"sha256:5086bcc4fe0fb230dff7265ff6a387dd00045e3d9ae6312de72003e1e82d4526",
 			),
+			general: GeneralContainer{
+				r#type: TemplateType::SteamDeck,
+				storage_size: String::from("15 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 		}
 	}
 }
@@ -74,5 +83,9 @@ impl Template for SteamDeckTemplate {
 		qemu.shutdown_wait()?;
 
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

@@ -4,10 +4,11 @@ use crate::{
 	ssh::SshConnection,
 	templates::{Template, TemplateType},
 };
+use goldboot_image::GoldbootImage;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{default::Default, error::Error, fs, fs::File, path::Path, process::Command};
+use std::{default::Default, error::Error, fs::File, path::Path, process::Command};
 use validator::Validate;
 
 pub mod build;
@@ -95,45 +96,28 @@ pub struct BuildConfig {
 	/// The amount of memory to allocate to the VM
 	pub memory: String,
 
-	/// The size of the disk to attach to the VM
-	pub disk_size: String,
-
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub nvme: Option<bool>,
 
-	pub qemuargs: Vec<Vec<String>>,
-
-	pub template: Option<serde_json::Value>,
-
-	pub templates: Option<Vec<serde_json::Value>>,
+	#[validate(length(min = 1))]
+	pub templates: Vec<serde_json::Value>,
 }
 
 impl BuildConfig {
-	pub fn disk_size_bytes(&self) -> u64 {
-		self.disk_size.parse::<ubyte::ByteUnit>().unwrap().as_u64()
+	/// Read the config from an existing image's metadata.
+	pub fn from_image(image: &GoldbootImage) -> Result<Self, Box<dyn Error>> {
+		let config: BuildConfig = serde_json::from_slice(&image.header.metadata)?;
+		Ok(config)
 	}
 
 	pub fn get_templates(&self) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
-		// Precondition: only one of 'template' and 'templates' can exist
-		if self.template.is_some() && self.templates.is_some() {
-			bail!("'template' and 'templates' cannot be specified simultaneously");
-		}
-
-		// Precondition: at least one of 'template' or 'templates' must exist
-		if self.template.is_none() && self.templates.is_none() {
-			bail!("No template(s) specified");
-		}
 
 		let mut templates: Vec<Box<dyn Template>> = Vec::new();
 
-		if let Some(template) = &self.template {
-			templates.push(TemplateType::parse_template(template.to_owned())?);
-		}
-
-		if let Some(template_array) = &self.templates {
-			for template in template_array {
-				templates.push(TemplateType::parse_template(template.to_owned())?);
-			}
+		for template in &self.templates {
+			// Get type
+			let t: TemplateType = serde_json::from_value(template.to_owned())?;
+			templates.push(t.parse_template(template.to_owned())?);
 		}
 
 		Ok(templates)
@@ -171,7 +155,7 @@ impl Provisioner {
 
 		// Check for shell scripts to upload
 		for script in &self.shell.scripts {
-			ssh.upload(&mut File::open(script)?, ".gb_script")?;
+			ssh.upload(std::fs::read(script)?, ".gb_script")?;
 
 			// Execute it
 			ssh.exec(".gb_script")?;

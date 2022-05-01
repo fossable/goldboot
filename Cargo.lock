@@ -986,6 +986,7 @@ dependencies = [
  "serde_json",
  "simple-error",
  "tempfile",
+ "validator",
 ]
 
 [[package]]

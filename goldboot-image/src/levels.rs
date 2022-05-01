@@ -76,12 +76,7 @@ impl L2Entry {
 	}
 
 	/// Read the contents of a given L2 Entry from `reader` into `buf`.
-	pub fn read_contents(
-		&self,
-		reader: &mut (impl Read + Seek),
-		buf: &mut [u8],
-		comp_type: CompressionType,
-	) -> io::Result<()> {
+	pub fn read_contents(&self, reader: &mut (impl Read + Seek), buf: &mut [u8]) -> io::Result<()> {
 		match &self.cluster_descriptor {
 			ClusterDescriptor::Standard(cluster) => {
 				if cluster.all_zeroes || cluster.host_cluster_offset == 0 {

@@ -18,6 +18,9 @@ pub fn start_ui() {
 			.title("Hello, World!")
 			.build();
 
+		let select_image = SelectImageView::new();
+		window.set_child(Some(&select_image.container));
+
 		// Show the window.
 		window.show();
 	});

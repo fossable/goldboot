@@ -19,16 +19,13 @@ pub enum DebianVersion {
 pub struct DebianTemplate {
 	pub root_password: String,
 
-	/// The installation media URL
-	pub iso_url: String,
+	#[serde(flatten)]
+	pub iso: IsoContainer,
 
-	/// A hash of the installation media
-	pub iso_checksum: String,
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 
 	pub version: DebianVersion,
-
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub partitions: Option<Vec<Partition>>,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
@@ -38,10 +35,17 @@ impl Default for DebianTemplate {
 	fn default() -> Self {
 		Self {
 			root_password: String::from("root"),
-			iso_url: format!("https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.3.0-amd64-netinst.iso"),
-			iso_checksum: String::from("none"),
+			iso: IsoContainer {
+				url: format!("https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.3.0-amd64-netinst.iso"),
+				checksum: String::from("none"),
+			},
 			version: DebianVersion::Bullseye,
-			partitions: None,
+			general: GeneralContainer{
+				r#type: TemplateType::Debian,
+				storage_size: String::from("15 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 			provisioners: None,
 		}
 	}
@@ -57,7 +61,7 @@ impl Template for DebianTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM
@@ -80,5 +84,9 @@ impl Template for DebianTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

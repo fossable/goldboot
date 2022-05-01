@@ -4,5 +4,5 @@ pub mod select_image;
 pub mod write_image;
 
 fn main() {
-	println!("Hello, world!");
+	write_image::start_ui();
 }

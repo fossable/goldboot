@@ -21,9 +21,11 @@ pub struct Windows10Template {
 
 	hostname: String,
 
-	iso_url: String,
+	#[serde(flatten)]
+	pub iso: IsoContainer,
 
-	iso_checksum: String,
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
@@ -35,8 +37,16 @@ impl Default for Windows10Template {
 			username: String::from("admin"),
 			password: String::from("admin"),
 			hostname: String::from("goldboot"),
-			iso_url: String::from("<ISO URL>"),
-			iso_checksum: String::from("<ISO HASH>"),
+			iso: IsoContainer {
+				url: String::from("<ISO URL>"),
+				checksum: String::from("<ISO HASH>"),
+			},
+			general: GeneralContainer{
+				r#type: TemplateType::Windows10,
+				storage_size: String::from("40 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 			provisioners: None,
 		}
 	}
@@ -75,7 +85,7 @@ impl Template for Windows10Template {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Write the Autounattend.xml file
@@ -113,5 +123,9 @@ impl Template for Windows10Template {
 			"Autounattend.xml".into(),
 			"configure_winrm.ps1".into(),
 		]);*/
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

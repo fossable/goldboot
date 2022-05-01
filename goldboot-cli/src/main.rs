@@ -1,9 +1,10 @@
 use clap::{Parser, Subcommand};
 use colored::*;
-use sha2::{Digest, Sha256};
-use std::{env, error::Error, path::PathBuf};
+use goldboot_core::{build::BuildJob, image::ImageLibrary, BuildConfig};
+use log::debug;
+use std::{env, error::Error};
+use validator::Validate;
 
-pub mod image;
 pub mod init;
 pub mod make_usb;
 pub mod registry;
@@ -133,19 +134,6 @@ enum ImageCommands {
 	},
 }
 
-/// A simple cache for storing images that are not stored in the Packer cache.
-/// Most images here need some kind of transformation before they are bootable.
-pub fn image_cache_lookup(key: &str) -> PathBuf {
-	// Hash the key to get the filename
-	let hash = hex::encode(Sha256::new().chain_update(&key).finalize());
-
-	if cfg!(target_os = "linux") {
-		PathBuf::from("/var/lib/goldboot/cache").join(hash)
-	} else {
-		panic!("Unsupported platform");
-	}
-}
-
 /// Determine whether builds should be headless or not for debugging.
 pub fn build_headless_debug() -> bool {
 	if env::var("CI").is_ok() {
@@ -179,7 +167,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 			// Run the build finally
 			let mut job = BuildJob::new(config, *record, *debug, !env::var("CI").is_ok());
-			job.run()?;
+			job.run()
 		}
 		Commands::Registry { command } => match &command {
 			RegistryCommands::Push { url } => crate::registry::push(),
@@ -191,9 +179,11 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			memory,
 			disk,
 			list_templates,
+			mimic_hardware,
 		} => {
 			if *list_templates {
-				profile::list_profiles()
+				// TODO
+				Ok(())
 			} else {
 				crate::init::init(template, name, memory, disk)
 			}
@@ -204,14 +194,22 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			include,
 		} => crate::make_usb::make_usb(),
 		Commands::Image { command } => match &command {
-			ImageCommands::List {} => crate::image::list(),
-			ImageCommands::Info { image } => crate::image::info(image),
-			ImageCommands::Run { image } => crate::image::run(image),
+			ImageCommands::List {} => {
+				let images = ImageLibrary::load()?;
+
+				print!("Image\n");
+				for image in images {
+					// TODO
+				}
+				Ok(())
+			}
+			ImageCommands::Info { image } => Ok(()),
+			ImageCommands::Run { image } => Ok(()),
 			ImageCommands::Write {
 				image,
 				disk,
 				confirm,
-			} => crate::image::write(image, disk),
+			} => Ok(()),
 		},
 	}
 }

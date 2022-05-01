@@ -18,6 +18,9 @@ pub enum MacOsVersion {
 pub struct MacOsTemplate {
 	pub version: MacOsVersion,
 
+	#[serde(flatten)]
+	pub general: GeneralContainer,
+
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
 }
@@ -29,6 +32,12 @@ impl Default for MacOsTemplate {
 				ShellProvisioner::inline("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""),
 			]),
 			version: MacOsVersion::Monterey,
+			general: GeneralContainer{
+				r#type: TemplateType::MacOs,
+				storage_size: String::from("50 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 		}
 	}
 }
@@ -120,5 +129,9 @@ impl Template for MacOsTemplate {
 		ssh.shutdown("shutdown -h now")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

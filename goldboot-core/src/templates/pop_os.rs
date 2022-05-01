@@ -25,9 +25,11 @@ pub struct PopOsTemplate {
 
 	pub root_password: String,
 
-	pub iso_url: String,
+	#[serde(flatten)]
+	pub iso: IsoContainer,
 
-	pub iso_checksum: String,
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
@@ -40,9 +42,17 @@ impl Default for PopOsTemplate {
             username: whoami::username(),
             password: String::from("88Password;"),
             root_password: String::from("root"),
-            iso_url: String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso"),
-            iso_checksum: String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2"),
+            iso: IsoContainer {
+	            url: String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso"),
+	            checksum: String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2"),
+	        },
             provisioners: None,
+            general: GeneralContainer{
+				r#type: TemplateType::PopOs,
+				storage_size: String::from("15 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
         }
 	}
 }
@@ -57,7 +67,7 @@ impl Template for PopOsTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM
@@ -136,5 +146,9 @@ impl Template for PopOsTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 use binrw::{
 	io::{Read, Seek, SeekFrom},
 	BinRead, BinReaderExt, BinWrite,

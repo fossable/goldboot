@@ -66,10 +66,11 @@ impl BuildJob {
 		} else {
 			if cfg!(target_arch = "x86_64") {
 				debug!("Unpacking included firmware");
-				let resource_path = tmp.path().join("OVMF.fd");
+				/*let resource_path = tmp.path().join("OVMF.fd");
 				let resource = Resources::get("OVMF.fd").unwrap();
 				std::fs::write(&resource_path, resource.data).unwrap();
-				resource_path.to_string_lossy().to_string()
+				resource_path.to_string_lossy().to_string()*/
+				panic!();
 			} else {
 				panic!("Firmware not found");
 			}
@@ -79,6 +80,7 @@ impl BuildJob {
 			tmp,
 			image_path,
 			ovmf_path,
+			template,
 			ssh_port: rand::thread_rng().gen_range(10000..11000),
 			vnc_port: rand::thread_rng().gen_range(5900..5999),
 			config: self.config.clone(),
@@ -96,40 +98,42 @@ impl BuildJob {
 
 		// Load templates
 		let templates = self.config.get_templates()?;
+		let templates_len = templates.len();
 
 		// If there's more than one template, they must all support multiboot
-		if templates.len() > 1 {
-			for template in templates {
-				if template.multiboot_container().is_none() {
+		if templates_len > 1 {
+			for template in &templates {
+				if ! template.is_multiboot() {
 					bail!("Template does not support multiboot");
 				}
 			}
 		}
 
-		// Create a worker for each template
-		let workers = templates.map(|t| self.new_worker(t)).collect();
-
 		// If we're in debug mode, run workers sequentially
 		if self.debug {
-			for worker in workers {
-				worker.run();
-				worker.thread_handle.join().unwrap();
+			for template in templates.into_iter() {
+				self.new_worker(template).run()?;
 			}
 		}
 		// Otherwise run independent builds in parallel
 		else {
-			for worker in workers {
-				worker.run();
+			// TODO
+
+			let mut handles = Vec::new();
+
+			for template in templates.into_iter() {
+				let worker = self.new_worker(template);
+				handles.push(thread::spawn(move || worker.run().unwrap()));
 			}
 
 			// Wait for each build to complete
-			for worker in workers {
-				worker.thread_handle.join().unwrap();
+			for handle in handles {
+				handle.join().unwrap();
 			}
 		}
 
 		// Allocate a final image if we're multibooting
-		if templates.len() > 1 {
+		if templates_len > 1 {
 			/*GoldbootImage::create(
 				&self.image_path,
 				self.config.disk_size_bytes(),
@@ -172,7 +176,6 @@ pub struct BuildWorker {
 	/// The build config
 	pub config: BuildConfig,
 
-	/// The template to build
 	pub template: Box<dyn Template>,
 
 	/// The path to an OVMF.fd file
@@ -186,27 +189,22 @@ pub struct BuildWorker {
 
 	/// When set, the run will output user-friendly progress bars
 	pub interactive: bool,
-
-	pub thread_handle: thread::JoinHandle<()>,
 }
+
+unsafe impl Send for BuildWorker {}
 
 impl BuildWorker {
 	/// Run the template build.
-	pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
-		let image_size = if let Some(multiboot) = self.template.multiboot_container() {
-			(multiboot.percentage() * self.config.disk_size_bytes() as f64) as u64
-		} else {
-			self.config.disk_size_bytes()
-		};
+	pub fn run(&self) -> Result<(), Box<dyn Error>> {
 
-		debug!("Allocating new {} image: {}", image_size, self.image_path);
+		debug!("Allocating new {} image: {}", self.template.general().storage_size, self.image_path);
 		GoldbootImage::create(
 			&self.image_path,
-			image_size,
+			self.template.general().storage_size_bytes(),
 			serde_json::to_vec(&self.config)?,
 		)?;
 
-		self.thread_handle = thread::spawn(|| self.template.build(&self)?);
+		self.template.build(&self)?;
 		Ok(())
 	}
 }

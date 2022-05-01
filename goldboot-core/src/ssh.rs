@@ -39,23 +39,46 @@ impl SshConnection {
 		Ok(())
 	}
 
-	pub fn upload_exec(&self, source: Vec<u8>, env: Vec<String>) -> Result<(), Box<dyn Error>> {
-		self.upload(&mut Cursor::new(source), "tmp.script")?;
-		self.exec("tmp.script")?;
-		self.exec("rm -f tmp.script")?;
+	pub fn upload_exec(&self, source: Vec<u8>, env: Vec<(&str, &str)>) -> Result<(), Box<dyn Error>> {
+		self.upload(source, "/tmp/tmp.script")?;
+		self.exec_env("/tmp/tmp.script", env)?;
+		self.exec("rm -f /tmp/tmp.script")?;
 		Ok(())
 	}
 
-	pub fn upload(&self, source: &mut impl Read, dest: &str) -> Result<(), Box<dyn Error>> {
-		let mut remote_file = self.session.scp_send(Path::new(dest), 0o700, 10, None)?;
-		std::io::copy(source, &mut remote_file)?;
+	pub fn upload(&self, source: Vec<u8>, dest: &str) -> Result<(), Box<dyn Error>> {
+		let mut channel = self.session.scp_send(Path::new(dest), 0o700, source.len().try_into()?, None)?;
+		std::io::copy(&mut Cursor::new(source), &mut channel)?;
 
-		remote_file.send_eof()?;
-		remote_file.wait_eof()?;
-		remote_file.close()?;
-		remote_file.wait_close()?;
+		channel.send_eof()?;
+		channel.wait_eof()?;
+		channel.close()?;
+		channel.wait_close()?;
 
 		Ok(())
+	}
+
+	/// Run a command on the VM with the given environment.
+	pub fn exec_env(&self, cmdline: &str, env: Vec<(&str, &str)>) -> Result<i32, Box<dyn Error>> {
+		debug!("Executing command: '{}'", cmdline);
+
+		let mut channel = self.session.channel_session()?;
+
+		// Set environment
+		for (var, val) in env {
+			channel.setenv(&var, &val)?;
+		}
+
+		channel.exec(cmdline)?;
+
+		let mut output = String::new();
+		channel.read_to_string(&mut output)?;
+		// TODO print
+
+		channel.wait_close()?;
+		let exit = channel.exit_status()?;
+		debug!("Exit code: {}", exit);
+		Ok(exit)
 	}
 
 	/// Run a command on the VM.
@@ -64,9 +87,14 @@ impl SshConnection {
 
 		let mut channel = self.session.channel_session()?;
 		channel.exec(cmdline)?;
-		//let mut s = String::new();
-		//channel.read_to_string(&mut s).unwrap();
+
+		let mut output = String::new();
+		channel.read_to_string(&mut output)?;
+		// TODO print
+
 		channel.wait_close()?;
-		Ok(channel.exit_status()?)
+		let exit = channel.exit_status()?;
+		debug!("Exit code: {}", exit);
+		Ok(exit)
 	}
 }

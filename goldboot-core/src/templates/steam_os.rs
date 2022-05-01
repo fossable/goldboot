@@ -17,9 +17,11 @@ pub enum SteamOsVersion {
 pub struct SteamOsTemplate {
 	pub version: SteamOsVersion,
 
-	pub iso_url: String,
+	#[serde(flatten)]
+	pub iso: IsoContainer,
 
-	pub iso_checksum: String,
+	#[serde(flatten)]
+	pub general: GeneralContainer,
 
 	pub root_password: String,
 
@@ -30,13 +32,21 @@ pub struct SteamOsTemplate {
 impl Default for SteamOsTemplate {
 	fn default() -> Self {
 		Self {
-			iso_url: String::from(
-				"https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso",
-			),
-			iso_checksum: String::from("sha512:0ce55048d2c5e8a695f309abe22303dded003c93386ad28c6daafc977b3d5b403ed94d7c38917c8c837a2b1fe560184cf3cc12b9f2c4069fd70ed0deab47eb7c"),
+			iso: IsoContainer {
+				url: String::from(
+					"https://repo.steampowered.com/download/brewmaster/2.195/SteamOSDVD.iso",
+				),
+				checksum: String::from("sha512:0ce55048d2c5e8a695f309abe22303dded003c93386ad28c6daafc977b3d5b403ed94d7c38917c8c837a2b1fe560184cf3cc12b9f2c4069fd70ed0deab47eb7c"),
+			},
 			root_password: String::from("root"),
 			provisioners: None,
 			version: SteamOsVersion::Brewmaster2_195,
+			general: GeneralContainer{
+				r#type: TemplateType::SteamOs,
+				storage_size: String::from("15 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
 		}
 	}
 }
@@ -51,7 +61,7 @@ impl Template for SteamOsTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso_url.clone(), &self.iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM
@@ -80,5 +90,9 @@ impl Template for SteamOsTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
 	}
 }

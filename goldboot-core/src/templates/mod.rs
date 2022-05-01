@@ -7,8 +7,7 @@ use validator::Validate;
 use crate::templates::{
 	alpine::AlpineTemplate, arch_linux::ArchLinuxTemplate, debian::DebianTemplate,
 	mac_os::MacOsTemplate, pop_os::PopOsTemplate, steam_deck::SteamDeckTemplate,
-	steam_os::SteamOsTemplate, ubuntu_desktop::UbuntuDesktopTemplate,
-	ubuntu_server::UbuntuServerTemplate, windows_10::Windows10Template,
+	steam_os::SteamOsTemplate, ubuntu::UbuntuTemplate, windows_10::Windows10Template,
 };
 
 pub mod alpine;
@@ -19,8 +18,7 @@ pub mod mac_os;
 pub mod pop_os;
 pub mod steam_deck;
 pub mod steam_os;
-pub mod ubuntu_desktop;
-pub mod ubuntu_server;
+pub mod ubuntu;
 pub mod windows_10;
 pub mod windows_11;
 pub mod windows_7;
@@ -29,69 +27,63 @@ pub mod windows_7;
 pub trait Template {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
 
-	/// Get the template's multiboot config if applicable.
-	fn multiboot_container(&self) -> Option<MultibootContainer> {
-		None
+	/// Whether the template can be combined with others.
+	fn is_multiboot(&self) -> bool {
+		true
 	}
+
+	fn general(&self) -> GeneralContainer;
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(tag = "type")]
 pub enum TemplateType {
-	Alpine,
+	#[default] Alpine,
 	ArchLinux,
 	Debian,
 	MacOs,
 	PopOs,
 	SteamDeck,
 	SteamOs,
-	UbuntuDesktop,
-	UbuntuServer,
+	Ubuntu,
 	Windows10,
 }
 
 impl TemplateType {
 	#[rustfmt::skip]
-	pub fn parse_template(value: serde_json::Value) -> Result<Box<dyn Template>, Box<dyn Error>> {
-		if let Some(name) = value.get("type") {
-			let template: Box<dyn Template> = match name.as_str().unwrap().to_lowercase().as_str() {
-				"alpine"        => Box::new(serde_json::from_value::<AlpineTemplate>(value)?),
-				"archlinux"     => Box::new(serde_json::from_value::<ArchLinuxTemplate>(value)?),
-				"debian"        => Box::new(serde_json::from_value::<DebianTemplate>(value)?),
-				//"goldbootusb"   => Box::new(serde_json::from_value::<GoldbootUsbTemplate>(value)?),
-				"macos"         => Box::new(serde_json::from_value::<MacOsTemplate>(value)?),
-				"popos"         => Box::new(serde_json::from_value::<PopOsTemplate>(value)?),
-				"steamdeck"     => Box::new(serde_json::from_value::<SteamDeckTemplate>(value)?),
-				"steamos"       => Box::new(serde_json::from_value::<SteamOsTemplate>(value)?),
-				"ubuntudesktop" => Box::new(serde_json::from_value::<UbuntuDesktopTemplate>(value)?),
-				"ubuntuserver"  => Box::new(serde_json::from_value::<UbuntuServerTemplate>(value)?),
-				"windows10"     => Box::new(serde_json::from_value::<Windows10Template>(value)?),
-				//"windows11"     => Box::new(serde_json::from_value::<Windows11Template>(value)?),
-				//"windows7"      => Box::new(serde_json::from_value::<Windows7Template>(value)?),
-				_               => bail!("Unknown template"),
-			};
+	pub fn parse_template(&self, value: serde_json::Value) -> Result<Box<dyn Template>, Box<dyn Error>> {
 
-			Ok(template)
-		} else {
-			bail!("Missing template type");
-		}
+		Ok(match self {
+			TemplateType::Alpine        => Box::new(serde_json::from_value::<AlpineTemplate>(value)?),
+			TemplateType::ArchLinux     => Box::new(serde_json::from_value::<ArchLinuxTemplate>(value)?),
+			TemplateType::Debian        => Box::new(serde_json::from_value::<DebianTemplate>(value)?),
+			//"goldbootusb"   => Box::new(serde_json::from_value::<GoldbootUsbTemplate>(value)?),
+			TemplateType::MacOs         => Box::new(serde_json::from_value::<MacOsTemplate>(value)?),
+			TemplateType::PopOs         => Box::new(serde_json::from_value::<PopOsTemplate>(value)?),
+			TemplateType::SteamDeck     => Box::new(serde_json::from_value::<SteamDeckTemplate>(value)?),
+			TemplateType::SteamOs       => Box::new(serde_json::from_value::<SteamOsTemplate>(value)?),
+			TemplateType::Ubuntu        => Box::new(serde_json::from_value::<UbuntuTemplate>(value)?),
+			TemplateType::Windows10     => Box::new(serde_json::from_value::<Windows10Template>(value)?),
+			//"windows11"     => Box::new(serde_json::from_value::<Windows11Template>(value)?),
+			//"windows7"      => Box::new(serde_json::from_value::<Windows7Template>(value)?),
+		})
 	}
 
 	#[rustfmt::skip]
-	pub fn get_default_template(name: &str) -> Result<serde_json::Value, Box<dyn Error>> {
-		Ok(match name.to_lowercase().as_str() {
-			"alpine"         => serde_json::to_value(AlpineTemplate::default()),
-			"archlinux"      => serde_json::to_value(ArchLinuxTemplate::default()),
-			"debian"         => serde_json::to_value(DebianTemplate::default()),
+	pub fn get_default_template(&self) -> Result<serde_json::Value, Box<dyn Error>> {
+		Ok(match self {
+			TemplateType::Alpine         => serde_json::to_value(AlpineTemplate::default()),
+			TemplateType::ArchLinux      => serde_json::to_value(ArchLinuxTemplate::default()),
+			TemplateType::Debian         => serde_json::to_value(DebianTemplate::default()),
 			//"goldbootusb"    => serde_json::to_value(GoldbootUsbTemplate::default()),
-			"macos"          => serde_json::to_value(MacOsTemplate::default()),
-			"popos"          => serde_json::to_value(PopOsTemplate::default()),
-			"steamdeck"      => serde_json::to_value(SteamDeckTemplate::default()),
-			"steamos"        => serde_json::to_value(SteamOsTemplate::default()),
-			"ubuntudesktop"  => serde_json::to_value(UbuntuDesktopTemplate::default()),
-			"ubuntuserver"   => serde_json::to_value(UbuntuServerTemplate::default()),
-			"windows10"      => serde_json::to_value(Windows10Template::default()),
+			TemplateType::MacOs          => serde_json::to_value(MacOsTemplate::default()),
+			TemplateType::PopOs          => serde_json::to_value(PopOsTemplate::default()),
+			TemplateType::SteamDeck      => serde_json::to_value(SteamDeckTemplate::default()),
+			TemplateType::SteamOs        => serde_json::to_value(SteamOsTemplate::default()),
+			TemplateType::Ubuntu         => serde_json::to_value(UbuntuTemplate::default()),
+			TemplateType::Windows10      => serde_json::to_value(Windows10Template::default()),
 			//"windows11"      => serde_json::to_value(Windows11Template::default()),
 			//"windows7"       => serde_json::to_value(Windows7Template::default()),
-			_                => bail!("Unknown template"),
 		}?)
 	}
 }
@@ -99,24 +91,12 @@ impl TemplateType {
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct IsoContainer {
 	/// The installation media URL
-	pub iso_url: String,
+	#[serde(rename = "iso_url")]
+	pub url: String,
 
 	/// A hash of the installation media
-	pub iso_checksum: String,
-}
-
-//static RE_DISK_USAGE: Regex = Regex::new(r"[1-9][0-9]?%$").unwrap();
-
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
-pub struct MultibootContainer {
-	//#[validate(regex = "RE_DISK_USAGE")]
-	pub disk_usage: String,
-}
-
-impl MultibootContainer {
-	pub fn percentage(&self) -> f64 {
-		0_f64
-	}
+	#[serde(rename = "iso_checksum")]
+	pub checksum: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
@@ -126,9 +106,32 @@ pub struct ProvisionersContainer {
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
-pub struct PartitionsContainer {
+pub struct GeneralContainer {
+
+	#[serde(flatten)]
+	pub r#type: TemplateType,
+
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub qemuargs: Option<Vec<String>>,
+
+	pub storage_size: String,
+
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub partitions: Option<Vec<Partition>>,
+}
+
+impl GeneralContainer {
+
+	pub fn storage_size_bytes(&self) -> u64 {
+		self.storage_size.parse::<ubyte::ByteUnit>().unwrap().as_u64()
+	}
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+pub struct RootPasswordContainer {
+
+	// TODO randomize
+	pub root_password: String,
 }
 
 #[cfg(test)]

@@ -246,7 +246,7 @@ impl VncConnection {
 							} else {
 								match ch {
 									'~' | '!' | '#' | '$' | '%' | '^' | '&' | '*' | '(' | ')'
-									| '_' | '+' => {
+									| '_' | '+' | '{' | '}' | '|' | ':' | '"' | '<' | '>' | '?' => {
 										self.vnc.send_key_event(true, 0xffe1)?;
 										self.vnc.send_key_event(true, 0x01000000 + ch as u32)?;
 										self.vnc.send_key_event(false, 0x01000000 + ch as u32)?;
