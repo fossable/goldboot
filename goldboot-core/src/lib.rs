@@ -111,7 +111,6 @@ impl BuildConfig {
 	}
 
 	pub fn get_templates(&self) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
-
 		let mut templates: Vec<Box<dyn Template>> = Vec::new();
 
 		for template in &self.templates {

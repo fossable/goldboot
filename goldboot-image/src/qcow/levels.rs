@@ -1,10 +1,8 @@
-//! Types used for parsing the 2-level indexing of clusters that allows qcow to sparsely
-//! store virtual drive contents.
-use crate::*;
-use std::io;
+use binrw::{BinRead, BinReaderExt};
+use std::io::*;
 
 /// An entry in an L1 table that can be used to lookup the location of an L2 table
-#[derive(BinRead, BinWrite, Debug, Clone)]
+#[derive(BinRead, Debug, Clone)]
 pub struct L1Entry(pub u64);
 
 impl L1Entry {
@@ -34,7 +32,7 @@ impl L1Entry {
 	}
 }
 
-#[derive(BinRead, BinWrite)]
+#[derive(BinRead)]
 #[br(import(cluster_bits: u32))]
 struct L2Entries(#[br(count = (1 << cluster_bits) / 8)] Vec<u64>);
 
@@ -76,7 +74,11 @@ impl L2Entry {
 	}
 
 	/// Read the contents of a given L2 Entry from `reader` into `buf`.
-	pub fn read_contents(&self, reader: &mut (impl Read + Seek), buf: &mut [u8]) -> io::Result<()> {
+	pub fn read_contents(
+		&self,
+		reader: &mut (impl Read + Seek),
+		buf: &mut [u8],
+	) -> std::io::Result<()> {
 		match &self.cluster_descriptor {
 			ClusterDescriptor::Standard(cluster) => {
 				if cluster.all_zeroes || cluster.host_cluster_offset == 0 {
@@ -85,16 +87,16 @@ impl L2Entry {
 					reader
 						.seek(SeekFrom::Start(cluster.host_cluster_offset))
 						.map_err(|_| {
-							io::Error::new(
-								io::ErrorKind::UnexpectedEof,
+							std::io::Error::new(
+								std::io::ErrorKind::UnexpectedEof,
 								"Seeked past the end of the file attempting to read the current \
                             cluster",
 							)
 						})?;
 
-					io::copy(
+					std::io::copy(
 						&mut reader.take(buf.len() as u64),
-						&mut io::Cursor::new(buf),
+						&mut std::io::Cursor::new(buf),
 					)?;
 				}
 			}
@@ -102,16 +104,16 @@ impl L2Entry {
 				reader
 					.seek(SeekFrom::Start(cluster.host_cluster_offset))
 					.map_err(|_| {
-						io::Error::new(
-							io::ErrorKind::UnexpectedEof,
+						std::io::Error::new(
+							std::io::ErrorKind::UnexpectedEof,
 							"Seeked past the end of the file attempting to read the current \
                             cluster",
 						)
 					})?;
 
 				let cluster_size = buf.len() as u64;
-				let mut cluster = io::Cursor::new(buf);
-				io::copy(
+				let mut cluster = std::io::Cursor::new(buf);
+				std::io::copy(
 					&mut zstd::Decoder::new(reader)?.take(cluster_size),
 					&mut cluster,
 				)?;

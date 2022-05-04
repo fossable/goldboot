@@ -14,7 +14,8 @@ pub enum UbuntuVersion {
 }
 
 pub enum UbuntuEdition {
-	Server, Desktop,
+	Server,
+	Desktop,
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -42,7 +43,7 @@ impl Default for UbuntuTemplate {
 				checksum: String::from("none"),
 			},
 			version: UbuntuVersion::Jammy,
-			general: GeneralContainer{
+			general: GeneralContainer {
 				r#type: TemplateType::Ubuntu,
 				storage_size: String::from("15 GiB"),
 				partitions: None,

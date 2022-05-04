@@ -1,10 +1,11 @@
-use crate::*;
+use binrw::BinRead;
 
-/// Qcow header version 3 with metadata extensions.
-#[derive(BinRead, BinWrite, Debug)]
-#[brw(magic = b"QFI\xfb")]
+/// Qcow header version 3.
+#[derive(BinRead, Debug)]
+#[br(magic = b"QFI\xfb")]
 pub struct QcowHeader {
 	/// Version of the QCOW format.
+	#[br(assert(version == 3))]
 	pub version: u32,
 
 	/// Offset into the image file at which the backing file name
@@ -47,7 +48,7 @@ pub struct QcowHeader {
 	pub size: u64,
 
 	/// Encryption method to use for contents
-	pub crypt_method: EncryptionMethod,
+	crypt_method: u32,
 
 	/// Number of entries in the active L1 table
 	pub l1_size: u32,
@@ -58,37 +59,37 @@ pub struct QcowHeader {
 
 	/// Offset into the image file at which the refcount table
 	/// starts. Must be aligned to a cluster boundary.
-	pub refcount_table_offset: u64,
+	refcount_table_offset: u64,
 
 	/// Number of clusters that the refcount table occupies
-	pub refcount_table_clusters: u32,
+	refcount_table_clusters: u32,
 
 	/// Number of snapshots contained in the image
-	pub(crate) nb_snapshots: u32,
+	nb_snapshots: u32,
 
 	/// Offset into the image file at which the snapshot table
 	/// starts. Must be aligned to a cluster boundary.
-	pub(crate) snapshots_offset: u64,
+	snapshots_offset: u64,
 
 	/// Bitmask of incompatible features. An implementation must fail to open an image if an
 	/// unknown bit is set.
-	#[brw(align_after = 8)]
-	pub incompatible_features: u64,
+	#[br(align_after = 8)]
+	incompatible_features: u64,
 
 	/// Bitmask of compatible features. An implementation can safely ignore any unknown bits
 	/// that are set.
-	pub compatible_features: u64,
+	compatible_features: u64,
 
 	/// Bitmask of auto-clear features. An implementation may only write to an image with unknown
 	/// auto-clear features if it clears the respective bits from this field first.
-	pub autoclear_features: u64,
+	autoclear_features: u64,
 
 	/// Describes the width of a reference count block entry (width
 	/// in bits: refcount_bits = 1 << refcount_order). For version 2
 	/// images, the order is always assumed to be 4
 	/// (i.e. refcount_bits = 16).
 	/// This value may not exceed 6 (i.e. refcount_bits = 64).
-	pub refcount_order: u32,
+	refcount_order: u32,
 
 	header_len: u32,
 
@@ -101,77 +102,15 @@ pub struct QcowHeader {
 	/// must be present and non-zero (which means non-zlib
 	/// compression type). Otherwise, this field must not be present
 	/// or must be zero (which means zlib).
-	pub compression_type: CompressionType,
-
-	/// Metadata extension length
-	#[brw(magic = 0x80818080_u32)]
-	metadata_len: u32,
-
-	/// The metadata itself
-	#[br(count = metadata_len)]
-	#[bw()]
-	pub metadata: Vec<u8>,
+	compression_type: u8,
 
 	/// Marks the end of the extensions
 	end: u32,
-}
-
-/// Encryption method (if any) to use for image contents.
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
-#[brw(repr(u32))]
-pub enum EncryptionMethod {
-	/// No encryption is being used. This is the default.
-	None = 0,
-
-	/// Cluster contents are AES encrypted
-	Aes = 1,
-
-	/// Uses LUKS from drive encryption
-	Luks = 2,
-}
-
-/// Compression type used for compressed clusters.
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
-#[brw(repr(u8))]
-pub enum CompressionType {
-	/// Uses zstandard for compressed clusters
-	Zstd = 1,
 }
 
 impl QcowHeader {
 	/// Get the size of a cluster in bytes from the qcow
 	pub fn cluster_size(&self) -> u64 {
 		1 << self.cluster_bits
-	}
-
-	pub fn new(size: u64, metadata: Vec<u8>) -> Self {
-		let cluster_bits = 16;
-
-		Self {
-			version: 3,
-			backing_file_offset: 0,
-			backing_file_size: 0,
-			cluster_bits,
-			size,
-			crypt_method: EncryptionMethod::None,
-			// Algorithm taken from:
-			// https://github.com/qemu/qemu/blob/04ddcda6a2387274b3f31a501be3affd172aea3d/block/qcow2.h#L678
-			l1_size: ((size + (1 << (cluster_bits + (cluster_bits - 8_u32.trailing_zeros()))))
-				>> (cluster_bits + (cluster_bits - 8_u32.trailing_zeros()))) as u32,
-			l1_table_offset: 196608,
-			refcount_table_offset: 65536,
-			refcount_table_clusters: 1,
-			nb_snapshots: 0,
-			snapshots_offset: 0,
-			incompatible_features: 1 << 3, // Set compression bit
-			compatible_features: 0,
-			autoclear_features: 0,
-			refcount_order: 4,
-			header_len: 112 + (4 + metadata.len()) as u32,
-			compression_type: CompressionType::Zstd,
-			metadata_len: metadata.len() as u32,
-			metadata,
-			end: 0_u32,
-		}
 	}
 }

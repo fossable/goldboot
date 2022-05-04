@@ -103,7 +103,7 @@ impl BuildJob {
 		// If there's more than one template, they must all support multiboot
 		if templates_len > 1 {
 			for template in &templates {
-				if ! template.is_multiboot() {
+				if !template.is_multiboot() {
 					bail!("Template does not support multiboot");
 				}
 			}
@@ -196,8 +196,11 @@ unsafe impl Send for BuildWorker {}
 impl BuildWorker {
 	/// Run the template build.
 	pub fn run(&self) -> Result<(), Box<dyn Error>> {
-
-		debug!("Allocating new {} image: {}", self.template.general().storage_size, self.image_path);
+		debug!(
+			"Allocating new {} image: {}",
+			self.template.general().storage_size,
+			self.image_path
+		);
 		GoldbootImage::create(
 			&self.image_path,
 			self.template.general().storage_size_bytes(),

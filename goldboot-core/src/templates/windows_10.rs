@@ -41,7 +41,7 @@ impl Default for Windows10Template {
 				url: String::from("<ISO URL>"),
 				checksum: String::from("<ISO HASH>"),
 			},
-			general: GeneralContainer{
+			general: GeneralContainer {
 				r#type: TemplateType::Windows10,
 				storage_size: String::from("40 GiB"),
 				partitions: None,

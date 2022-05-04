@@ -38,7 +38,8 @@ pub trait Template {
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 #[serde(tag = "type")]
 pub enum TemplateType {
-	#[default] Alpine,
+	#[default]
+	Alpine,
 	ArchLinux,
 	Debian,
 	MacOs,
@@ -107,7 +108,6 @@ pub struct ProvisionersContainer {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct GeneralContainer {
-
 	#[serde(flatten)]
 	pub r#type: TemplateType,
 
@@ -121,15 +121,16 @@ pub struct GeneralContainer {
 }
 
 impl GeneralContainer {
-
 	pub fn storage_size_bytes(&self) -> u64 {
-		self.storage_size.parse::<ubyte::ByteUnit>().unwrap().as_u64()
+		self.storage_size
+			.parse::<ubyte::ByteUnit>()
+			.unwrap()
+			.as_u64()
 	}
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct RootPasswordContainer {
-
 	// TODO randomize
 	pub root_password: String,
 }

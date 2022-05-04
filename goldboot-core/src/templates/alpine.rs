@@ -31,7 +31,7 @@ impl Default for AlpineTemplate {
 				),
 				checksum: String::from("none"),
 			},
-			general: GeneralContainer{
+			general: GeneralContainer {
 				r#type: TemplateType::Alpine,
 				storage_size: String::from("5 GiB"),
 				partitions: None,
@@ -52,11 +52,7 @@ impl Template for AlpineTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(
-				self.iso.url.clone(),
-				&self.iso.checksum,
-				MediaFormat::Iso
-			)?
+			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
 		));
 
 		// Start VM

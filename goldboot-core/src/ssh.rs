@@ -39,7 +39,11 @@ impl SshConnection {
 		Ok(())
 	}
 
-	pub fn upload_exec(&self, source: Vec<u8>, env: Vec<(&str, &str)>) -> Result<(), Box<dyn Error>> {
+	pub fn upload_exec(
+		&self,
+		source: Vec<u8>,
+		env: Vec<(&str, &str)>,
+	) -> Result<(), Box<dyn Error>> {
 		self.upload(source, "/tmp/tmp.script")?;
 		self.exec_env("/tmp/tmp.script", env)?;
 		self.exec("rm -f /tmp/tmp.script")?;
@@ -47,7 +51,9 @@ impl SshConnection {
 	}
 
 	pub fn upload(&self, source: Vec<u8>, dest: &str) -> Result<(), Box<dyn Error>> {
-		let mut channel = self.session.scp_send(Path::new(dest), 0o700, source.len().try_into()?, None)?;
+		let mut channel =
+			self.session
+				.scp_send(Path::new(dest), 0o700, source.len().try_into()?, None)?;
 		std::io::copy(&mut Cursor::new(source), &mut channel)?;
 
 		channel.send_eof()?;

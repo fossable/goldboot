@@ -1,4 +1,4 @@
-use goldboot_core::image::{ImageMetadata, ImageLibrary};
+use goldboot_core::image::{ImageLibrary, ImageMetadata};
 use gtk4 as gtk;
 use gtk4::prelude::*;
 
@@ -24,7 +24,11 @@ impl SelectImageView {
 			images.push(image);
 		}
 
-		Self { images, list_box, container }
+		Self {
+			images,
+			list_box,
+			container,
+		}
 	}
 }
 

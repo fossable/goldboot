@@ -1,8 +1,6 @@
-use std::path::Path;
-use actix_web::{get, put, web, Responder, HttpResponse};
+use actix_web::{get, put, web, HttpResponse, Responder};
 use goldboot_core::image::ImageLibrary;
-use std::fs::File;
-use std::error::Error;
+use std::{error::Error, fs::File, path::Path};
 
 /// Get image info
 #[get("/images/{id}")]

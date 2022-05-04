@@ -1046,6 +1046,10 @@ name = "goldboot-image"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "serde",
+ "serde_json",
+ "sha2 0.10.2",
+ "validator",
  "zstd",
 ]
 

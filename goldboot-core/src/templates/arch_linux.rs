@@ -79,7 +79,7 @@ impl Default for ArchLinuxTemplate {
 				url: iso_url,
 				checksum: iso_checksum,
 			},
-			general: GeneralContainer{
+			general: GeneralContainer {
 				r#type: TemplateType::ArchLinux,
 				storage_size: String::from("10 GiB"),
 				partitions: None,
