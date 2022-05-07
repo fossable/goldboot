@@ -1,5 +1,5 @@
-use crate::{compact_image, find_ovmf, image::ImageLibrary, BuildConfig, Template};
-use goldboot_image::GoldbootImage;
+use crate::{find_ovmf, image::ImageLibrary, BuildConfig, Template};
+use goldboot_image::qcow::Qcow3;
 use log::{debug, info};
 use rand::Rng;
 use simple_error::bail;
@@ -58,7 +58,7 @@ impl BuildJob {
 		let tmp = tempfile::tempdir().unwrap();
 
 		// Determine image path
-		let image_path = tmp.path().join("image.gb").to_string_lossy().to_string();
+		let image_path = tmp.path().join("image.qcow2").to_string_lossy().to_string();
 
 		// Determine firmware path or use included firmware
 		let ovmf_path = if let Some(path) = find_ovmf() {
@@ -117,8 +117,6 @@ impl BuildJob {
 		}
 		// Otherwise run independent builds in parallel
 		else {
-			// TODO
-
 			let mut handles = Vec::new();
 
 			for template in templates.into_iter() {
@@ -132,18 +130,13 @@ impl BuildJob {
 			}
 		}
 
-		// Allocate a final image if we're multibooting
-		if templates_len > 1 {
-			/*GoldbootImage::create(
-				&self.image_path,
-				self.config.disk_size_bytes(),
-				serde_json::to_vec(&self.config)?,
-			)?;*/
+		let final_qcow = if templates_len > 1 {
+			// Allocate a temporary image if we need to merge
 		} else {
-		}
+		};
 
-		// Attempt to reduce the size of image
-		compact_image(&self.image_path)?;
+		// Convert into final immutable image
+		// TODO
 
 		info!(
 			"Build completed in: {:?}",
@@ -201,10 +194,9 @@ impl BuildWorker {
 			self.template.general().storage_size,
 			self.image_path
 		);
-		GoldbootImage::create(
+		Qcow3::create(
 			&self.image_path,
 			self.template.general().storage_size_bytes(),
-			serde_json::to_vec(&self.config)?,
 		)?;
 
 		self.template.build(&self)?;

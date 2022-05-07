@@ -113,4 +113,9 @@ impl QcowHeader {
 	pub fn cluster_size(&self) -> u64 {
 		1 << self.cluster_bits
 	}
+
+	/// Get the number of entries in an L2 table.
+	pub fn l2_entries_per_cluster(&self) -> u64 {
+		self.cluster_size() / 8
+	}
 }

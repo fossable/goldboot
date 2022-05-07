@@ -40,44 +40,6 @@ pub fn find_ovmf() -> Option<String> {
 	None
 }
 
-pub fn compact_image(path: &str) -> Result<(), Box<dyn Error>> {
-	let tmp_path = format!("{}.out", &path);
-
-	info!("Compacting image");
-	if let Some(code) = Command::new("qemu-img")
-		.arg("convert")
-		.arg("-c")
-		.arg("-O")
-		.arg("qcow2")
-		.arg(&path)
-		.arg(&tmp_path)
-		.stdout(std::process::Stdio::null())
-		.stderr(std::process::Stdio::null())
-		.status()
-		.expect("Failed to launch qemu-img")
-		.code()
-	{
-		if code != 0 {
-			bail!("qemu-img failed with error code: {}", code);
-		}
-
-		let before = std::fs::metadata(&path)?.len();
-		let after = std::fs::metadata(&tmp_path)?.len();
-
-		if after < before {
-			info!("Reduced image size from {} to {}", before, after);
-
-			// Replace the original before returning
-			std::fs::rename(&tmp_path, &path)?;
-		} else {
-			std::fs::remove_file(&tmp_path)?;
-		}
-	} else {
-		debug!("Failed to launch qemu-img, skipping image compaction");
-	}
-	Ok(())
-}
-
 /// The global configuration
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct BuildConfig {

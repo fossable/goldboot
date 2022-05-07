@@ -1,6 +1,5 @@
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
-
-use std::{error::Error, fs::File, io::BufReader, path::Path};
+use std::{error::Error, fs::File, io::BufReader, path::Path, process::Command};
 
 mod header;
 pub use header::*;
@@ -19,19 +18,47 @@ pub struct Qcow3 {
 	#[br(seek_before = SeekFrom::Start(header.l1_table_offset), count = header.l1_size)]
 	pub l1_table: Vec<L1Entry>,
 
+	/// The file path
 	#[br(ignore)]
-	pub file: Option<BufReader<File>>,
+	pub file: String,
 }
 
 impl Qcow3 {
-	/// Open a qcow3 file from the given path
+	/// Open a qcow3 file from the given path.
 	pub fn open(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
-		let path = path.as_ref();
-		let mut file = BufReader::new(File::open(path)?);
+		let mut file = BufReader::new(File::open(&path)?);
 
 		let mut qcow: Qcow3 = file.read_be()?;
-		qcow.file = Some(file);
+		qcow.file = path.as_ref().to_string_lossy().to_string();
 		Ok(qcow)
+	}
+
+	/// Allocate a new qcow3 file.
+	pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
+		Command::new("qemu-img")
+			.args(["create", "-f", "qcow2", &path, &format!("{size}")])
+			.status()
+			.unwrap();
+
+		Qcow3::open(path)
+	}
+
+	/// Count the number of allocated clusters.
+	pub fn count_clusters(&self) -> Result<u16, Box<dyn Error>> {
+		let mut count = 0u16;
+
+		for l1_entry in &self.l1_table {
+			if let Some(l2_table) =
+				l1_entry.read_l2(&mut File::open(&self.file)?, self.header.cluster_bits)
+			{
+				for l2_entry in l2_table {
+					if l2_entry.is_used {
+						count += 1;
+					}
+				}
+			}
+		}
+		Ok(count)
 	}
 }
 

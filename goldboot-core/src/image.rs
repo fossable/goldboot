@@ -1,12 +1,10 @@
 use crate::BuildConfig;
-use goldboot_image::{levels::ClusterDescriptor, GoldbootImage};
-use log::debug;
+use goldboot_image::GoldbootImage;
 use sha1::Digest;
 use sha2::Sha256;
 use std::{
 	error::Error,
 	fs::File,
-	io::{BufReader, Seek, SeekFrom, Write},
 	path::{Path, PathBuf},
 	process::Command,
 };
@@ -107,55 +105,6 @@ impl ImageLibrary {
 	pub fn delete(image_id: &str) -> Result<(), Box<dyn Error>> {
 		todo!();
 	}
-}
-
-pub fn write(image: &ImageMetadata, disk_name: &str) -> Result<(), Box<dyn Error>> {
-	// TODO backup option
-
-	// Verify sizes are compatible
-	//if image.size != disk.total_space() {
-	//    bail!("The requested disk size is not equal to the image size");
-	//}
-
-	// Check if mounted
-	// TODO
-
-	// Update EFI vars
-	// TODO
-
-	let mut f = File::open("foo.txt").unwrap();
-
-	let qcow2 = goldboot_image::GoldbootImage::open(&image.path)?;
-	let mut file = BufReader::new(File::open(&image.path)?);
-
-	let mut offset = 0u64;
-	let mut buffer = [0u8, 1 << qcow2.header.cluster_bits];
-
-	for l1_entry in qcow2.l1_table {
-		if l1_entry.l2_offset() != 0 {
-			if let Some(l2_table) = l1_entry.read_l2(&mut file, qcow2.header.cluster_bits) {
-				for l2_entry in l2_table {
-					match &l2_entry.cluster_descriptor {
-						ClusterDescriptor::Standard(cluster) => {
-							if cluster.host_cluster_offset != 0 {
-								debug!("Uncompressed cluster: {:?}", cluster);
-								l2_entry.read_contents(&mut file, &mut buffer).unwrap();
-								f.seek(SeekFrom::Start(offset)).unwrap();
-								f.write_all(&buffer).unwrap();
-							}
-						}
-						ClusterDescriptor::Compressed(cluster) => {
-							debug!("Compressed cluster: {:?}", cluster);
-						}
-					}
-					offset += 1 << qcow2.header.cluster_bits;
-				}
-			}
-		} else {
-			offset += u64::pow(1 << qcow2.header.cluster_bits, 2) / 8;
-		}
-	}
-	Ok(())
 }
 
 pub fn run(image: &ImageMetadata) -> Result<(), Box<dyn Error>> {
