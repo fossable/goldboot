@@ -76,7 +76,7 @@ impl Template for UbuntuTemplate {
 		])?;
 
 		// Wait for SSH
-		let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
+		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run provisioners
 		for provisioner in &self.provisioners {

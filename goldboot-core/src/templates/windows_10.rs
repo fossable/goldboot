@@ -107,7 +107,7 @@ impl Template for Windows10Template {
 		])?;
 
 		// Wait for SSH
-		let ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
+		let mut ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
 
 		// Run provisioners
 		for provisioner in &self.provisioners {

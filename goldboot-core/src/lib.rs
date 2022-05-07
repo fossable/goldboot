@@ -68,6 +68,7 @@ pub struct BuildConfig {
 impl BuildConfig {
 	/// Read the config from an existing image's metadata.
 	pub fn from_image(image: &GoldbootImage) -> Result<Self, Box<dyn Error>> {
+		// TODO wrong
 		let config: BuildConfig = serde_json::from_slice(&image.header.metadata)?;
 		Ok(config)
 	}
@@ -106,7 +107,7 @@ pub struct Provisioner {
 }
 
 impl Provisioner {
-	pub fn run(&self, ssh: &SshConnection) -> Result<(), Box<dyn Error>> {
+	pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
 		// Check for inline command
 		if let Some(command) = &self.shell.inline {
 			if ssh.exec(command)? != 0 {

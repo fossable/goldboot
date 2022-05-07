@@ -1,5 +1,6 @@
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
 use std::{error::Error, fs::File, io::BufReader, path::Path, process::Command};
+use log::debug;
 
 mod header;
 pub use header::*;
@@ -20,7 +21,7 @@ pub struct Qcow3 {
 
 	/// The file path
 	#[br(ignore)]
-	pub file: String,
+	pub path: String,
 }
 
 impl Qcow3 {
@@ -29,14 +30,16 @@ impl Qcow3 {
 		let mut file = BufReader::new(File::open(&path)?);
 
 		let mut qcow: Qcow3 = file.read_be()?;
-		qcow.file = path.as_ref().to_string_lossy().to_string();
+		qcow.path = path.as_ref().to_string_lossy().to_string();
+
+		debug!("Opened qcow image: {:?}", &qcow);
 		Ok(qcow)
 	}
 
 	/// Allocate a new qcow3 file.
 	pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
 		Command::new("qemu-img")
-			.args(["create", "-f", "qcow2", &path, &format!("{size}")])
+			.args(["create", "-f", "qcow2", "-o", "compression_type=zstd", &path, &format!("{size}")])
 			.status()
 			.unwrap();
 
@@ -49,7 +52,7 @@ impl Qcow3 {
 
 		for l1_entry in &self.l1_table {
 			if let Some(l2_table) =
-				l1_entry.read_l2(&mut File::open(&self.file)?, self.header.cluster_bits)
+				l1_entry.read_l2(&mut File::open(&self.path)?, self.header.cluster_bits)
 			{
 				for l2_entry in l2_table {
 					if l2_entry.is_used {

@@ -8,6 +8,7 @@ use std::{
 	path::Path,
 };
 use validator::Validate;
+use log::{info, debug, trace};
 
 pub mod qcow;
 
@@ -61,8 +62,10 @@ impl GoldbootImage {
 		source: &qcow::Qcow3,
 		destination: impl AsRef<Path>,
 	) -> Result<Self, Box<dyn Error>> {
-		let path = destination.as_ref();
-		let mut file = File::create(path)?;
+		info!("Converting qcow({}) to goldboot image({})", &source.path, &destination.as_ref().to_string_lossy().to_string());
+
+		let mut dest_file = File::create(&destination)?;
+		let mut source_file = File::open(&source.path)?;
 
 		let metadata = ImageMetadata {
 			version: 1,
@@ -79,64 +82,80 @@ impl GoldbootImage {
 			metadata_length: metadata_bytes.len() as u16,
 			metadata: metadata_bytes,
 		};
-		header.write_to(&mut file);
+		debug!("Writing: {:?}", &header);
+		header.write_to(&mut dest_file)?;
+
+		debug!("Writing: {:?}", &metadata);
+		dest_file.write_all(&header.metadata)?;
 
 		// Track the offset into the data
-		let mut real_offset = 0;
+		let mut block_offset = 0;
 
 		// Track the cluster offset in the image file
 		let mut cluster_offset = 0;
 
+		// Tract the digest table offset in the image file
+		let mut digest_entry_offset = 6 + header.metadata_length as u64;
+
 		for l1_entry in &source.l1_table {
-			if let Some(l2_table) = l1_entry.read_l2(&mut file, source.header.cluster_bits) {
+			if let Some(l2_table) = l1_entry.read_l2(&mut source_file, source.header.cluster_bits) {
 				for l2_entry in l2_table {
 					if l2_entry.is_used {
-						let mut buffer = vec![0_u8; source.header.cluster_size() as usize];
 
-						l2_entry.read_contents(&mut file, &mut buffer)?;
+						// Start building the cluster
+						let mut cluster = Cluster {
+							size: 0,
+							data: vec![0_u8; source.header.cluster_size() as usize],
+						};
+
+						l2_entry.read_contents(&mut source_file, &mut cluster.data)?;
 
 						// Compute hash
-						let digest = Sha256::new().chain_update(&buffer).finalize();
+						let digest = Sha256::new().chain_update(&cluster.data).finalize();
 
 						// Write new entry
-						DigestTableEntry {
+						dest_file.seek(SeekFrom::Start(digest_entry_offset))?;
+						let digest_entry = DigestTableEntry {
 							digest: digest.into(),
-							block_offset: real_offset,
+							block_offset,
 							cluster_offset,
-						}
-						.write_to(&mut file)?;
+						};
+
+						digest_entry.write_to(&mut dest_file)?;
+						digest_entry_offset += 48;
 
 						// Perform compression
-						let buffer = match metadata.compression_type {
-							ClusterCompressionType::None => buffer,
+						cluster.data = match metadata.compression_type {
+							ClusterCompressionType::None => cluster.data,
 							ClusterCompressionType::Zstd => {
-								zstd::encode_all(std::io::Cursor::new(buffer), 0)?
+								zstd::encode_all(std::io::Cursor::new(cluster.data), 0)?
 							}
 						};
 
 						// Perform encryption
 						// TODO
 
+						cluster.size = cluster.data.len() as u32;
+
 						// Write the cluster
-						file.seek(SeekFrom::Start(cluster_offset))?;
-						let size: [u8; 4] =
-							unsafe { std::mem::transmute((buffer.len() as u32).to_be()) };
-						file.write_all(&size)?;
-						file.write_all(&buffer)?;
+						trace!("Writing {} byte cluster for: {:?}", cluster.size, &digest_entry);
+						dest_file.seek(SeekFrom::Start(cluster_offset))?;
+						dest_file.write_all(&cluster.data)?;
 
 						// Advance offset
 						cluster_offset += 4;
-						cluster_offset += buffer.len() as u64;
+						cluster_offset += cluster.data.len() as u64;
 					}
-					real_offset += source.header.cluster_size();
+					block_offset += source.header.cluster_size();
 				}
 			} else {
-				real_offset +=
+				block_offset +=
 					source.header.cluster_size() * source.header.l2_entries_per_cluster();
 			}
 		}
+
 		Ok(Self {
-			path: path.to_path_buf(),
+			path: destination.as_ref().to_path_buf(),
 			metadata,
 			header,
 		})
@@ -144,6 +163,8 @@ impl GoldbootImage {
 
 	/// Write the image out to disk.
 	pub fn write<D: Read + Seek + Write>(&self, mut dest: D) -> Result<(), Box<dyn Error>> {
+		debug!("Writing image to disk");
+
 		// Open the digest table for reading
 		let mut digest_table = BufReader::new(File::open(&self.path)?);
 		digest_table.seek(SeekFrom::Start(6 + self.header.metadata_length as u64))?;

@@ -125,7 +125,7 @@ impl Template for ArchLinuxTemplate {
 		])?;
 
 		// Wait for SSH
-		let ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
+		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run install script
 		if let Some(resource) = Resources::get("install.sh") {
@@ -141,12 +141,12 @@ impl Template for ArchLinuxTemplate {
 		// Run provisioners
 		if let Some(provisioners) = &self.provisioners {
 			for provisioner in provisioners {
-				provisioner.run(&ssh)?;
+				provisioner.run(&mut ssh)?;
 			}
 		}
 
 		// Shutdown
-		//ssh.shutdown("poweroff")?;
+		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
 	}

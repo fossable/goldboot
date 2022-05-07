@@ -90,6 +90,7 @@ impl QemuProcess {
 
 		// Wait for QEMU to exit
 		self.process.wait()?;
+		debug!("Shutdown complete");
 		Ok(())
 	}
 }

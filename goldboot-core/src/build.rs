@@ -1,3 +1,4 @@
+use goldboot_image::GoldbootImage;
 use crate::{find_ovmf, image::ImageLibrary, BuildConfig, Template};
 use goldboot_image::qcow::Qcow3;
 use log::{debug, info};
@@ -94,14 +95,11 @@ impl BuildJob {
 	pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
 		self.start_time = Some(SystemTime::now());
 
-		let tmp = tempfile::tempdir().unwrap();
-
 		// Load templates
 		let templates = self.config.get_templates()?;
-		let templates_len = templates.len();
 
 		// If there's more than one template, they must all support multiboot
-		if templates_len > 1 {
+		if templates.len() > 1 {
 			for template in &templates {
 				if !template.is_multiboot() {
 					bail!("Template does not support multiboot");
@@ -109,10 +107,15 @@ impl BuildJob {
 			}
 		}
 
+		// Track the workers
+		let mut workers = Vec::new();
+
 		// If we're in debug mode, run workers sequentially
 		if self.debug {
 			for template in templates.into_iter() {
-				self.new_worker(template).run()?;
+				let worker = self.new_worker(template);
+				worker.run()?;
+				workers.push(worker);
 			}
 		}
 		// Otherwise run independent builds in parallel
@@ -121,22 +124,28 @@ impl BuildJob {
 
 			for template in templates.into_iter() {
 				let worker = self.new_worker(template);
-				handles.push(thread::spawn(move || worker.run().unwrap()));
+				handles.push(thread::spawn(move || {
+					worker.run().unwrap();
+					worker
+				}));
 			}
 
 			// Wait for each build to complete
 			for handle in handles {
-				handle.join().unwrap();
+				workers.push(handle.join().unwrap());
 			}
 		}
 
-		let final_qcow = if templates_len > 1 {
+		let final_qcow = if workers.len() > 1 {
 			// Allocate a temporary image if we need to merge
+			// TODO
+			Qcow3::open(&workers[0].image_path)?
 		} else {
+			Qcow3::open(&workers[0].image_path)?
 		};
 
 		// Convert into final immutable image
-		// TODO
+		GoldbootImage::convert(&final_qcow, &self.image_path)?;
 
 		info!(
 			"Build completed in: {:?}",

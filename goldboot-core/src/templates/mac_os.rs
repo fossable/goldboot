@@ -118,7 +118,7 @@ impl Template for MacOsTemplate {
 		}
 
 		// Wait for SSH
-		let ssh = qemu.ssh_wait(context.ssh_port, "root", "root")?;
+		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", "root")?;
 
 		// Run provisioners
 		for provisioner in &self.provisioners {
