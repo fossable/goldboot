@@ -32,7 +32,7 @@ impl Default for AlpineTemplate {
 				checksum: String::from("none"),
 			},
 			general: GeneralContainer {
-				r#type: TemplateType::Alpine,
+				base: TemplateBase::Alpine,
 				storage_size: String::from("5 GiB"),
 				partitions: None,
 				qemuargs: None,

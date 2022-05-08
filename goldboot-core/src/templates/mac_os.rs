@@ -33,7 +33,7 @@ impl Default for MacOsTemplate {
 			]),
 			version: MacOsVersion::Monterey,
 			general: GeneralContainer{
-				r#type: TemplateType::MacOs,
+				base: TemplateBase::MacOs,
 				storage_size: String::from("50 GiB"),
 				partitions: None,
 				qemuargs: None,

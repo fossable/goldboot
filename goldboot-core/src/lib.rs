@@ -2,18 +2,19 @@
 
 use crate::{
 	ssh::SshConnection,
-	templates::{Template, TemplateType},
+	templates::{Template, TemplateBase},
 };
-use goldboot_image::GoldbootImage;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{default::Default, error::Error, fs::File, path::Path, process::Command};
+use std::{default::Default, error::Error, path::Path, process::Command};
 use validator::Validate;
 
 pub mod build;
 pub mod cache;
 pub mod image;
+pub mod progress;
+pub mod qcow;
 pub mod qemu;
 pub mod ssh;
 pub mod templates;
@@ -38,6 +39,10 @@ pub fn find_ovmf() -> Option<String> {
 
 	debug!("Failed to locate existing OVMF firmware");
 	None
+}
+
+pub fn is_interactive() -> bool {
+	!std::env::var("CI").is_ok()
 }
 
 /// The global configuration
@@ -66,19 +71,12 @@ pub struct BuildConfig {
 }
 
 impl BuildConfig {
-	/// Read the config from an existing image's metadata.
-	pub fn from_image(image: &GoldbootImage) -> Result<Self, Box<dyn Error>> {
-		// TODO wrong
-		let config: BuildConfig = serde_json::from_slice(&image.header.metadata)?;
-		Ok(config)
-	}
-
 	pub fn get_templates(&self) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
 		let mut templates: Vec<Box<dyn Template>> = Vec::new();
 
 		for template in &self.templates {
 			// Get type
-			let t: TemplateType = serde_json::from_value(template.to_owned())?;
+			let t: TemplateBase = serde_json::from_value(template.to_owned())?;
 			templates.push(t.parse_template(template.to_owned())?);
 		}
 
@@ -108,6 +106,8 @@ pub struct Provisioner {
 
 impl Provisioner {
 	pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+		info!("Running provisioner");
+
 		// Check for inline command
 		if let Some(command) = &self.shell.inline {
 			if ssh.exec(command)? != 0 {

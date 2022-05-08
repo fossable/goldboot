@@ -1,13 +1,18 @@
 [package]
 name = "goldboot-registry"
+description = "A web service for hosting goldboot images"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
+readme = "README.md"
+homepage = "https://goldboot.org"
+repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
 actix-web = {version = "4.0.0-beta.21", features = ["rustls"]}
 env_logger = "0.9"
 goldboot-core = { path="../goldboot-core" }
-goldboot-image = { path="../goldboot-image" }
 log = { version = "0.4.11", default-features = false }
 rustls = "0.20.2"
 rustls-pemfile = "0.2.1"

@@ -1,11 +1,51 @@
-use goldboot_core::image::{ImageLibrary, ImageMetadata};
+use goldboot_core::{
+	image::{library::ImageLibrary, GoldbootImage},
+	BuildConfig,
+};
 use gtk4 as gtk;
 use gtk4::prelude::*;
+use ubyte::ToByteUnit;
 
 pub struct SelectImageView {
-	images: Vec<ImageMetadata>,
+	images: Vec<ImageRow>,
 	list_box: gtk::ListBox,
 	pub container: gtk::Box,
+}
+
+struct ImageRow {
+	pub container: gtk::Box,
+
+	pub name: String,
+
+	pub public: bool,
+
+	pub remote: bool,
+}
+
+impl ImageRow {
+	pub fn from_image(image: &GoldbootImage) -> Self {
+		let container = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+
+		//let platform_icon = Container::new(Svg::from_path(""));
+
+		// Image name
+		let image_name = gtk::Label::new(Some(&image.metadata.config.name));
+		container.append(&image_name);
+
+		// Image size
+		let image_size = gtk::Label::new(Some(&image.size.gibibytes().to_string()));
+		container.append(&image_size);
+
+		// Image timestamp
+		// TODO
+
+		Self {
+			container,
+			name: image.metadata.config.name.clone(),
+			public: true,
+			remote: false,
+		}
+	}
 }
 
 impl SelectImageView {
@@ -20,8 +60,9 @@ impl SelectImageView {
 		let mut images = Vec::new();
 
 		for image in ImageLibrary::load().unwrap() {
-			list_box.append(&build_row(&image));
-			images.push(image);
+			let row = ImageRow::from_image(&image);
+			list_box.append(&row.container);
+			images.push(row);
 		}
 
 		Self {
@@ -30,18 +71,4 @@ impl SelectImageView {
 			container,
 		}
 	}
-}
-
-fn build_row(image: &ImageMetadata) -> gtk::Box {
-	let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
-
-	//let platform_icon = Container::new(Svg::from_path(""));
-
-	let image_name = gtk::Label::new(Some(&image.config.name));
-	row.append(&image_name);
-
-	let image_size = gtk::Label::new(Some(&image.size.to_string()));
-	row.append(&image_size);
-
-	return row;
 }

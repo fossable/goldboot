@@ -42,7 +42,7 @@ impl Default for Windows10Template {
 				checksum: String::from("<ISO HASH>"),
 			},
 			general: GeneralContainer {
-				r#type: TemplateType::Windows10,
+				base: TemplateBase::Windows10,
 				storage_size: String::from("40 GiB"),
 				partitions: None,
 				qemuargs: None,

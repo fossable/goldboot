@@ -1,6 +1,12 @@
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
-use std::{error::Error, fs::File, io::BufReader, path::Path, process::Command};
 use log::debug;
+use std::{
+	error::Error,
+	fs::File,
+	io::BufReader,
+	path::Path,
+	process::{Command, Stdio},
+};
 
 mod header;
 pub use header::*;
@@ -39,7 +45,17 @@ impl Qcow3 {
 	/// Allocate a new qcow3 file.
 	pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
 		Command::new("qemu-img")
-			.args(["create", "-f", "qcow2", "-o", "compression_type=zstd", &path, &format!("{size}")])
+			.args([
+				"create",
+				"-f",
+				"qcow2",
+				"-o",
+				"compression_type=zstd",
+				&path,
+				&format!("{size}"),
+			])
+			.stdin(Stdio::null())
+			.stderr(Stdio::null())
 			.status()
 			.unwrap();
 

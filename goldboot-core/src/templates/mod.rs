@@ -36,8 +36,8 @@ pub trait Template {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
-#[serde(tag = "type")]
-pub enum TemplateType {
+#[serde(tag = "base")]
+pub enum TemplateBase {
 	#[default]
 	Alpine,
 	ArchLinux,
@@ -50,21 +50,21 @@ pub enum TemplateType {
 	Windows10,
 }
 
-impl TemplateType {
+impl TemplateBase {
 	#[rustfmt::skip]
 	pub fn parse_template(&self, value: serde_json::Value) -> Result<Box<dyn Template>, Box<dyn Error>> {
 
 		Ok(match self {
-			TemplateType::Alpine        => Box::new(serde_json::from_value::<AlpineTemplate>(value)?),
-			TemplateType::ArchLinux     => Box::new(serde_json::from_value::<ArchLinuxTemplate>(value)?),
-			TemplateType::Debian        => Box::new(serde_json::from_value::<DebianTemplate>(value)?),
+			TemplateBase::Alpine        => Box::new(serde_json::from_value::<AlpineTemplate>(value)?),
+			TemplateBase::ArchLinux     => Box::new(serde_json::from_value::<ArchLinuxTemplate>(value)?),
+			TemplateBase::Debian        => Box::new(serde_json::from_value::<DebianTemplate>(value)?),
 			//"goldbootusb"   => Box::new(serde_json::from_value::<GoldbootUsbTemplate>(value)?),
-			TemplateType::MacOs         => Box::new(serde_json::from_value::<MacOsTemplate>(value)?),
-			TemplateType::PopOs         => Box::new(serde_json::from_value::<PopOsTemplate>(value)?),
-			TemplateType::SteamDeck     => Box::new(serde_json::from_value::<SteamDeckTemplate>(value)?),
-			TemplateType::SteamOs       => Box::new(serde_json::from_value::<SteamOsTemplate>(value)?),
-			TemplateType::Ubuntu        => Box::new(serde_json::from_value::<UbuntuTemplate>(value)?),
-			TemplateType::Windows10     => Box::new(serde_json::from_value::<Windows10Template>(value)?),
+			TemplateBase::MacOs         => Box::new(serde_json::from_value::<MacOsTemplate>(value)?),
+			TemplateBase::PopOs         => Box::new(serde_json::from_value::<PopOsTemplate>(value)?),
+			TemplateBase::SteamDeck     => Box::new(serde_json::from_value::<SteamDeckTemplate>(value)?),
+			TemplateBase::SteamOs       => Box::new(serde_json::from_value::<SteamOsTemplate>(value)?),
+			TemplateBase::Ubuntu        => Box::new(serde_json::from_value::<UbuntuTemplate>(value)?),
+			TemplateBase::Windows10     => Box::new(serde_json::from_value::<Windows10Template>(value)?),
 			//"windows11"     => Box::new(serde_json::from_value::<Windows11Template>(value)?),
 			//"windows7"      => Box::new(serde_json::from_value::<Windows7Template>(value)?),
 		})
@@ -73,16 +73,16 @@ impl TemplateType {
 	#[rustfmt::skip]
 	pub fn get_default_template(&self) -> Result<serde_json::Value, Box<dyn Error>> {
 		Ok(match self {
-			TemplateType::Alpine         => serde_json::to_value(AlpineTemplate::default()),
-			TemplateType::ArchLinux      => serde_json::to_value(ArchLinuxTemplate::default()),
-			TemplateType::Debian         => serde_json::to_value(DebianTemplate::default()),
+			TemplateBase::Alpine         => serde_json::to_value(AlpineTemplate::default()),
+			TemplateBase::ArchLinux      => serde_json::to_value(ArchLinuxTemplate::default()),
+			TemplateBase::Debian         => serde_json::to_value(DebianTemplate::default()),
 			//"goldbootusb"    => serde_json::to_value(GoldbootUsbTemplate::default()),
-			TemplateType::MacOs          => serde_json::to_value(MacOsTemplate::default()),
-			TemplateType::PopOs          => serde_json::to_value(PopOsTemplate::default()),
-			TemplateType::SteamDeck      => serde_json::to_value(SteamDeckTemplate::default()),
-			TemplateType::SteamOs        => serde_json::to_value(SteamOsTemplate::default()),
-			TemplateType::Ubuntu         => serde_json::to_value(UbuntuTemplate::default()),
-			TemplateType::Windows10      => serde_json::to_value(Windows10Template::default()),
+			TemplateBase::MacOs          => serde_json::to_value(MacOsTemplate::default()),
+			TemplateBase::PopOs          => serde_json::to_value(PopOsTemplate::default()),
+			TemplateBase::SteamDeck      => serde_json::to_value(SteamDeckTemplate::default()),
+			TemplateBase::SteamOs        => serde_json::to_value(SteamOsTemplate::default()),
+			TemplateBase::Ubuntu         => serde_json::to_value(UbuntuTemplate::default()),
+			TemplateBase::Windows10      => serde_json::to_value(Windows10Template::default()),
 			//"windows11"      => serde_json::to_value(Windows11Template::default()),
 			//"windows7"       => serde_json::to_value(Windows7Template::default()),
 		}?)
@@ -109,7 +109,7 @@ pub struct ProvisionersContainer {
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct GeneralContainer {
 	#[serde(flatten)]
-	pub r#type: TemplateType,
+	pub base: TemplateBase,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub qemuargs: Option<Vec<String>>,

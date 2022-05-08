@@ -41,7 +41,7 @@ impl Default for DebianTemplate {
 			},
 			version: DebianVersion::Bullseye,
 			general: GeneralContainer{
-				r#type: TemplateType::Debian,
+				base: TemplateBase::Debian,
 				storage_size: String::from("15 GiB"),
 				partitions: None,
 				qemuargs: None,

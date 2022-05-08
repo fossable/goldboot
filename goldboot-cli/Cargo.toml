@@ -1,14 +1,19 @@
 [package]
 name = "goldboot-cli"
+description = "A command-line application for building goldboot images"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
+readme = "README.md"
+homepage = "https://goldboot.org"
+repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
 clap = { version = "3.1.2", features = ["derive"] }
 colored = "2"
 env_logger = "0.9"
 goldboot-core = { path="../goldboot-core" }
-goldboot-image = { path="../goldboot-image" }
 indicatif = "0.16.2"
 log = { version = "0.4.11", default-features = false }
 serde = { version="1",features = ["derive"] }

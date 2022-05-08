@@ -1,4 +1,4 @@
-use goldboot_core::{templates::TemplateType, *};
+use goldboot_core::{templates::TemplateBase, *};
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
@@ -58,8 +58,8 @@ pub fn init(
 	// Run template-specific initialization
 	let mut default_templates = Vec::new();
 	for template in templates {
-		let t: TemplateType =
-			serde_json::from_str(format!("{{\"type\": \"{}\"}}", &template).as_str())?;
+		let t: TemplateBase =
+			serde_json::from_str(format!("{{\"base\": \"{}\"}}", &template).as_str())?;
 		default_templates.push(t.get_default_template()?);
 	}
 	config.templates = default_templates;

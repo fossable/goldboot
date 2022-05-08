@@ -1,6 +1,9 @@
-use goldboot_image::GoldbootImage;
-use crate::{find_ovmf, image::ImageLibrary, BuildConfig, Template};
-use goldboot_image::qcow::Qcow3;
+use crate::{
+	find_ovmf,
+	image::{library::ImageLibrary, GoldbootImage},
+	qcow::Qcow3,
+	BuildConfig, Template,
+};
 use log::{debug, info};
 use rand::Rng;
 use simple_error::bail;
@@ -26,15 +29,12 @@ pub struct BuildJob {
 	/// When set, the run will pause before each step in the boot sequence
 	pub debug: bool,
 
-	/// When set, the run will output user-friendly progress bars
-	pub interactive: bool,
-
 	/// The path to the final image artifact
 	pub image_path: String,
 }
 
 impl BuildJob {
-	pub fn new(config: BuildConfig, record: bool, debug: bool, interactive: bool) -> Self {
+	pub fn new(config: BuildConfig, record: bool, debug: bool) -> Self {
 		// Obtain a temporary directory
 		let tmp = tempfile::tempdir().unwrap();
 
@@ -48,7 +48,6 @@ impl BuildJob {
 			config,
 			record,
 			debug,
-			interactive,
 			image_path,
 		}
 	}
@@ -87,7 +86,6 @@ impl BuildJob {
 			config: self.config.clone(),
 			record: self.record,
 			debug: self.debug,
-			interactive: self.interactive,
 		}
 	}
 
@@ -145,16 +143,16 @@ impl BuildJob {
 		};
 
 		// Convert into final immutable image
-		GoldbootImage::convert(&final_qcow, &self.image_path)?;
-
-		info!(
-			"Build completed in: {:?}",
-			self.start_time.unwrap().elapsed()
-		);
-		self.end_time = Some(SystemTime::now());
+		GoldbootImage::convert(&final_qcow, self.config.clone(), &self.image_path)?;
 
 		// Move the image to the library
 		ImageLibrary::add(&self.image_path)?;
+
+		info!(
+			"Build completed in: {:?}",
+			self.start_time.unwrap().elapsed()?
+		);
+		self.end_time = Some(SystemTime::now());
 
 		Ok(())
 	}
@@ -188,9 +186,6 @@ pub struct BuildWorker {
 
 	/// When set, the run will pause before each step in the boot sequence
 	pub debug: bool,
-
-	/// When set, the run will output user-friendly progress bars
-	pub interactive: bool,
 }
 
 unsafe impl Send for BuildWorker {}

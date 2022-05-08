@@ -1,12 +1,12 @@
-use std::time::Duration;
 use log::{debug, info};
+use simple_error::bail;
 use std::{
 	error::Error,
 	io::{Cursor, Read},
 	net::TcpStream,
 	path::Path,
+	time::Duration,
 };
-use simple_error::bail;
 
 /// Represents an SSH session to a running VM.
 pub struct SshConnection {
@@ -69,7 +69,11 @@ impl SshConnection {
 	}
 
 	/// Run a command on the VM with the given environment.
-	pub fn exec_env(&mut self, cmdline: &str, env: Vec<(&str, &str)>) -> Result<i32, Box<dyn Error>> {
+	pub fn exec_env(
+		&mut self,
+		cmdline: &str,
+		env: Vec<(&str, &str)>,
+	) -> Result<i32, Box<dyn Error>> {
 		debug!("Executing command: '{}'", cmdline);
 
 		let mut channel = self.session.channel_session()?;
@@ -86,23 +90,23 @@ impl SshConnection {
 			Ok(_) => {
 				// Print output
 				// TODO
-			},
+			}
 			Err(_) => {
 				// The VM is probably rebooting, wait for SSH to come back up
-				debug!("SSH disconnected; waiting for it to come back");
+				info!("SSH disconnected; waiting for it to come back");
 				std::thread::sleep(Duration::from_secs(10));
 				for _ in 0..5 {
 					match SshConnection::new(self.port, &self.username, &self.password) {
 						Ok(ssh) => {
 							// Steal the session
 							self.session = ssh.session;
-							return Ok(0)
-						},
+							return Ok(0);
+						}
 						Err(_) => std::thread::sleep(Duration::from_secs(50)),
 					}
 				}
 				bail!("SSH did not come back in a reasonable amount of time");
-			},
+			}
 		}
 		channel.wait_close()?;
 		let exit = channel.exit_status()?;

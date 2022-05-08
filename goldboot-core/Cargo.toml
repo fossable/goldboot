@@ -1,16 +1,19 @@
 [package]
 name = "goldboot-core"
+description = "Contains the core implementation of goldboot"
 version = "0.1.0"
 edition = "2021"
-
-[features]
-progressbars = []
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
+readme = "README.md"
+homepage = "https://goldboot.org"
+repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
+binrw = "0.8.4"
 bzip2-rs = "0.1.2"
 colored = "2"
 env_logger = "0.9"
-goldboot-image = { path="../goldboot-image" }
 hex = "0.4.3"
 indicatif = "0.16.2"
 log = { version = "0.4.11", default-features = false }
@@ -30,3 +33,4 @@ ubyte = "0.10.1"
 validator = { version = "0.12", features = ["derive"] }
 vnc = "0.4"
 whoami = "1.2.1"
+zstd = "0.9.0"

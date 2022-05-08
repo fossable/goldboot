@@ -979,7 +979,6 @@ dependencies = [
  "colored",
  "env_logger",
  "goldboot-core",
- "goldboot-image",
  "indicatif",
  "log 0.4.16",
  "serde",
@@ -993,10 +992,10 @@ dependencies = [
 name = "goldboot-core"
 version = "0.1.0"
 dependencies = [
+ "binrw",
  "bzip2-rs",
  "colored",
  "env_logger",
- "goldboot-image",
  "hex",
  "indicatif",
  "log 0.4.16",
@@ -1016,6 +1015,7 @@ dependencies = [
  "validator",
  "vnc",
  "whoami",
+ "zstd",
 ]
 
 [[package]]
@@ -1033,25 +1033,12 @@ dependencies = [
  "block-utils",
  "env_logger",
  "goldboot-core",
- "goldboot-image",
  "gtk4",
  "log 0.4.16",
  "rust-embed",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "goldboot-image"
-version = "0.1.0"
-dependencies = [
- "binrw",
- "log 0.4.16",
- "serde",
- "serde_json",
- "sha2 0.10.2",
- "validator",
- "zstd",
+ "ubyte",
 ]
 
 [[package]]
@@ -1061,7 +1048,6 @@ dependencies = [
  "actix-web",
  "env_logger",
  "goldboot-core",
- "goldboot-image",
  "log 0.4.16",
  "rustls",
  "rustls-pemfile",

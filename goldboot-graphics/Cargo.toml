@@ -1,7 +1,13 @@
 [package]
 name = "goldboot-graphics"
+description = "Contains goldboot icons and logos"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
+readme = "README.md"
+homepage = "https://goldboot.org"
+repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
 quick-xml = {version = "0.22.0", features = ["serialize"] }

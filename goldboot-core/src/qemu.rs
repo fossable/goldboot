@@ -26,7 +26,7 @@ pub struct QemuProcess {
 
 impl QemuProcess {
 	pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
-		info!("Spawning new virtual machine");
+		info!("Spawning new build worker");
 
 		let cmdline = args.to_cmdline();
 		debug!("QEMU arguments: {:?}", &cmdline);
@@ -44,7 +44,7 @@ impl QemuProcess {
 				Err(_) => {
 					// Check process
 					match process.try_wait() {
-						Ok(Some(status)) => {
+						Ok(Some(_)) => {
 							bail!("Qemu exited early")
 						}
 						Ok(None) => {

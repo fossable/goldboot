@@ -1,4 +1,6 @@
+use crate::{progress::ProgressBar, qcow::Qcow3, BuildConfig};
 use binrw::{BinRead, BinReaderExt, BinWrite};
+use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -6,11 +8,11 @@ use std::{
 	fs::File,
 	io::{BufReader, Read, Seek, SeekFrom, Write},
 	path::Path,
+	time::{SystemTime, UNIX_EPOCH},
 };
 use validator::Validate;
-use log::{info, debug, trace};
 
-pub mod qcow;
+pub mod library;
 
 /// Represents an immutable goldboot image on disk which has the following binary format:
 ///
@@ -31,7 +33,7 @@ pub mod qcow;
 /// are variable in size and ideally smaller than their associated blocks (due to compression).
 /// If a block does not have an associated cluster, that block is zero.
 ///
-/// Every cluster is tracked in the digest table which is ordered
+/// Every cluster is tracked in the digest table which is ordered in the same order as the blocks.
 pub struct GoldbootImage {
 	/// The image header
 	pub header: ImageHeader,
@@ -41,12 +43,118 @@ pub struct GoldbootImage {
 
 	/// The filesystem path to the image file
 	pub path: std::path::PathBuf,
+
+	/// The image's ID (SHA256 hash)
+	pub id: String,
+
+	/// The size in bytes of the image file itself
+	pub size: u64,
+}
+
+/// The cluster compression algorithm.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum ClusterCompressionType {
+	/// Clusters will not be compressed
+	None,
+
+	/// Clusters will be compressed with Zstandard
+	Zstd,
+}
+
+/// The cluster encryption algorithm.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum ClusterEncryptionType {
+	/// Clusters will not be encrypted
+	None,
+
+	/// Clusters will be encrypted with AES after compression
+	Aes,
+}
+
+#[derive(BinRead, BinWrite, Debug)]
+#[brw(magic = b"\xc0\x1d\xb0\x01")]
+pub struct ImageHeader {
+	pub metadata_length: u16,
+
+	#[br(count = metadata_length)]
+	pub metadata: Vec<u8>,
+}
+
+impl ImageHeader {
+	pub fn size(&self) -> u64 {
+		// file magic
+		4 +
+		// length field
+		2 +
+		// metadata
+		self.metadata_length as u64
+	}
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct ImageMetadata {
+	/// The format version
+	pub version: u16,
+
+	/// The size in bytes of each disk block
+	pub block_size: u16,
+
+	/// The number of populated clusters in this image
+	pub cluster_count: u16,
+
+	/// Image creation time
+	pub timestamp: u64,
+
+	/// The config used to build the image
+	pub config: BuildConfig,
+
+	pub compression_type: ClusterCompressionType,
+
+	pub encryption_type: ClusterEncryptionType,
+}
+
+#[derive(BinRead, BinWrite, Debug)]
+pub struct DigestTableEntry {
+	/// The cluster's offset in the image file
+	pub cluster_offset: u64,
+
+	/// The block's offset in the real data
+	pub block_offset: u64,
+
+	/// The SHA256 hash of the block before compression and encryption
+	pub digest: [u8; 32],
+}
+
+impl DigestTableEntry {
+	pub fn size() -> u64 {
+		// cluster_offset
+		8 +
+		// block_offset
+		8 +
+		// digest
+		32
+	}
+}
+
+#[derive(BinRead, BinWrite, Debug)]
+pub struct Cluster {
+	/// The size of the cluster in bytes
+	pub size: u32,
+
+	/// The cluster data which might be compressed and encrypted
+	#[br(count = size)]
+	pub data: Vec<u8>,
 }
 
 impl GoldbootImage {
 	pub fn open(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
 		let path = path.as_ref();
 		let mut file = File::open(path)?;
+
+		debug!(
+			"Opening image from: {}",
+			&path.to_string_lossy().to_string()
+		);
 
 		// Read header
 		let header: ImageHeader = file.read_be()?;
@@ -55,14 +163,18 @@ impl GoldbootImage {
 			path: path.to_path_buf(),
 			metadata: serde_json::from_slice(&header.metadata)?,
 			header,
+			size: std::fs::metadata(&path)?.len(),
+			id: path.file_stem().unwrap().to_str().unwrap().to_string(),
 		})
 	}
 
+	/// Convert a qcow image into a goldboot image.
 	pub fn convert(
-		source: &qcow::Qcow3,
+		source: &Qcow3,
+		config: BuildConfig,
 		destination: impl AsRef<Path>,
-	) -> Result<Self, Box<dyn Error>> {
-		info!("Converting qcow({}) to goldboot image({})", &source.path, &destination.as_ref().to_string_lossy().to_string());
+	) -> Result<(), Box<dyn Error>> {
+		info!("Exporting storage to goldboot image");
 
 		let mut dest_file = File::create(&destination)?;
 		let mut source_file = File::open(&source.path)?;
@@ -71,6 +183,8 @@ impl GoldbootImage {
 			version: 1,
 			block_size: source.header.cluster_size() as u16,
 			cluster_count: source.count_clusters()?,
+			timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+			config,
 			compression_type: ClusterCompressionType::Zstd,
 			encryption_type: ClusterEncryptionType::None,
 		};
@@ -92,16 +206,19 @@ impl GoldbootImage {
 		let mut block_offset = 0;
 
 		// Track the cluster offset in the image file
-		let mut cluster_offset = 0;
+		let mut cluster_offset =
+			header.size() + DigestTableEntry::size() * metadata.cluster_count as u64;
 
 		// Tract the digest table offset in the image file
-		let mut digest_entry_offset = 6 + header.metadata_length as u64;
+		let mut digest_entry_offset = header.size();
+
+		// Setup progress bar
+		let increment_progress = ProgressBar::Convert.new(source.header.size);
 
 		for l1_entry in &source.l1_table {
 			if let Some(l2_table) = l1_entry.read_l2(&mut source_file, source.header.cluster_bits) {
 				for l2_entry in l2_table {
 					if l2_entry.is_used {
-
 						// Start building the cluster
 						let mut cluster = Cluster {
 							size: 0,
@@ -122,7 +239,7 @@ impl GoldbootImage {
 						};
 
 						digest_entry.write_to(&mut dest_file)?;
-						digest_entry_offset += 48;
+						digest_entry_offset += DigestTableEntry::size();
 
 						// Perform compression
 						cluster.data = match metadata.compression_type {
@@ -138,7 +255,11 @@ impl GoldbootImage {
 						cluster.size = cluster.data.len() as u32;
 
 						// Write the cluster
-						trace!("Writing {} byte cluster for: {:?}", cluster.size, &digest_entry);
+						trace!(
+							"Writing {} byte cluster for: {:?}",
+							cluster.size,
+							&digest_entry
+						);
 						dest_file.seek(SeekFrom::Start(cluster_offset))?;
 						dest_file.write_all(&cluster.data)?;
 
@@ -147,18 +268,18 @@ impl GoldbootImage {
 						cluster_offset += cluster.data.len() as u64;
 					}
 					block_offset += source.header.cluster_size();
+					increment_progress(source.header.cluster_size());
 				}
 			} else {
 				block_offset +=
 					source.header.cluster_size() * source.header.l2_entries_per_cluster();
+				increment_progress(
+					source.header.cluster_size() * source.header.l2_entries_per_cluster(),
+				);
 			}
 		}
 
-		Ok(Self {
-			path: destination.as_ref().to_path_buf(),
-			metadata,
-			header,
-		})
+		Ok(())
 	}
 
 	/// Write the image out to disk.
@@ -208,73 +329,6 @@ impl GoldbootImage {
 
 		Ok(())
 	}
-}
-
-/// The cluster compression algorithm.
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum ClusterCompressionType {
-	/// Clusters will not be compressed
-	None,
-
-	/// Clusters will be compressed with Zstandard
-	Zstd,
-}
-
-/// The cluster encryption algorithm.
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum ClusterEncryptionType {
-	/// Clusters will not be encrypted
-	None,
-
-	/// Clusters will be encrypted with AES after compression
-	Aes,
-}
-
-#[derive(BinRead, BinWrite, Debug)]
-#[br(magic = b"\xc0\x1d\xb0\x01")]
-pub struct ImageHeader {
-	pub metadata_length: u16,
-
-	#[br(count = metadata_length)]
-	pub metadata: Vec<u8>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ImageMetadata {
-	/// The format version
-	pub version: u16,
-
-	/// The size in bytes of each disk block
-	pub block_size: u16,
-
-	/// The number of populated clusters in this image
-	pub cluster_count: u16,
-
-	pub compression_type: ClusterCompressionType,
-
-	pub encryption_type: ClusterEncryptionType,
-}
-
-#[derive(BinRead, BinWrite, Debug)]
-pub struct DigestTableEntry {
-	/// The cluster's offset in the image file
-	pub cluster_offset: u64,
-
-	/// The block's offset in the real data
-	pub block_offset: u64,
-
-	/// The SHA256 hash of the block before compression and encryption
-	pub digest: [u8; 32],
-}
-
-#[derive(BinRead, BinWrite, Debug)]
-pub struct Cluster {
-	/// The size of the cluster in bytes
-	pub size: u32,
-
-	/// The cluster data which might be compressed and encrypted
-	#[br(count = size)]
-	pub data: Vec<u8>,
 }
 
 #[cfg(test)]

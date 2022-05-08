@@ -42,7 +42,7 @@ impl Default for SteamOsTemplate {
 			provisioners: None,
 			version: SteamOsVersion::Brewmaster2_195,
 			general: GeneralContainer{
-				r#type: TemplateType::SteamOs,
+				base: TemplateBase::SteamOs,
 				storage_size: String::from("15 GiB"),
 				partitions: None,
 				qemuargs: None,

@@ -1,0 +1,87 @@
+use crate::{image::GoldbootImage, progress::ProgressBar};
+use log::info;
+use sha1::Digest;
+use sha2::Sha256;
+use std::{
+	error::Error,
+	fs::File,
+	path::{Path, PathBuf},
+};
+
+/// Represents the local image library.
+///
+/// Depending on the platform, the directory will be located at:
+///     - /var/lib/goldboot/images (linux)
+///
+/// Images are named according to their SHA256 hash (ID) and have a file extension
+/// of ".gb".
+pub struct ImageLibrary;
+
+/// Return the image library path for the current platform.
+fn library_path() -> PathBuf {
+	let path = if cfg!(target_os = "linux") {
+		PathBuf::from("/var/lib/goldboot/images")
+	} else {
+		panic!("Unsupported platform");
+	};
+
+	std::fs::create_dir_all(&path).unwrap();
+	path
+}
+
+impl ImageLibrary {
+	/// Add an image to the library. The image will be hashed and copied to the
+	/// library with the appropriate name.
+	pub fn add(image_path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+		info!("Saving image to library");
+
+		let mut hasher = Sha256::new();
+		ProgressBar::Hash.copy(
+			&mut File::open(&image_path)?,
+			&mut hasher,
+			std::fs::metadata(&image_path)?.len(),
+		)?;
+		let hash = hex::encode(hasher.finalize());
+
+		std::fs::copy(&image_path, library_path().join(format!("{hash}.gb")))?;
+		Ok(())
+	}
+
+	/// Load images present in the local image library.
+	pub fn load() -> Result<Vec<GoldbootImage>, Box<dyn Error>> {
+		let mut images = Vec::new();
+
+		for p in library_path().read_dir()? {
+			let path = p?.path();
+
+			if let Some(ext) = path.extension() {
+				if ext == "gb" {
+					images.push(GoldbootImage::open(&path)?);
+				}
+			}
+		}
+
+		Ok(images)
+	}
+
+	/// Find images in the library by name.
+	pub fn find_by_name(image_name: &str) -> Result<Vec<GoldbootImage>, Box<dyn Error>> {
+		Ok(ImageLibrary::load()?
+			.into_iter()
+			.filter(|image| image.metadata.config.name == image_name)
+			.collect())
+	}
+
+	/// Find images in the library by ID.
+	pub fn find_by_id(image_id: &str) -> Result<GoldbootImage, Box<dyn Error>> {
+		Ok(ImageLibrary::load()?
+			.into_iter()
+			.find(|image| image.id == image_id)
+			.ok_or("Image not found")?)
+	}
+
+	/// Remove an image from the library by ID.
+	pub fn delete(image_id: &str) -> Result<(), Box<dyn Error>> {
+		todo!();
+	}
+}

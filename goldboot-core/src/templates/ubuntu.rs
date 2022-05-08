@@ -44,7 +44,7 @@ impl Default for UbuntuTemplate {
 			},
 			version: UbuntuVersion::Jammy,
 			general: GeneralContainer {
-				r#type: TemplateType::Ubuntu,
+				base: TemplateBase::Ubuntu,
 				storage_size: String::from("15 GiB"),
 				partitions: None,
 				qemuargs: None,

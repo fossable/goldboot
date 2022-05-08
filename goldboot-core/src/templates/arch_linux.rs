@@ -80,7 +80,7 @@ impl Default for ArchLinuxTemplate {
 				checksum: iso_checksum,
 			},
 			general: GeneralContainer {
-				r#type: TemplateType::ArchLinux,
+				base: TemplateBase::ArchLinux,
 				storage_size: String::from("10 GiB"),
 				partitions: None,
 				qemuargs: None,

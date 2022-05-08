@@ -4,6 +4,5 @@ members = [
     "goldboot-core",
     "goldboot-graphics",
     "goldboot-gui",
-    "goldboot-image",
     "goldboot-registry",
 ]

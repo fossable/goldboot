@@ -28,7 +28,7 @@ impl Default for SteamDeckTemplate {
 				"sha256:5086bcc4fe0fb230dff7265ff6a387dd00045e3d9ae6312de72003e1e82d4526",
 			),
 			general: GeneralContainer {
-				r#type: TemplateType::SteamDeck,
+				base: TemplateBase::SteamDeck,
 				storage_size: String::from("15 GiB"),
 				partitions: None,
 				qemuargs: None,
