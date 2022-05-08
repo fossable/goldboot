@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Install dependencies
         run: |
