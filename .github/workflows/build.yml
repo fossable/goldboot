@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev libgtk2.0-dev
+          sudo apt-get install -y libudev-dev libgtk-4-dev
 
       - name: Install rust nightly
         uses: actions-rs/toolchain@v1
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Build and install
+      - name: Build
         run: |
           cargo build --target x86_64-unknown-linux-gnu
 

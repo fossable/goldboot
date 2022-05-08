@@ -53,6 +53,9 @@ impl SelectImageView {
 		let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
 		let list_box = gtk::ListBox::new();
+		list_box.connect_row_activated(|_, row| {
+			println!("Activated");
+		});
 		container.append(&gtk::Label::new(Some("Logo")));
 		container.append(&list_box);
 

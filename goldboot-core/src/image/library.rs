@@ -1,5 +1,5 @@
 use crate::{image::GoldbootImage, progress::ProgressBar};
-use log::info;
+use log::{info, debug};
 use sha1::Digest;
 use sha2::Sha256;
 use std::{
@@ -56,7 +56,10 @@ impl ImageLibrary {
 
 			if let Some(ext) = path.extension() {
 				if ext == "gb" {
-					images.push(GoldbootImage::open(&path)?);
+					match GoldbootImage::open(&path) {
+						Ok(image) => images.push(image),
+						Err(error) => debug!("Failed to load image: {:?}", error),
+					}
 				}
 			}
 		}

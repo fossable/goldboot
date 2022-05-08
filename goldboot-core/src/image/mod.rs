@@ -72,7 +72,7 @@ pub enum ClusterEncryptionType {
 }
 
 #[derive(BinRead, BinWrite, Debug)]
-#[brw(magic = b"\xc0\x1d\xb0\x01")]
+#[brw(magic = b"\xc0\x1d\xb0\x01", big)]
 pub struct ImageHeader {
 	pub metadata_length: u16,
 
@@ -114,6 +114,7 @@ pub struct ImageMetadata {
 }
 
 #[derive(BinRead, BinWrite, Debug)]
+#[brw(big)]
 pub struct DigestTableEntry {
 	/// The cluster's offset in the image file
 	pub cluster_offset: u64,
@@ -137,6 +138,7 @@ impl DigestTableEntry {
 }
 
 #[derive(BinRead, BinWrite, Debug)]
+#[brw(big)]
 pub struct Cluster {
 	/// The size of the cluster in bytes
 	pub size: u32,
@@ -158,6 +160,7 @@ impl GoldbootImage {
 
 		// Read header
 		let header: ImageHeader = file.read_be()?;
+		trace!("Read: {:?}", &header);
 
 		Ok(Self {
 			path: path.to_path_buf(),

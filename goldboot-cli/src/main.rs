@@ -160,7 +160,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 			// Load build config from current directory
 			let config: BuildConfig = serde_json::from_slice(&std::fs::read("goldboot.json")?)?;
-			debug!("Loaded config: {:#?}", &config);
+			debug!("Loaded: {:#?}", &config);
 
 			// Fully verify config before proceeding
 			config.validate()?;
