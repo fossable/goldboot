@@ -67,7 +67,7 @@ jobs:
 
       - name: Run goldboot
         run: |
-          goldboot init --profile ${{ matrix.profile }} --disk 16G
+          goldboot init --template ${{ matrix.profile }} --disk 16G
           goldboot build --record
           fallocate -l 16GiB disk.raw
           goldboot image write --image ${{ matrix.profile }} --disk disk.raw
@@ -110,7 +110,7 @@ jobs:
 
       - name: Run goldboot
         run: |
-          goldboot init --profile ${{ matrix.profile }} --arch aarch64 --disk 16G
+          goldboot init --template ${{ matrix.profile }} --arch aarch64 --disk 16G
           goldboot build --record
           fallocate -l 16GiB disk.raw
           goldboot image write --image ${{ matrix.profile }} --disk disk.raw

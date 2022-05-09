@@ -33,7 +33,7 @@ impl ImageRow {
 		container.append(&image_name);
 
 		// Image size
-		let image_size = gtk::Label::new(Some(&image.size.gibibytes().to_string()));
+		let image_size = gtk::Label::new(Some(&image.size.bytes().to_string()));
 		container.append(&image_size);
 
 		// Image timestamp

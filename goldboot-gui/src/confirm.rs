@@ -1,12 +1,12 @@
 use gtk::{prelude::*, *};
 use gtk4 as gtk;
 
-pub struct AbortView {
+pub struct ConfirmView {
 	pub container: Grid,
 	pub progress: ProgressBar,
 }
 
-impl AbortView {
+impl ConfirmView {
 	pub fn new() -> Self {
 		let progress = ProgressBar::new();
 		progress.set_text(Some("Progress Bar"));
