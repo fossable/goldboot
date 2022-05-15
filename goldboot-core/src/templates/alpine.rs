@@ -5,6 +5,14 @@ use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum AlpineLinuxEdition {
+	Standard,
+	Extended,
+	RaspberryPi,
+	Xen,
+}
+
 /// Template for Alpine Linux images (https://www.alpinelinux.org).
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AlpineTemplate {
@@ -62,11 +70,36 @@ impl Template for AlpineTemplate {
 		#[rustfmt::skip]
 		qemu.vnc.boot_command(vec![
 			// Initial wait
-			wait!(60),
+			wait!(30),
 			// Root login
 			enter!("root"),
-			// Start quick install
-			enter!("KEYMAPOPTS='us us' setup-alpine -q"),
+			// Configure install
+			enter!("export KEYMAPOPTS='us us'"),
+			enter!("export HOSTNAMEOPTS='-n goldboot'"),
+			enter!("export INTERFACESOPTS='
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+    hostname alpine-test'"
+			),
+			enter!("export DNSOPTS='1.1.1.1'"),
+			enter!("export TIMEZONEOPTS='-z UTC'"),
+			enter!("export PROXYOPTS='none'"),
+			enter!("export APKREPOSOPTS='-r'"),
+			enter!("export SSHDOPTS='-c openssh'"),
+			enter!("export NTPOPTS='-c openntpd'"),
+			enter!("export DISKOPTS='-m sys /dev/vda'"),
+			// Start install
+			enter!("echo -e 'root\nroot\ny' | setup-alpine"),
+			wait!(180),
+			// Remount root partition
+			enter!("mount -t ext4 /dev/vda3 /mnt"), wait!(10),
+			// Configure SSH
+			enter!("echo 'PermitRootLogin yes' >>/mnt/etc/ssh/sshd_config"),
+			// Reboot into installation
+			enter!("apk add efibootmgr; efibootmgr -n 0003; reboot"),
 		])?;
 
 		// Wait for SSH

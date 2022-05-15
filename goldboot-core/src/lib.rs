@@ -1,5 +1,7 @@
 #![feature(derive_default_enum)]
 
+use std::net::TcpListener;
+use rand::Rng;
 use crate::{
 	ssh::SshConnection,
 	templates::{Template, TemplateBase},
@@ -12,6 +14,7 @@ use validator::Validate;
 
 pub mod build;
 pub mod cache;
+pub mod http;
 pub mod image;
 pub mod progress;
 pub mod qcow;
@@ -39,6 +42,19 @@ pub fn find_ovmf() -> Option<String> {
 
 	debug!("Failed to locate existing OVMF firmware");
 	None
+}
+
+/// Find a random open TCP port in the given range.
+pub fn find_open_port(lower: u16, upper: u16) -> u16 {
+	let mut rand = rand::thread_rng();
+
+	loop {
+		let port = rand.gen_range(lower..upper);
+		match TcpListener::bind(format!("0.0.0.0:{port}")) {
+			Ok(_) => break port,
+			Err(_) => continue,
+		}
+	}
 }
 
 pub fn is_interactive() -> bool {

@@ -1,3 +1,4 @@
+use crate::http::HttpServer;
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
@@ -7,6 +8,10 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+
+#[derive(rust_embed::RustEmbed)]
+#[folder = "res/Debian/"]
+struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum DebianVersion {
@@ -55,6 +60,9 @@ impl Template for DebianTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
+		// Start HTTP
+		let http = HttpServer::serve_file(Resources::get("default/preseed.cfg").unwrap().data.to_vec())?;
+
 		qemuargs.drive.push(format!(
 			"file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
 			context.image_path
@@ -70,6 +78,12 @@ impl Template for DebianTemplate {
 		// Send boot command
 		#[rustfmt::skip]
 		qemu.vnc.boot_command(vec![
+			wait!(10),
+			input!("aa"),
+			wait_screen!("53471d73e98f0109ce3262d9c45c522d7574366b"),
+			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
+			enter!(&self.root_password),
+			enter!(&self.root_password),
 		])?;
 
 		// Wait for SSH

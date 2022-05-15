@@ -65,6 +65,7 @@ pub enum VncCmd {
 	Enter,
 	Spacebar,
 	Tab,
+	Escape,
 
 	/// Input the left super button.
 	LeftSuper,
@@ -238,7 +239,10 @@ impl VncConnection {
 				match item {
 					VncCmd::Type(ref text) => {
 						for ch in text.chars() {
-							if ch.is_uppercase() {
+							if ch == '\n' {
+								self.vnc.send_key_event(true, 0xff0d)?;
+								self.vnc.send_key_event(false, 0xff0d)?;
+							} else if ch.is_uppercase() {
 								self.vnc.send_key_event(true, 0xffe1)?;
 								self.vnc.send_key_event(true, 0x01000000 + ch as u32)?;
 								self.vnc.send_key_event(false, 0x01000000 + ch as u32)?;
@@ -258,7 +262,7 @@ impl VncConnection {
 									}
 								}
 							}
-							std::thread::sleep(Duration::from_millis(200));
+							std::thread::sleep(Duration::from_millis(100));
 						}
 					}
 					VncCmd::Wait(duration) => {
@@ -315,6 +319,10 @@ impl VncConnection {
 						self.vnc.send_key_event(true, 0xffeb)?;
 						self.vnc.send_key_event(false, 0xffeb)?;
 					}
+					VncCmd::Escape => {
+						self.vnc.send_key_event(true, 0xff1b)?;
+						self.vnc.send_key_event(false, 0xff1b)?;
+					}
 				}
 				if self.record {
 					self.screenshot()?
@@ -346,6 +354,13 @@ pub mod bootcmds {
 	macro_rules! spacebar {
 		() => {
 			vec![crate::vnc::VncCmd::Spacebar, crate::vnc::VncCmd::Wait(2)]
+		};
+	}
+
+	#[macro_export]
+	macro_rules! escape {
+		() => {
+			vec![crate::vnc::VncCmd::Escape, crate::vnc::VncCmd::Wait(2)]
 		};
 	}
 
