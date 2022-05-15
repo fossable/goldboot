@@ -82,6 +82,17 @@ impl BuildConfig {
 
 		Ok(templates)
 	}
+
+	pub fn get_template_bases(&self) -> Result<Vec<String>, Box<dyn Error>> {
+		let mut bases: Vec<String> = Vec::new();
+
+		for template in &self.templates {
+			// Get base
+			bases.push(template.get("base").unwrap().as_str().unwrap().to_string());
+		}
+
+		Ok(bases)
+	}
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]

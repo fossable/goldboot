@@ -1,0 +1,52 @@
+# Configure ArchLinux with Ansible.
+
+- hosts: localhost
+  tasks:
+    - name: Set hostname
+      copy:
+        content: |
+          ArchLinux
+
+    - name: Update package cache
+      pacman:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install packages
+      package:
+        name:
+          - alacritty
+          - cmus
+          - curl
+          - git
+          - htop
+          - jq
+          - nano
+          - nautilus
+          - net-tools
+          - nmap
+          - ntp
+          - openbsd-netcat
+          - openssh
+          - rsync
+          - sshfs
+          - tree
+          - unzip
+          - wget
+          - zip
+          - zsh
+        state: latest
+
+    - block:
+      - dconf:
+          key: /org/gnome/nautilus/icon-view/default-zoom-level
+          value: "'small'"
+      - dconf:
+          key: /org/gnome/nautilus/preferences/default-folder-viewer
+          value: "'icon-view'"
+      - dconf:
+          key: /org/gtk/settings/file-chooser/sort-directories-first
+          value: "true"
+      - dconf:
+          key: /org/gnome/shell/extensions/pop-shell/tile-by-default
+          value: "true"

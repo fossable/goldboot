@@ -1,5 +1,5 @@
 use crate::{image::GoldbootImage, progress::ProgressBar};
-use log::{info, debug};
+use log::{debug, info};
 use sha1::Digest;
 use sha2::Sha256;
 use std::{
