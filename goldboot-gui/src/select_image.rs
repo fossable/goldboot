@@ -1,3 +1,4 @@
+use gtk4::EventControllerKey;
 use gdk_pixbuf::PixbufLoader;
 use goldboot_core::{
 	image::{library::ImageLibrary, GoldbootImage},
@@ -14,7 +15,7 @@ use log::info;
 #[folder = "res/select_image/"]
 struct Resources;
 
-pub fn init(window: &gtk::ApplicationWindow) {
+pub fn init(window: &'static gtk::ApplicationWindow) {
 	let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
 	{
@@ -38,11 +39,11 @@ pub fn init(window: &gtk::ApplicationWindow) {
 			image_box.append(&create_image_row(&image));
 		}
 
-		image_box.connect_row_activated(clone!(@weak window => move |_, row| {
+		image_box.connect_row_activated( move |_, row| {
 			let image_id = images[row.index() as usize].clone();
 			info!("Selected image: {}", image_id);
 			crate::select_device::init(&window, image_id);
-		}));
+		});
 	}
 	{
 		let hotkeys = gtk::Box::new(gtk::Orientation::Horizontal, 5);
@@ -61,26 +62,36 @@ pub fn init(window: &gtk::ApplicationWindow) {
 		hotkeys.append(&enter);
 	}
 
-	/*window.connect("key_press_event", false, |values| {
-        // "values" is a 2-long slice of glib::value::Value, which wrap G-types
-        // You can unwrap them if you know what type they are going to be ahead of time
-        // values[0] is the window and values[1] is the event
-        let raw_event = &values[1].get::<gdk::Event>().unwrap().unwrap();
-        // You have to cast to the correct event type to access some of the fields
-        match values[1].downcast_ref::<gdk::Event>().downcast_ref::<gdk::KeyEvent>() {
-            Some(event) => {
-                println!("key value: {:?}", std::char::from_u32(event.keyval()));
-                println!("modifiers: {:?}", event.state());
-            },
-            None => {},
-        }
+	let controller = EventControllerKey::new();
+	controller.connect_key_pressed( move |_, key,_,_|
+		{
+			match key {
+				gdk::Key::F5 => {
+					let content = gtk::Box::new(gtk::Orientation::Vertical, 5);
+					{
+						let address = gtk::Entry::builder().placeholder_text("Address").build();
+						content.append(&address);
+					}
+					{
+						let password = gtk::Entry::builder().placeholder_text("Password").visibility(false).build();
+						content.append(&password);
+					}
 
-        // I can't figure out how to actually set the value of result
-        // Luckally returning false is good enough for now.
-        Some((true).to_value())
-    });*/
+					let dialog_controller = EventControllerKey::new();
+
+					let dialog = gtk::Dialog::builder().child(&content).modal(true).build();
+					dialog.add_controller(&dialog_controller);
+					dialog.show();
+				},
+				gdk::Key::Escape => std::process::exit(0),
+				_ => {},
+			}
+			gtk::Inhibit(false)
+		});
+	window.add_controller(&controller);
 
 	window.set_child(Some(&container));
+	window.show();
 }
 
 fn create_image_row(image: &GoldbootImage) -> gtk::Box {
@@ -89,6 +100,7 @@ fn create_image_row(image: &GoldbootImage) -> gtk::Box {
 
 	if let Some(resource) = Resources::get(&format!("{}.png", image.metadata.config.get_template_bases().unwrap()[0])) {
 		let image = crate::load_png(resource.data.to_vec(), 32, 32);
+		image.add_css_class("listIcon");
 		row.append(&image);
 	}
 

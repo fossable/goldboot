@@ -10,7 +10,7 @@ use glib::clone;
 #[folder = "res/select_device/"]
 struct Resources;
 
-pub fn init(window: &gtk::ApplicationWindow, image_id: String) {
+pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
 	let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
 	{
@@ -36,9 +36,9 @@ pub fn init(window: &gtk::ApplicationWindow, image_id: String) {
 			device_box.append(&create_device_row(&device));
 		}
 
-		device_box.connect_row_activated(clone!(@weak window => move |_, row| {
+		device_box.connect_row_activated(move |_, row| {
 			crate::confirm::init(&window, image_id.clone(), devices[row.index() as usize].clone());
-		}));
+		});
 	}
 	{
 		let hotkeys = gtk::Box::new(gtk::Orientation::Horizontal, 5);

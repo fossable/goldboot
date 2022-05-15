@@ -8,7 +8,7 @@ use gtk4 as gtk;
 use gtk4::prelude::*;
 use ubyte::ToByteUnit;
 
-pub fn init(window: &gtk::ApplicationWindow) {
+pub fn init(window: &'static gtk::ApplicationWindow, image_id: String, device_id: String) {
 	let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
 	window.set_child(Some(&container));

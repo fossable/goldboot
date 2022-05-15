@@ -12,7 +12,7 @@ fn main() {
 	env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
 	let app = gtk::Application::builder()
-		.application_id("org.example.HelloWorld")
+		.application_id("org.goldboot.Gui")
 		.build();
 
 	app.connect_startup(|_| load_css());
@@ -20,15 +20,14 @@ fn main() {
 		let window = gtk::ApplicationWindow::builder()
 			.application(app)
 			//.fullscreened(true)
-			.title("Hello, World!")
+			.title("goldboot")
 			.build();
 
 		// Disable the mouse cursor because our simple UI doesn't need it
 		window.set_cursor(Some(&gdk::Cursor::from_name("none", None).unwrap()));
 
 		// Show the UI
-		select_image::init(&window);
-		window.show();
+		select_image::init(Box::leak(Box::new(window)));
 	});
 
 	app.run();
