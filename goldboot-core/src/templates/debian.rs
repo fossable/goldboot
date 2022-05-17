@@ -1,7 +1,7 @@
-use crate::http::HttpServer;
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	http::HttpServer,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -61,7 +61,8 @@ impl Template for DebianTemplate {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		// Start HTTP
-		let http = HttpServer::serve_file(Resources::get("default/preseed.cfg").unwrap().data.to_vec())?;
+		let http =
+			HttpServer::serve_file(Resources::get("default/preseed.cfg").unwrap().data.to_vec())?;
 
 		qemuargs.drive.push(format!(
 			"file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",

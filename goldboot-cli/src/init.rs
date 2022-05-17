@@ -2,12 +2,6 @@ use goldboot_core::{templates::TemplateBase, *};
 use simple_error::bail;
 use std::{env, error::Error, fs, path::Path};
 
-/// Choose some arbitrary memory size in megabytes which is less than the amount of available free
-/// memory on the system.
-fn guess_memory_size() -> u64 {
-	return 2048;
-}
-
 pub fn init(
 	templates: &Vec<String>,
 	name: &Option<String>,
@@ -46,13 +40,6 @@ pub fn init(
 		Some("aarch64".into())
 	} else {
 		bail!("Unsupported platform");
-	};
-
-	// Set an arbitrary memory size unless given a value
-	config.memory = if let Some(memory_size) = memory {
-		memory_size.to_string()
-	} else {
-		format!("{}", guess_memory_size())
 	};
 
 	// Run template-specific initialization

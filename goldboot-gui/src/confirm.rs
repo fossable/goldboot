@@ -21,21 +21,20 @@ pub fn init(window: &'static ApplicationWindow, image_id: String, device_id: Str
 	container.append(&progress);
 
 	let controller = EventControllerKey::new();
-	controller.connect_key_pressed( move |controller, key,_,_|
-		{
-			match key {
-				gdk::Key::Return => {
-					progress.set_fraction(progress.fraction() + 0.01);
-					if progress.fraction() >= 1.0 {
-						window.remove_controller(controller);
-						crate::apply_image::init(window, image_id.clone(), device_id.clone());
-					}
-				},
-				gdk::Key::Escape => std::process::exit(0),
-				_ => {},
+	controller.connect_key_pressed(move |controller, key, _, _| {
+		match key {
+			gdk::Key::Return => {
+				progress.set_fraction(progress.fraction() + 0.01);
+				if progress.fraction() >= 1.0 {
+					window.remove_controller(controller);
+					crate::apply_image::init(window, image_id.clone(), device_id.clone());
+				}
 			}
-			gtk::Inhibit(false)
-		});
+			gdk::Key::Escape => std::process::exit(0),
+			_ => {}
+		}
+		gtk::Inhibit(false)
+	});
 	window.add_controller(&controller);
 
 	window.set_child(Some(&container));

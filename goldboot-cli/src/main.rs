@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use colored::*;
 use goldboot_core::{build::BuildJob, image::library::ImageLibrary, BuildConfig};
 use log::debug;
-use std::{env, error::Error};
+use std::{env, error::Error, fs::File, path::Path};
 use validator::Validate;
 
 pub mod init;
@@ -113,17 +113,17 @@ enum ImageCommands {
 		image: String,
 	},
 
-	/// Write image to a disk
+	/// Write images
 	Write {
-		/// The selected image
+		/// The image to write
 		#[clap(long)]
 		image: String,
 
-		/// The disk to overwrite
+		/// The output destination
 		#[clap(long)]
-		disk: String,
+		output: String,
 
-		/// Do not check for confirmation
+		/// Do not prompt for confirmation (be extremely careful with this)
 		#[clap(long, takes_value = false)]
 		confirm: bool,
 	},
@@ -207,9 +207,18 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			ImageCommands::Run { image } => Ok(()),
 			ImageCommands::Write {
 				image,
-				disk,
+				output,
 				confirm,
-			} => Ok(()),
+			} => {
+				let image = ImageLibrary::find_by_id(image)?;
+
+				if Path::new(output).exists() {
+					// TODO prompt
+					panic!();
+				}
+
+				image.write(output)
+			}
 		},
 	}
 }

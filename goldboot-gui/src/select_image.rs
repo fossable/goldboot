@@ -1,15 +1,12 @@
-use gtk4::EventControllerKey;
-use gdk_pixbuf::PixbufLoader;
-use goldboot_core::{
-	image::{library::ImageLibrary, GoldbootImage},
-};
-use gtk4 as gtk;
 use gdk4 as gdk;
-use gtk4::prelude::*;
-use ubyte::ToByteUnit;
-use gtk::glib;
+use gdk_pixbuf::PixbufLoader;
 use glib::clone;
+use goldboot_core::image::{library::ImageLibrary, GoldbootImage};
+use gtk::glib;
+use gtk4 as gtk;
+use gtk4::{prelude::*, EventControllerKey};
 use log::info;
+use ubyte::ToByteUnit;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/select_image/"]
@@ -39,7 +36,7 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
 			image_box.append(&create_image_row(&image));
 		}
 
-		image_box.connect_row_activated( move |_, row| {
+		image_box.connect_row_activated(move |_, row| {
 			let image_id = images[row.index() as usize].clone();
 			info!("Selected image: {}", image_id);
 			crate::select_device::init(&window, image_id);
@@ -63,31 +60,33 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
 	}
 
 	let controller = EventControllerKey::new();
-	controller.connect_key_pressed( move |_, key,_,_|
-		{
-			match key {
-				gdk::Key::F5 => {
-					let content = gtk::Box::new(gtk::Orientation::Vertical, 5);
-					{
-						let address = gtk::Entry::builder().placeholder_text("Address").build();
-						content.append(&address);
-					}
-					{
-						let password = gtk::Entry::builder().placeholder_text("Password").visibility(false).build();
-						content.append(&password);
-					}
+	controller.connect_key_pressed(move |_, key, _, _| {
+		match key {
+			gdk::Key::F5 => {
+				let content = gtk::Box::new(gtk::Orientation::Vertical, 5);
+				{
+					let address = gtk::Entry::builder().placeholder_text("Address").build();
+					content.append(&address);
+				}
+				{
+					let password = gtk::Entry::builder()
+						.placeholder_text("Password")
+						.visibility(false)
+						.build();
+					content.append(&password);
+				}
 
-					let dialog_controller = EventControllerKey::new();
+				let dialog_controller = EventControllerKey::new();
 
-					let dialog = gtk::Dialog::builder().child(&content).modal(true).build();
-					dialog.add_controller(&dialog_controller);
-					dialog.show();
-				},
-				gdk::Key::Escape => std::process::exit(0),
-				_ => {},
+				let dialog = gtk::Dialog::builder().child(&content).modal(true).build();
+				dialog.add_controller(&dialog_controller);
+				dialog.show();
 			}
-			gtk::Inhibit(false)
-		});
+			gdk::Key::Escape => std::process::exit(0),
+			_ => {}
+		}
+		gtk::Inhibit(false)
+	});
 	window.add_controller(&controller);
 
 	window.set_child(Some(&container));
@@ -98,7 +97,10 @@ fn create_image_row(image: &GoldbootImage) -> gtk::Box {
 	let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
 	row.add_css_class("listRow");
 
-	if let Some(resource) = Resources::get(&format!("{}.png", image.metadata.config.get_template_bases().unwrap()[0])) {
+	if let Some(resource) = Resources::get(&format!(
+		"{}.png",
+		image.metadata.config.get_template_bases().unwrap()[0]
+	)) {
 		let image = crate::load_png(resource.data.to_vec(), 32, 32);
 		image.add_css_class("listIcon");
 		row.append(&image);

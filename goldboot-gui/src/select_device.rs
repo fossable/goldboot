@@ -1,10 +1,10 @@
+use glib::clone;
+use gtk::glib;
 use gtk4 as gtk;
 use gtk4::prelude::*;
 use log::info;
 use std::error::Error;
 use ubyte::ToByteUnit;
-use gtk::glib;
-use glib::clone;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/select_device/"]
@@ -37,7 +37,11 @@ pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
 		}
 
 		device_box.connect_row_activated(move |_, row| {
-			crate::confirm::init(&window, image_id.clone(), devices[row.index() as usize].clone());
+			crate::confirm::init(
+				&window,
+				image_id.clone(),
+				devices[row.index() as usize].clone(),
+			);
 		});
 	}
 	{
@@ -62,17 +66,30 @@ fn create_device_row(device: &block_utils::Device) -> gtk::Box {
 
 	// Device icon
 	let device_image = match device.media_type {
-		block_utils::MediaType::SolidState => crate::load_png(Resources::get("ssd.png").unwrap().data.to_vec(), 32, 32),
-		block_utils::MediaType::Rotational => crate::load_png(Resources::get("hdd.png").unwrap().data.to_vec(), 32, 32),
-		block_utils::MediaType::NVME => crate::load_png(Resources::get("nvme.png").unwrap().data.to_vec(), 32, 32),
-		block_utils::MediaType::Ram => crate::load_png(Resources::get("ram.png").unwrap().data.to_vec(), 32, 32),
+		block_utils::MediaType::SolidState => {
+			crate::load_png(Resources::get("ssd.png").unwrap().data.to_vec(), 32, 32)
+		}
+		block_utils::MediaType::Rotational => {
+			crate::load_png(Resources::get("hdd.png").unwrap().data.to_vec(), 32, 32)
+		}
+		block_utils::MediaType::NVME => {
+			crate::load_png(Resources::get("nvme.png").unwrap().data.to_vec(), 32, 32)
+		}
+		block_utils::MediaType::Ram => {
+			crate::load_png(Resources::get("ram.png").unwrap().data.to_vec(), 32, 32)
+		}
 		_ => panic!(),
 	};
 	row.append(&device_image);
 
 	// Device name
 	let device_name = gtk::Label::new(Some(
-		format!("{} ({})", device.name, device.serial_number.clone().unwrap()).as_str(),
+		format!(
+			"{} ({})",
+			device.name,
+			device.serial_number.clone().unwrap()
+		)
+		.as_str(),
 	));
 	device_name.set_hexpand(true);
 	device_name.set_halign(gtk::Align::Start);

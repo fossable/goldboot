@@ -1,15 +1,14 @@
 #![feature(derive_default_enum)]
 
-use std::net::TcpListener;
-use rand::Rng;
 use crate::{
 	ssh::SshConnection,
 	templates::{Template, TemplateBase},
 };
 use log::{debug, info};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{default::Default, error::Error, path::Path, process::Command};
+use std::{default::Default, error::Error, net::TcpListener, path::Path, process::Command};
 use validator::Validate;
 
 pub mod build;
@@ -23,10 +22,6 @@ pub mod ssh;
 pub mod templates;
 pub mod vnc;
 pub mod windows;
-
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/"]
-struct Resources;
 
 /// Search filesystem for UEFI firmware.
 pub fn find_ovmf() -> Option<String> {
@@ -77,7 +72,8 @@ pub struct BuildConfig {
 	pub arch: Option<String>,
 
 	/// The amount of memory to allocate to the VM
-	pub memory: String,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub memory: Option<String>,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub nvme: Option<bool>,

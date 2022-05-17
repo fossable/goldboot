@@ -94,13 +94,16 @@ impl ImageHeader {
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ImageMetadata {
 	/// The format version
-	pub version: u16,
+	pub version: u8,
+
+	/// The total size of all blocks combined
+	pub size: u64,
 
 	/// The size in bytes of each disk block
-	pub block_size: u16,
+	pub block_size: u64,
 
 	/// The number of populated clusters in this image
-	pub cluster_count: u16,
+	pub cluster_count: u64,
 
 	/// Image creation time
 	pub timestamp: u64,
@@ -184,7 +187,8 @@ impl GoldbootImage {
 
 		let metadata = ImageMetadata {
 			version: 1,
-			block_size: source.header.cluster_size() as u16,
+			size: source.header.size,
+			block_size: source.header.cluster_size(),
 			cluster_count: source.count_clusters()?,
 			timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
 			config,
@@ -264,7 +268,7 @@ impl GoldbootImage {
 							&digest_entry
 						);
 						dest_file.seek(SeekFrom::Start(cluster_offset))?;
-						dest_file.write_all(&cluster.data)?;
+						cluster.write_to(&mut dest_file)?;
 
 						// Advance offset
 						cluster_offset += 4;
@@ -285,34 +289,57 @@ impl GoldbootImage {
 		Ok(())
 	}
 
+	/// TODO multi threaded WriteWorkers
+
 	/// Write the image out to disk.
-	pub fn write<D: Read + Seek + Write>(&self, mut dest: D) -> Result<(), Box<dyn Error>> {
-		debug!("Writing image to disk");
+	pub fn write(&self, mut dest: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+		info!("Writing image");
+
+		let mut dest = std::fs::OpenOptions::new()
+			.create(true)
+			.write(true)
+			.read(true)
+			.open(dest)?;
+
+		let progress = ProgressBar::Write
+			.new(self.metadata.cluster_count as u64 * self.metadata.block_size as u64);
 
 		// Open the digest table for reading
 		let mut digest_table = BufReader::new(File::open(&self.path)?);
-		digest_table.seek(SeekFrom::Start(6 + self.header.metadata_length as u64))?;
+		digest_table.seek(SeekFrom::Start(self.header.size()))?;
 
 		// Open the cluster table for reading
 		let mut cluster_table = BufReader::new(File::open(&self.path)?);
-		cluster_table.seek(SeekFrom::Start(
-			6 + self.header.metadata_length as u64 + self.metadata.cluster_count as u64 * 48,
-		))?; // TODO magic numbers
 
+		// Extend the file if necessary
+		if dest.metadata()?.len() < self.metadata.size {
+			dest.set_len(self.metadata.size)?;
+		}
+
+		// Write all of the clusters that have changed
 		for _ in 0..self.metadata.cluster_count {
 			// Read the digest table entry
 			let entry: DigestTableEntry = digest_table.read_be()?;
+			trace!("Read: {:?}", entry);
 
 			// Jump to the block corresponding to the cluster
 			dest.seek(SeekFrom::Start(entry.block_offset))?;
 
 			let mut block = vec![0u8; self.metadata.block_size as usize];
 			dest.read_exact(&mut block)?;
+
 			let hash: [u8; 32] = Sha256::new().chain_update(&block).finalize().into();
 
 			if hash != entry.digest {
 				// Read cluster
+				cluster_table.seek(SeekFrom::Start(entry.cluster_offset))?;
 				let mut cluster: Cluster = cluster_table.read_be()?;
+
+				trace!(
+					"Read cluster of size {} from offset {}",
+					cluster.size,
+					entry.cluster_offset
+				);
 
 				// Reverse encryption
 				// TODO
@@ -326,8 +353,11 @@ impl GoldbootImage {
 				};
 
 				// Write the cluster to the block
+				dest.seek(SeekFrom::Start(entry.block_offset))?;
 				dest.write_all(&cluster.data)?;
 			}
+
+			progress(self.metadata.block_size as u64);
 		}
 
 		Ok(())
@@ -337,9 +367,57 @@ impl GoldbootImage {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sha1::Sha1;
 
 	#[test]
-	fn test_load() -> Result<(), Box<dyn Error>> {
+	fn test_convert_empty() -> Result<(), Box<dyn Error>> {
+		GoldbootImage::convert(
+			&Qcow3::open("test/empty.qcow2")?,
+			BuildConfig {
+				name: String::from("Empty test"),
+				description: None,
+				arch: None,
+				memory: None,
+				nvme: None,
+				templates: vec![],
+			},
+			"/tmp/empty.gb",
+		)?;
+
+		let image = GoldbootImage::open("/tmp/empty.gb")?;
+		image.write("/tmp/empty.raw")?;
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_convert_small() -> Result<(), Box<dyn Error>> {
+		GoldbootImage::convert(
+			&Qcow3::open("test/small.qcow2")?,
+			BuildConfig {
+				name: String::from("Small test"),
+				description: None,
+				arch: None,
+				memory: None,
+				nvme: None,
+				templates: vec![],
+			},
+			"/tmp/small.gb",
+		)?;
+
+		let image = GoldbootImage::open("/tmp/small.gb")?;
+		image.write("/tmp/small.raw")?;
+
+		// Hash content
+		assert_eq!(
+			hex::encode(
+				Sha1::new()
+					.chain_update(&std::fs::read("/tmp/small.raw")?)
+					.finalize()
+			),
+			"34e1c79c80941e5519ec76433790191318a5c77b"
+		);
+
 		Ok(())
 	}
 }

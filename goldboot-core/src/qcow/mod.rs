@@ -51,6 +51,8 @@ impl Qcow3 {
 				"qcow2",
 				"-o",
 				"compression_type=zstd",
+				"-o",
+				"cluster_size=65536",
 				&path,
 				&format!("{size}"),
 			])
@@ -63,8 +65,8 @@ impl Qcow3 {
 	}
 
 	/// Count the number of allocated clusters.
-	pub fn count_clusters(&self) -> Result<u16, Box<dyn Error>> {
-		let mut count = 0u16;
+	pub fn count_clusters(&self) -> Result<u64, Box<dyn Error>> {
+		let mut count = 0;
 
 		for l1_entry in &self.l1_table {
 			if let Some(l2_table) =
@@ -86,8 +88,10 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn test_load() -> Result<(), Box<dyn Error>> {
-		Qcow3::open("test/empty.gb")?;
+	fn test_open() -> Result<(), Box<dyn Error>> {
+		let qcow = Qcow3::open("test/empty.qcow2")?;
+		assert_eq!(qcow.header.cluster_bits, 16);
+		assert_eq!(qcow.header.cluster_size(), 65536);
 		Ok(())
 	}
 }

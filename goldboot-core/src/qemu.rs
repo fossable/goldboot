@@ -120,6 +120,12 @@ pub struct QemuArgs {
 
 impl QemuArgs {
 	pub fn new(context: &BuildWorker) -> Self {
+		// Choose an appropriate amount of memory or use the configured amount
+		let memory = match &context.config.memory {
+			Some(memory) => memory.clone(),
+			None => String::from("4G"),
+		};
+
 		Self {
 			bios: context.ovmf_path.clone(),
 			boot: String::from("once=d"),
@@ -138,7 +144,7 @@ impl QemuArgs {
 			} else {
 				String::from("none")
 			},
-			memory: context.config.memory.clone(),
+			memory,
 			name: context.config.name.clone(),
 			smp: String::from("4,sockets=1,cores=4,threads=1"),
 			netdev: vec![format!(

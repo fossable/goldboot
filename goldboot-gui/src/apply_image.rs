@@ -1,11 +1,10 @@
-use goldboot_core::image::library::ImageLibrary;
-use goldboot_core::image::GoldbootImage;
-use log::info;
-use std::error::Error;
-use gtk::glib;
 use glib::clone;
+use goldboot_core::image::{library::ImageLibrary, GoldbootImage};
+use gtk::glib;
 use gtk4 as gtk;
 use gtk4::prelude::*;
+use log::info;
+use std::error::Error;
 use ubyte::ToByteUnit;
 
 pub fn init(window: &'static gtk::ApplicationWindow, image_id: String, device_id: String) {
@@ -13,4 +12,3 @@ pub fn init(window: &'static gtk::ApplicationWindow, image_id: String, device_id
 
 	window.set_child(Some(&container));
 }
-
