@@ -13,7 +13,7 @@ use crate::templates::{
 pub mod alpine;
 pub mod arch_linux;
 pub mod debian;
-pub mod goldboot_usb;
+pub mod goldboot_linux;
 pub mod mac_os;
 pub mod pop_os;
 pub mod steam_deck;
@@ -132,7 +132,16 @@ impl GeneralContainer {
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct RootPasswordContainer {
 	// TODO randomize
+	#[validate(length(max = 64))]
 	pub root_password: String,
+}
+
+pub struct LuksContainer {
+	/// The LUKS container passphrase
+	pub luks_passphrase: String,
+
+	/// Whether the LUKS passphrase will be enrolled in a TPM
+	pub tpm: bool,
 }
 
 #[cfg(test)]

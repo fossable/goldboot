@@ -292,7 +292,7 @@ impl GoldbootImage {
 	/// TODO multi threaded WriteWorkers
 
 	/// Write the image out to disk.
-	pub fn write(&self, mut dest: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+	pub fn write(&self, dest: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
 		info!("Writing image");
 
 		let mut dest = std::fs::OpenOptions::new()
@@ -312,7 +312,7 @@ impl GoldbootImage {
 		let mut cluster_table = BufReader::new(File::open(&self.path)?);
 
 		// Extend the file if necessary
-		if dest.metadata()?.len() < self.metadata.size {
+		if dest.stream_len()? < self.metadata.size {
 			dest.set_len(self.metadata.size)?;
 		}
 
@@ -337,8 +337,7 @@ impl GoldbootImage {
 
 				trace!(
 					"Read cluster of size {} from offset {}",
-					cluster.size,
-					entry.cluster_offset
+					cluster.size, entry.cluster_offset
 				);
 
 				// Reverse encryption

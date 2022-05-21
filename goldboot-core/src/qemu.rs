@@ -24,6 +24,12 @@ pub struct QemuProcess {
 	pub vnc: VncConnection,
 }
 
+impl Drop for QemuProcess {
+	fn drop(&mut self) {
+		self.process.kill();
+	}
+}
+
 impl QemuProcess {
 	pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
 		info!("Spawning new build worker");

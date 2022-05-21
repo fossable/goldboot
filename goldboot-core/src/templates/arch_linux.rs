@@ -33,6 +33,8 @@ pub struct ArchLinuxTemplate {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
+	//pub luks: LuksContainer,
+
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
 }
@@ -129,13 +131,16 @@ impl Template for ArchLinuxTemplate {
 
 		// Run install script
 		if let Some(resource) = Resources::get("install.sh") {
-			ssh.upload_exec(
+			match ssh.upload_exec(
 				resource.data.to_vec(),
 				vec![
 					("GB_MIRRORLIST", &self.format_mirrorlist()),
 					("GB_ROOT_PASSWORD", &self.root_password),
 				],
-			)?;
+			) {
+				Ok(0) => debug!("Installation completed successfully"),
+				_ => bail!("Installation failed"),
+			}
 		}
 
 		// Run provisioners

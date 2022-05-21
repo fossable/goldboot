@@ -48,6 +48,21 @@ enum Commands {
 		command: ImageCommands,
 	},
 
+	/// Write images to storage
+	Write {
+		/// The ID of the image to write
+		#[clap(long)]
+		image: String,
+
+		/// The output destination
+		#[clap(long)]
+		output: String,
+
+		/// Do not prompt for confirmation (be extremely careful with this)
+		#[clap(long, takes_value = false)]
+		confirm: bool,
+	},
+
 	/// Initialize the current directory
 	Init {
 		/// The image name
@@ -111,21 +126,6 @@ enum ImageCommands {
 
 	Info {
 		image: String,
-	},
-
-	/// Write images
-	Write {
-		/// The image to write
-		#[clap(long)]
-		image: String,
-
-		/// The output destination
-		#[clap(long)]
-		output: String,
-
-		/// Do not prompt for confirmation (be extremely careful with this)
-		#[clap(long, takes_value = false)]
-		confirm: bool,
 	},
 
 	/// Run an existing image
@@ -205,20 +205,20 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			}
 			ImageCommands::Info { image } => Ok(()),
 			ImageCommands::Run { image } => Ok(()),
-			ImageCommands::Write {
-				image,
-				output,
-				confirm,
-			} => {
-				let image = ImageLibrary::find_by_id(image)?;
-
-				if Path::new(output).exists() {
-					// TODO prompt
-					panic!();
-				}
-
-				image.write(output)
-			}
 		},
+		Commands::Write {
+			image,
+			output,
+			confirm,
+		} => {
+			let image = ImageLibrary::find_by_id(image)?;
+
+			if Path::new(output).exists() {
+				// TODO prompt
+				//panic!();
+			}
+
+			image.write(output)
+		}
 	}
 }

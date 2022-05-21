@@ -2,7 +2,7 @@ use log::{debug, info};
 use simple_error::bail;
 use std::{
 	error::Error,
-	io::{Cursor, Read},
+	io::{BufRead, BufReader, Cursor, Read},
 	net::TcpStream,
 	path::Path,
 	time::Duration,
@@ -47,11 +47,11 @@ impl SshConnection {
 		&mut self,
 		source: Vec<u8>,
 		env: Vec<(&str, &str)>,
-	) -> Result<(), Box<dyn Error>> {
+	) -> Result<i32, Box<dyn Error>> {
 		self.upload(source, "/tmp/tmp.script")?;
-		self.exec_env("/tmp/tmp.script", env)?;
+		let exit = self.exec_env("/tmp/tmp.script", env)?;
 		self.exec("rm -f /tmp/tmp.script")?;
-		Ok(())
+		Ok(exit)
 	}
 
 	pub fn upload(&self, source: Vec<u8>, dest: &str) -> Result<(), Box<dyn Error>> {
@@ -85,29 +85,37 @@ impl SshConnection {
 
 		channel.exec(cmdline)?;
 
-		let mut output = String::new();
-		match channel.read_to_string(&mut output) {
-			Ok(_) => {
-				// Print output
-				// TODO
-			}
-			Err(_) => {
-				// The VM is probably rebooting, wait for SSH to come back up
-				info!("SSH disconnected; waiting for it to come back");
-				std::thread::sleep(Duration::from_secs(10));
-				for _ in 0..5 {
-					match SshConnection::new(self.port, &self.username, &self.password) {
-						Ok(ssh) => {
-							// Steal the session
-							self.session = ssh.session;
-							return Ok(0);
+		let mut stdout = BufReader::new(channel.stream(1));
+
+		loop {
+			let mut line = String::new();
+			match stdout.read_line(&mut line) {
+				Ok(0) => break,
+				Ok(_) => debug!(
+					"(provisioner) {}",
+					line.strip_suffix("\r\n")
+						.or(line.strip_suffix("\n"))
+						.unwrap_or(&line)
+				),
+				Err(_) => {
+					// The VM is probably rebooting, wait for SSH to come back up
+					info!("SSH disconnected; waiting for it to come back");
+					std::thread::sleep(Duration::from_secs(10));
+					for _ in 0..5 {
+						match SshConnection::new(self.port, &self.username, &self.password) {
+							Ok(ssh) => {
+								// Steal the session
+								self.session = ssh.session;
+								return Ok(0);
+							}
+							Err(_) => std::thread::sleep(Duration::from_secs(50)),
 						}
-						Err(_) => std::thread::sleep(Duration::from_secs(50)),
 					}
+					bail!("SSH did not come back in a reasonable amount of time");
 				}
-				bail!("SSH did not come back in a reasonable amount of time");
 			}
 		}
+
 		channel.wait_close()?;
 		let exit = channel.exit_status()?;
 		debug!("Exit code: {}", exit);
