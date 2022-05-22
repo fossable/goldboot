@@ -6,8 +6,9 @@ use validator::Validate;
 
 use crate::templates::{
 	alpine::AlpineTemplate, arch_linux::ArchLinuxTemplate, debian::DebianTemplate,
-	mac_os::MacOsTemplate, pop_os::PopOsTemplate, steam_deck::SteamDeckTemplate,
-	steam_os::SteamOsTemplate, ubuntu::UbuntuTemplate, windows_10::Windows10Template,
+	goldboot_linux::GoldbootLinuxTemplate, mac_os::MacOsTemplate, pop_os::PopOsTemplate,
+	steam_deck::SteamDeckTemplate, steam_os::SteamOsTemplate, ubuntu::UbuntuTemplate,
+	windows_10::Windows10Template,
 };
 
 pub mod alpine;
@@ -42,6 +43,7 @@ pub enum TemplateBase {
 	Alpine,
 	ArchLinux,
 	Debian,
+	GoldbootLinux,
 	MacOs,
 	PopOs,
 	SteamDeck,
@@ -58,7 +60,7 @@ impl TemplateBase {
 			TemplateBase::Alpine        => Box::new(serde_json::from_value::<AlpineTemplate>(value)?),
 			TemplateBase::ArchLinux     => Box::new(serde_json::from_value::<ArchLinuxTemplate>(value)?),
 			TemplateBase::Debian        => Box::new(serde_json::from_value::<DebianTemplate>(value)?),
-			//"goldbootusb"   => Box::new(serde_json::from_value::<GoldbootUsbTemplate>(value)?),
+			TemplateBase::GoldbootLinux   => Box::new(serde_json::from_value::<GoldbootLinuxTemplate>(value)?),
 			TemplateBase::MacOs         => Box::new(serde_json::from_value::<MacOsTemplate>(value)?),
 			TemplateBase::PopOs         => Box::new(serde_json::from_value::<PopOsTemplate>(value)?),
 			TemplateBase::SteamDeck     => Box::new(serde_json::from_value::<SteamDeckTemplate>(value)?),
@@ -76,7 +78,7 @@ impl TemplateBase {
 			TemplateBase::Alpine         => serde_json::to_value(AlpineTemplate::default()),
 			TemplateBase::ArchLinux      => serde_json::to_value(ArchLinuxTemplate::default()),
 			TemplateBase::Debian         => serde_json::to_value(DebianTemplate::default()),
-			//"goldbootusb"    => serde_json::to_value(GoldbootUsbTemplate::default()),
+			TemplateBase::GoldbootLinux    => serde_json::to_value(GoldbootLinuxTemplate::default()),
 			TemplateBase::MacOs          => serde_json::to_value(MacOsTemplate::default()),
 			TemplateBase::PopOs          => serde_json::to_value(PopOsTemplate::default()),
 			TemplateBase::SteamDeck      => serde_json::to_value(SteamDeckTemplate::default()),

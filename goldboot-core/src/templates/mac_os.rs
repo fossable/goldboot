@@ -4,7 +4,7 @@ use std::error::Error;
 use validator::Validate;
 
 #[derive(rust_embed::RustEmbed)]
-#[folder = "res/mac_os/"]
+#[folder = "res/MacOs/"]
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

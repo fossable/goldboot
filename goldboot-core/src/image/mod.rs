@@ -232,7 +232,11 @@ impl GoldbootImage {
 							data: vec![0_u8; source.header.cluster_size() as usize],
 						};
 
-						l2_entry.read_contents(&mut source_file, &mut cluster.data)?;
+						l2_entry.read_contents(
+							&mut source_file,
+							&mut cluster.data,
+							source.header.compression_type,
+						)?;
 
 						// Compute hash
 						let digest = Sha256::new().chain_update(&cluster.data).finalize();
@@ -337,7 +341,8 @@ impl GoldbootImage {
 
 				trace!(
 					"Read cluster of size {} from offset {}",
-					cluster.size, entry.cluster_offset
+					cluster.size,
+					entry.cluster_offset
 				);
 
 				// Reverse encryption

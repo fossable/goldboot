@@ -1,5 +1,4 @@
 use crate::{
-	find_ovmf,
 	image::{library::ImageLibrary, GoldbootImage},
 	qcow::Qcow3,
 	BuildConfig, Template,
@@ -60,21 +59,24 @@ impl BuildJob {
 		// Determine image path
 		let image_path = tmp.path().join("image.qcow2").to_string_lossy().to_string();
 
-		// Determine firmware path or use included firmware
-		let ovmf_path = if let Some(path) = find_ovmf() {
-			path
-		} else {
-			if cfg!(target_arch = "x86_64") {
-				debug!("Unpacking included firmware");
-				/*let resource_path = tmp.path().join("OVMF.fd");
-				let resource = Resources::get("OVMF.fd").unwrap();
-				std::fs::write(&resource_path, resource.data).unwrap();
-				resource_path.to_string_lossy().to_string()*/
-				panic!();
-			} else {
-				panic!("Firmware not found");
+		// Unpack included firmware
+		let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
+		if let Some(arch) = &self.config.arch {
+			match arch.as_str() {
+				"x86_64" => {
+					std::fs::write(&ovmf_path, include_bytes!("../res/OVMF_x86_64.fd")).unwrap()
+				}
+				"i386" => {
+					std::fs::write(&ovmf_path, include_bytes!("../res/OVMF_i386.fd")).unwrap()
+				}
+				"aarch64" => {
+					std::fs::write(&ovmf_path, include_bytes!("../res/OVMF_aarch64.fd")).unwrap()
+				}
+				_ => panic!(),
 			}
-		};
+		} else {
+			// TODO
+		}
 
 		BuildWorker {
 			tmp,

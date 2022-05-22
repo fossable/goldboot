@@ -1,5 +1,6 @@
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
 use log::debug;
+use simple_error::bail;
 use std::{
 	error::Error,
 	fs::File,
@@ -44,22 +45,24 @@ impl Qcow3 {
 
 	/// Allocate a new qcow3 file.
 	pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
-		Command::new("qemu-img")
+		let status = Command::new("qemu-img")
 			.args([
 				"create",
 				"-f",
 				"qcow2",
 				"-o",
-				"compression_type=zstd",
-				"-o",
 				"cluster_size=65536",
 				&path,
 				&format!("{size}"),
 			])
-			.stdin(Stdio::null())
+			.stdout(Stdio::null())
 			.stderr(Stdio::null())
 			.status()
 			.unwrap();
+
+		if status.code().unwrap() != 0 {
+			bail!("Failed to allocate image with qemu-img");
+		}
 
 		Qcow3::open(path)
 	}

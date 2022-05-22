@@ -145,7 +145,7 @@ impl QemuArgs {
 			} else {
 				String::from("type=pc,accel=kvm")
 			},
-			display: if context.debug {
+			display: if context.debug && cfg!(target_os = "linux") {
 				String::from("gtk")
 			} else {
 				String::from("none")

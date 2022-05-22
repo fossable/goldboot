@@ -21,6 +21,8 @@ pub struct ImageLibrary;
 fn library_path() -> PathBuf {
 	let path = if cfg!(target_os = "linux") {
 		PathBuf::from("/var/lib/goldboot/images")
+	} else if cfg!(target_os = "macos") {
+		PathBuf::from("/var/lib/goldboot/images")
 	} else {
 		panic!("Unsupported platform");
 	};

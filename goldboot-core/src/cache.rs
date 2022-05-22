@@ -58,6 +58,8 @@ impl MediaCache {
 fn cache_dir() -> PathBuf {
 	if cfg!(target_os = "linux") {
 		PathBuf::from(format!("/home/{}/.cache/goldboot", whoami::username()))
+	} else if cfg!(target_os = "macos") {
+		PathBuf::from(format!("/Users/{}/.cache/goldboot", whoami::username()))
 	} else {
 		panic!("Unsupported platform");
 	}

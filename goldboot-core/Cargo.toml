@@ -34,3 +34,4 @@ validator = { version = "0.12", features = ["derive"] }
 vnc = "0.4"
 whoami = "1.2.1"
 zstd = "0.9.0"
+flate2 = { version = "1" }

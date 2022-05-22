@@ -102,10 +102,28 @@ pub struct QcowHeader {
 	/// must be present and non-zero (which means non-zlib
 	/// compression type). Otherwise, this field must not be present
 	/// or must be zero (which means zlib).
-	compression_type: u8,
+	#[br(if(header_len > 104))]
+	pub compression_type: CompressionType,
 
 	/// Marks the end of the extensions
 	end: u32,
+}
+
+/// Compression type used for compressed clusters.
+#[derive(BinRead, Debug, Clone, Copy, PartialEq, Eq)]
+#[br(repr(u8))]
+pub enum CompressionType {
+	/// Uses flate/zlib compression for any clusters which are compressed
+	Zlib = 0,
+
+	/// Uses zstandard compression for any clusters which are compressed
+	Zstd = 1,
+}
+
+impl Default for CompressionType {
+	fn default() -> Self {
+		Self::Zlib
+	}
 }
 
 impl QcowHeader {

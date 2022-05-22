@@ -17,7 +17,7 @@ use validator::Validate;
 const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
 
 #[derive(rust_embed::RustEmbed)]
-#[folder = "res/arch_linux/"]
+#[folder = "res/ArchLinux/"]
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -34,7 +34,6 @@ pub struct ArchLinuxTemplate {
 	pub general: GeneralContainer,
 
 	//pub luks: LuksContainer,
-
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<Provisioner>>,
 }

@@ -28,7 +28,7 @@ mount /dev/vda2 /mnt
 mount --mkdir /dev/vda1 /mnt/boot
 
 # Bootstrap filesystem
-pacstrap /mnt systemd efibootmgr resize2fs grub dhcpcd xorg-server
+pacstrap /mnt systemd efibootmgr resize2fs grub dhcpcd xorg-server tpm2-tools
 
 # Generate fstab
 genfstab -U /mnt >/mnt/etc/fstab

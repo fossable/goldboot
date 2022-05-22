@@ -10,7 +10,7 @@ use std::error::Error;
 use validator::Validate;
 
 #[derive(rust_embed::RustEmbed)]
-#[folder = "res/windows_10/"]
+#[folder = "res/Windows10/"]
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]

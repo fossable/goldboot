@@ -8,9 +8,7 @@ use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{
-	error::Error,
-};
+use std::error::Error;
 use validator::Validate;
 
 #[derive(rust_embed::RustEmbed)]
@@ -19,9 +17,21 @@ struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct GoldbootLinuxTemplate {
-
 	#[serde(flatten)]
 	pub general: GeneralContainer,
+}
+
+impl Default for GoldbootLinuxTemplate {
+	fn default() -> Self {
+		Self {
+			general: GeneralContainer {
+				base: TemplateBase::GoldbootLinux,
+				storage_size: String::from("10 GiB"),
+				partitions: None,
+				qemuargs: None,
+			},
+		}
+	}
 }
 
 impl Template for GoldbootLinuxTemplate {
@@ -70,10 +80,7 @@ impl Template for GoldbootLinuxTemplate {
 
 		// Run install script
 		if let Some(resource) = Resources::get("install.sh") {
-			match ssh.upload_exec(
-				resource.data.to_vec(),
-				vec![],
-			) {
+			match ssh.upload_exec(resource.data.to_vec(), vec![]) {
 				Ok(0) => debug!("Installation completed successfully"),
 				_ => bail!("Installation failed"),
 			}

@@ -1,6 +1,8 @@
 use binrw::{BinRead, BinReaderExt};
 use std::io::*;
 
+use crate::qcow::CompressionType;
+
 /// An entry in an L1 table that can be used to lookup the location of an L2 table
 #[derive(BinRead, Debug, Clone)]
 pub struct L1Entry(pub u64);
@@ -78,6 +80,7 @@ impl L2Entry {
 		&self,
 		reader: &mut (impl Read + Seek),
 		buf: &mut [u8],
+		comp_type: CompressionType,
 	) -> std::io::Result<()> {
 		match &self.cluster_descriptor {
 			ClusterDescriptor::Standard(cluster) => {
@@ -100,24 +103,28 @@ impl L2Entry {
 					)?;
 				}
 			}
-			ClusterDescriptor::Compressed(cluster) => {
-				reader
-					.seek(SeekFrom::Start(cluster.host_cluster_offset))
-					.map_err(|_| {
-						std::io::Error::new(
-							std::io::ErrorKind::UnexpectedEof,
-							"Seeked past the end of the file attempting to read the current \
-                            cluster",
-						)
-					})?;
+			ClusterDescriptor::Compressed(cluster) => match comp_type {
+				CompressionType::Zlib => {
+					reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
 
-				let cluster_size = buf.len() as u64;
-				let mut cluster = std::io::Cursor::new(buf);
-				std::io::copy(
-					&mut zstd::Decoder::new(reader)?.take(cluster_size),
-					&mut cluster,
-				)?;
-			}
+					let cluster_size = buf.len() as u64;
+					let mut cluster = std::io::Cursor::new(buf);
+					std::io::copy(
+						&mut flate2::read::DeflateDecoder::new(reader).take(cluster_size),
+						&mut cluster,
+					)?;
+				}
+				CompressionType::Zstd => {
+					reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
+
+					let cluster_size = buf.len() as u64;
+					let mut cluster = std::io::Cursor::new(buf);
+					std::io::copy(
+						&mut zstd::Decoder::new(reader)?.take(cluster_size),
+						&mut cluster,
+					)?;
+				}
+			},
 		}
 
 		Ok(())

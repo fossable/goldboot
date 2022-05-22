@@ -24,22 +24,6 @@ pub mod templates;
 pub mod vnc;
 pub mod windows;
 
-/// Search filesystem for UEFI firmware.
-pub fn find_ovmf() -> Option<String> {
-	for path in vec![
-		"/usr/share/ovmf/x64/OVMF.fd",
-		"/usr/share/OVMF/OVMF_CODE.fd",
-	] {
-		if Path::new(&path).is_file() {
-			debug!("Located OVMF firmware at: {}", path.to_string());
-			return Some(path.to_string());
-		}
-	}
-
-	debug!("Failed to locate existing OVMF firmware");
-	None
-}
-
 /// Find a random open TCP port in the given range.
 pub fn find_open_port(lower: u16, upper: u16) -> u16 {
 	let mut rand = rand::thread_rng();
