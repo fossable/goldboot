@@ -1,12 +1,13 @@
+use chrono::TimeZone;
 use clap::{Parser, Subcommand};
 use colored::*;
 use goldboot_core::{build::BuildJob, image::library::ImageLibrary, BuildConfig};
 use log::debug;
 use std::{env, error::Error, fs::File, path::Path};
+use ubyte::ToByteUnit;
 use validator::Validate;
 
 pub mod init;
-pub mod make_usb;
 pub mod registry;
 
 #[rustfmt::skip]
@@ -96,7 +97,7 @@ enum Commands {
 	/// Create a bootable USB drive
 	MakeUsb {
 		/// The disk to erase and make bootable
-		disk: String,
+		output: String,
 
 		/// Do not check for confirmation
 		#[clap(long, takes_value = false)]
@@ -193,17 +194,33 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			}
 		}
 		Commands::MakeUsb {
-			disk,
+			output,
 			confirm,
 			include,
-		} => crate::make_usb::make_usb(),
+		} => {
+			if Path::new(output).exists() {
+				// TODO prompt
+				//panic!();
+			}
+
+			Ok(())
+		}
 		Commands::Image { command } => match &command {
 			ImageCommands::List {} => {
 				let images = ImageLibrary::load()?;
 
-				print!("Image\n");
+				println!("Image Name      Image Size   Build Date                      Image ID     Description");
 				for image in images {
-					// TODO
+					println!(
+						"{:15} {:12} {:31} {:12} {}",
+						image.metadata.config.name,
+						image.size.bytes().to_string(),
+						chrono::Utc
+							.timestamp(image.metadata.timestamp as i64, 0)
+							.to_rfc2822(),
+						&image.id[0..12],
+						image.metadata.config.description.unwrap_or("".to_string())
+					);
 				}
 				Ok(())
 			}

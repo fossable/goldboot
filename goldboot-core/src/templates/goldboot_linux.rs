@@ -26,7 +26,7 @@ impl Default for GoldbootLinuxTemplate {
 		Self {
 			general: GeneralContainer {
 				base: TemplateBase::GoldbootLinux,
-				storage_size: String::from("10 GiB"),
+				storage_size: String::from("4 GiB"),
 				partitions: None,
 				qemuargs: None,
 			},
@@ -55,9 +55,8 @@ impl Template for GoldbootLinuxTemplate {
 		// Start VM
 		let mut qemu = qemuargs.start_process()?;
 
-		// Randomize root password
-		// TODO
-		let root_password = "root";
+		// Temporary root password for the run
+		let temp_password = crate::random_password();
 
 		// Send boot command
 		#[rustfmt::skip]
@@ -67,7 +66,7 @@ impl Template for GoldbootLinuxTemplate {
 			// Wait for login
 			wait_screen_rect!("5b3ca88689e9d671903b3040889c7fa1cb5f244a", 100, 0, 1024, 400),
 			// Configure root password
-			enter!("passwd"), enter!(root_password), enter!(root_password),
+			enter!("passwd"), enter!(temp_password), enter!(temp_password),
 			// Configure SSH
 			enter!("echo 'AcceptEnv *' >>/etc/ssh/sshd_config"),
 			enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"),
@@ -76,11 +75,14 @@ impl Template for GoldbootLinuxTemplate {
 		])?;
 
 		// Wait for SSH
-		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &root_password)?;
+		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &temp_password)?;
 
 		// Run install script
 		if let Some(resource) = Resources::get("install.sh") {
-			match ssh.upload_exec(resource.data.to_vec(), vec![]) {
+			match ssh.upload_exec(
+				resource.data.to_vec(),
+				vec![("GB_ROOT_PASSWORD", &crate::random_password())],
+			) {
 				Ok(0) => debug!("Installation completed successfully"),
 				_ => bail!("Installation failed"),
 			}

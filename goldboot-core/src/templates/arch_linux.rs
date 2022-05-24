@@ -113,7 +113,7 @@ impl Template for ArchLinuxTemplate {
 		#[rustfmt::skip]
 		qemu.vnc.boot_command(vec![
 			// Initial wait
-			wait!(50),
+			wait!(30),
 			// Wait for login
 			wait_screen_rect!("5b3ca88689e9d671903b3040889c7fa1cb5f244a", 100, 0, 1024, 400),
 			// Configure root password

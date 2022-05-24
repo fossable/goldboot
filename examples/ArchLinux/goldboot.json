@@ -9,7 +9,15 @@
       "mirrorlist": [
         "https://mirrors.edge.kernel.org/archlinux/$repo/os/$arch"
       ],
-      "root_password": "root"
+      "root_password": "root",
+      "storage_size": "4Gb",
+      "provisioners": [
+        {
+          "type": "ansible",
+          "scripts": [],
+          "playbook": "ansible.yml"
+        }
+      ]
     }
   ]
 }

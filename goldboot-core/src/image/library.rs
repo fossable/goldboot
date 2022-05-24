@@ -81,7 +81,7 @@ impl ImageLibrary {
 	pub fn find_by_id(image_id: &str) -> Result<GoldbootImage, Box<dyn Error>> {
 		Ok(ImageLibrary::load()?
 			.into_iter()
-			.find(|image| image.id == image_id)
+			.find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
 			.ok_or("Image not found")?)
 	}
 

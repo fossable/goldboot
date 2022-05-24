@@ -42,14 +42,14 @@ impl VncScreenshot {
 	pub fn trim(&self, rect: vnc::Rect) -> Result<VncScreenshot, Box<dyn Error>> {
 		let w = rect.width as usize;
 		let h = rect.height as usize;
+		let t = rect.top as usize;
+		let l = rect.left as usize;
 		let mut data = vec![0u8; w * h];
 
-		// TODO use copy_from_slice instead
 		for y in 0..rect.height as usize {
-			for x in 0..rect.width as usize {
-				data[y * w + x] = self.data
-					[(y + rect.top as usize) * self.width as usize + (x + rect.left as usize)];
-			}
+			let dst = y * w;
+			let src = (y + t) * self.width as usize + l;
+			data[dst .. dst + w].copy_from_slice(&self.data[src.. src + w]);
 		}
 
 		Ok(VncScreenshot {

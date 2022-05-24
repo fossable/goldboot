@@ -1,12 +1,9 @@
 #!/bin/bash -x
-## Perform a basic Arch Linux install.
+## Perform a Goldboot Linux install.
 set -e
 
 # Synchronize time
 timedatectl set-ntp true
-
-# Configure Pacman mirrors
-echo "${GB_MIRRORLIST:?}" >/etc/pacman.d/mirrorlist
 
 # Create partitions
 parted --script -a optimal -- /dev/vda \
@@ -28,7 +25,7 @@ mount /dev/vda2 /mnt
 mount --mkdir /dev/vda1 /mnt/boot
 
 # Bootstrap filesystem
-pacstrap /mnt systemd efibootmgr resize2fs grub dhcpcd xorg-server tpm2-tools
+pacstrap /mnt base linux efibootmgr e2fsprogs grub dhcpcd xorg-server xorg-xinit tpm2-tools
 
 # Generate fstab
 genfstab -U /mnt >/mnt/etc/fstab
@@ -38,7 +35,7 @@ cat <<-EOF >>/mnt/etc/default/grub
 EOF
 
 # Install bootloader
-arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --removable
 arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 
 # Enable dhcpcd
@@ -51,9 +48,12 @@ echo "root:${GB_ROOT_PASSWORD:?}" | chpasswd --root /mnt
 # TODO
 
 # Root autologin
-# TODO
+sed -i 's/^ExecStart.*$/ExecStart=-\/sbin\/agetty -a root %I $TERM/' /mnt/lib/systemd/system/getty@.service
 
 # Autostart GUI
-cat <<-EOF >/root/.xinitrc
+cat <<-EOF >/mnt/root/.profile
+	startx
+EOF
+cat <<-EOF >/mnt/root/.xinitrc
 	exec goldboot
 EOF

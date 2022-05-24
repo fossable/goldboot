@@ -9,7 +9,7 @@ use log::{debug, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{default::Default, error::Error, net::TcpListener, path::Path, process::Command};
+use std::{default::Default, error::Error, net::TcpListener, process::Command};
 use validator::Validate;
 
 pub mod build;
@@ -35,6 +35,18 @@ pub fn find_open_port(lower: u16, upper: u16) -> u16 {
 			Err(_) => continue,
 		}
 	}
+}
+
+/// Generate a random password
+pub fn random_password() -> String {
+	// TODO check for a dictionary to generate something memorable
+
+	// Fallback to random letters and numbers
+	rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(12)
+        .map(char::from)
+        .collect()
 }
 
 pub fn is_interactive() -> bool {
@@ -125,24 +137,23 @@ impl Provisioner {
 
 		// Check for shell scripts to upload
 		for script in &self.shell.scripts {
-			ssh.upload(std::fs::read(script)?, ".gb_script")?;
-
-			// Execute it
-			ssh.exec(".gb_script")?;
+			ssh.upload_exec(std::fs::read(script)?, vec![])?;
 		}
 
 		// Run an ansible playbook
 		if let Some(playbook) = &self.ansible.playbook {
 			if let Some(code) = Command::new("ansible-playbook")
-				.arg("-u")
-				.arg(ssh.username.clone())
-				.arg("-p")
-				.arg(ssh.password.clone())
+				.arg("--extra-vars")
+				.arg(format!("ansible_user={} ansible_password={}", ssh.username, ssh.password))
 				.arg(&playbook)
 				.status()
 				.expect("Failed to launch ansible-playbook")
 				.code()
-			{}
+			{
+				if code != 0 {
+					bail!("Provisioning failed");
+				}
+			}
 		}
 		Ok(())
 	}
