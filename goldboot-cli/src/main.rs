@@ -163,7 +163,11 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 	// Dispatch command
 	match &cl.command {
-		Commands::Build { record, debug, output } => {
+		Commands::Build {
+			record,
+			debug,
+			output,
+		} => {
 			print_banner();
 			debug!("Loading config from ./goldboot.json");
 
@@ -176,7 +180,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 			// Run the build finally
 			let mut job = BuildJob::new(config, *record, *debug);
-			job.run(output)
+			job.run(output.to_owned())
 		}
 		Commands::Registry { command } => match &command {
 			RegistryCommands::Push { url } => crate::registry::push(),
@@ -207,7 +211,17 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				//panic!();
 			}
 
-			Ok(())
+			// Find latest release
+			let rs = reqwest::blocking::Client::new()
+				.get("https://github.com/goldboot/goldboot-linux/releases/latest")
+				.header("Accept", "application/json")
+				.send()?;
+
+			// Download latest release to library
+			// TODO
+			let image = ImageLibrary::download(format!("https://github.com/goldboot/goldboot-linux/releases/download/v0.0.1/goldboot-linux-x86_64.gb"))?;
+
+			image.write(output)
 		}
 		Commands::Image { command } => match &command {
 			ImageCommands::List {} => {

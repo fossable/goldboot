@@ -46,6 +46,8 @@ impl MediaCache {
 
 				info!("Saving install media");
 				ProgressBar::Download.copy(&mut reader, &mut file, length)?;
+			} else {
+				bail!("Failed to download");
 			}
 
 			verify_checksum(path.to_string_lossy().to_string(), checksum)?;

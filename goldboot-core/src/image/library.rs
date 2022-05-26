@@ -2,6 +2,7 @@ use crate::{image::GoldbootImage, progress::ProgressBar};
 use log::{debug, info};
 use sha1::Digest;
 use sha2::Sha256;
+use simple_error::bail;
 use std::{
 	error::Error,
 	fs::File,
@@ -47,6 +48,24 @@ impl ImageLibrary {
 
 		std::fs::copy(&image_path, library_path().join(format!("{hash}.gb")))?;
 		Ok(())
+	}
+
+	/// Download a goldboot image over HTTP.
+	pub fn download(url: String) -> Result<GoldbootImage, Box<dyn Error>> {
+		let path = library_path().join("goldboot-linux.gb");
+
+		let mut rs = reqwest::blocking::get(&url)?;
+		if rs.status().is_success() {
+			let length = rs.content_length().ok_or("Failed to get content length")?;
+
+			let mut file = File::create(&path)?;
+
+			info!("Saving goldboot image");
+			ProgressBar::Download.copy(&mut rs, &mut file, length)?;
+			GoldbootImage::open(&path)
+		} else {
+			bail!("Failed to download");
+		}
 	}
 
 	/// Load images present in the local image library.

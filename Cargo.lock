@@ -995,6 +995,7 @@ dependencies = [
  "goldboot-core",
  "indicatif",
  "log 0.4.16",
+ "reqwest",
  "serde",
  "serde_json",
  "simple-error",
