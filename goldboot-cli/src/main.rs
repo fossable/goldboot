@@ -45,6 +45,10 @@ enum Commands {
 		/// Insert a breakpoint after each boot command
 		#[clap(long, takes_value = false)]
 		debug: bool,
+
+		/// The output destination
+		#[clap(long)]
+		output: Option<String>,
 	},
 
 	/// Manage local images
@@ -159,7 +163,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 	// Dispatch command
 	match &cl.command {
-		Commands::Build { record, debug } => {
+		Commands::Build { record, debug, output } => {
 			print_banner();
 			debug!("Loading config from ./goldboot.json");
 
@@ -172,7 +176,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 			// Run the build finally
 			let mut job = BuildJob::new(config, *record, *debug);
-			job.run()
+			job.run(output)
 		}
 		Commands::Registry { command } => match &command {
 			RegistryCommands::Push { url } => crate::registry::push(),

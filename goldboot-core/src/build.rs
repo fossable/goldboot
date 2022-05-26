@@ -120,8 +120,9 @@ impl BuildJob {
 		})
 	}
 
-	/// Run the entire build process.
-	pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
+	/// Run the entire build process. If no output file is given, the image is moved
+	/// into the image library.
+	pub fn run(&mut self, output: Option<String>) -> Result<(), Box<dyn Error>> {
 		self.start_time = Some(SystemTime::now());
 
 		// Load templates
@@ -176,8 +177,13 @@ impl BuildJob {
 		// Convert into final immutable image
 		GoldbootImage::convert(&final_qcow, self.config.clone(), &self.image_path)?;
 
-		// Move the image to the library
-		ImageLibrary::add(&self.image_path)?;
+		if let Some(output) = output {
+			// Move the image to output
+			std::fs::copy(&self.image_path, &output)?;
+		} else {
+			// Move the image to the library
+			ImageLibrary::add(&self.image_path)?;
+		}
 
 		info!(
 			"Build completed in: {:?}",
