@@ -43,10 +43,10 @@ pub fn random_password() -> String {
 
 	// Fallback to random letters and numbers
 	rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
-        .take(12)
-        .map(char::from)
-        .collect()
+		.sample_iter(&rand::distributions::Alphanumeric)
+		.take(12)
+		.map(char::from)
+		.collect()
 }
 
 pub fn is_interactive() -> bool {
@@ -105,90 +105,100 @@ impl BuildConfig {
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct Partition {
-	pub r#type: String,
-	pub size: String,
-	pub label: String,
-	pub format: String,
-}
-
-/// A generic provisioner
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct Provisioner {
+pub struct AnsibleProvisioner {
 	pub r#type: String,
 
-	#[serde(flatten)]
-	pub ansible: AnsibleProvisioner,
+	/// The playbook file
+	pub playbook: String,
 
-	#[serde(flatten)]
-	pub shell: ShellProvisioner,
+	/// The inventory file
+	pub inventory: Option<String>,
 }
 
-impl Provisioner {
+impl AnsibleProvisioner {
 	pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
-		info!("Running provisioner");
+		info!("Running ansible provisioner");
 
-		// Check for inline command
-		if let Some(command) = &self.shell.inline {
-			if ssh.exec(command)? != 0 {
+		if let Some(code) = Command::new("ansible-playbook")
+			.arg("--ssh-common-args")
+			.arg("-o StrictHostKeyChecking=no")
+			.arg("-e")
+			.arg(format!("ansible_port={}", ssh.port))
+			.arg("-e")
+			.arg(format!("ansible_user={}", ssh.username))
+			.arg("-e")
+			.arg(format!("ansible_ssh_pass={}", ssh.password))
+			.arg("-e")
+			.arg("ansible_connection=ssh")
+			.arg(&self.playbook)
+			.status()
+			.expect("Failed to launch ansible-playbook")
+			.code()
+		{
+			if code != 0 {
 				bail!("Provisioning failed");
 			}
 		}
 
-		// Check for shell scripts to upload
-		for script in &self.shell.scripts {
-			ssh.upload_exec(std::fs::read(script)?, vec![])?;
-		}
+		Ok(())
+	}
+}
 
-		// Run an ansible playbook
-		if let Some(playbook) = &self.ansible.playbook {
-			if let Some(code) = Command::new("ansible-playbook")
-				.arg("--extra-vars")
-				.arg(format!("ansible_user={} ansible_password={}", ssh.username, ssh.password))
-				.arg(&playbook)
-				.status()
-				.expect("Failed to launch ansible-playbook")
-				.code()
-			{
-				if code != 0 {
-					bail!("Provisioning failed");
-				}
-			}
+/// Run a shell command provisioner.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct ShellProvisioner {
+	pub r#type: String,
+
+	/// The inline command to run
+	pub command: String,
+}
+
+impl ShellProvisioner {
+	/// Create a new shell provisioner with inline command
+	pub fn inline(command: &str) -> Self {
+		Self {
+			r#type: String::from("shell"),
+			command: command.to_string(),
+		}
+	}
+
+	pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+		info!("Running shell provisioner");
+
+		if ssh.exec(&self.command)? != 0 {
+			bail!("Provisioner failed");
 		}
 		Ok(())
 	}
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
-pub struct AnsibleProvisioner {
-	pub playbook: Option<String>,
+/// Run a shell script provisioner.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct ScriptProvisioner {
+	pub r#type: String,
+	pub script: String,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
-pub struct ShellProvisioner {
-	pub scripts: Vec<String>,
-	pub inline: Option<String>,
-}
+impl ScriptProvisioner {
+	pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+		info!("Running script provisioner");
 
-impl ShellProvisioner {
-	/// Create a new shell provisioner with inline command
-	pub fn inline(command: &str) -> Provisioner {
-		Provisioner {
-			r#type: String::from("shell"),
-			ansible: AnsibleProvisioner::default(),
-			shell: ShellProvisioner {
-				inline: Some(command.to_string()),
-				scripts: vec![],
-			},
+		if ssh.upload_exec(std::fs::read(self.script.clone())?, vec![])? != 0 {
+			bail!("Provisioner failed");
 		}
+		Ok(())
 	}
 }
 
 #[cfg(test)]
 mod tests {
+	use super::*;
+
 	#[test]
-	fn it_works() {
-		let result = 2 + 2;
-		assert_eq!(result, 4);
+	fn test_find_open_port() {
+		let port = find_open_port(9000, 9999);
+
+		assert!(port < 9999);
+		assert!(port >= 9000);
 	}
 }

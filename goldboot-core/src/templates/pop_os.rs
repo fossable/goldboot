@@ -31,8 +31,8 @@ pub struct PopOsTemplate {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	#[serde(flatten)]
+	pub provisioners: ProvisionersContainer,
 }
 
 impl Default for PopOsTemplate {
@@ -46,13 +46,12 @@ impl Default for PopOsTemplate {
 	            url: String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso"),
 	            checksum: String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2"),
 	        },
-            provisioners: None,
             general: GeneralContainer{
 				base: TemplateBase::PopOs,
 				storage_size: String::from("15 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
+			provisioners: ProvisionersContainer::default(),
         }
 	}
 }
@@ -138,9 +137,7 @@ impl Template for PopOsTemplate {
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run provisioners
-		for provisioner in &self.provisioners {
-			// TODO
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

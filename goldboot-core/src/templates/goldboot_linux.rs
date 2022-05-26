@@ -27,7 +27,6 @@ impl Default for GoldbootLinuxTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::GoldbootLinux,
 				storage_size: String::from("4 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
 		}

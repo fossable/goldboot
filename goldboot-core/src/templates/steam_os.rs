@@ -25,8 +25,8 @@ pub struct SteamOsTemplate {
 
 	pub root_password: String,
 
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	#[serde(flatten)]
+	pub provisioners: ProvisionersContainer,
 }
 
 impl Default for SteamOsTemplate {
@@ -39,14 +39,13 @@ impl Default for SteamOsTemplate {
 				checksum: String::from("sha512:0ce55048d2c5e8a695f309abe22303dded003c93386ad28c6daafc977b3d5b403ed94d7c38917c8c837a2b1fe560184cf3cc12b9f2c4069fd70ed0deab47eb7c"),
 			},
 			root_password: String::from("root"),
-			provisioners: None,
 			version: SteamOsVersion::Brewmaster2_195,
 			general: GeneralContainer{
 				base: TemplateBase::SteamOs,
 				storage_size: String::from("15 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
+			provisioners: ProvisionersContainer::default(),
 		}
 	}
 }
@@ -82,9 +81,7 @@ impl Template for SteamOsTemplate {
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run provisioners
-		for provisioner in &self.provisioners {
-			// TODO
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

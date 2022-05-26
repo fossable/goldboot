@@ -37,17 +37,3 @@
           - zip
           - zsh
         state: latest
-
-    - block:
-      - dconf:
-          key: /org/gnome/nautilus/icon-view/default-zoom-level
-          value: "'small'"
-      - dconf:
-          key: /org/gnome/nautilus/preferences/default-folder-viewer
-          value: "'icon-view'"
-      - dconf:
-          key: /org/gtk/settings/file-chooser/sort-directories-first
-          value: "true"
-      - dconf:
-          key: /org/gnome/shell/extensions/pop-shell/tile-by-default
-          value: "true"

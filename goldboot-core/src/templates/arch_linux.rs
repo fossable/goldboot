@@ -34,8 +34,8 @@ pub struct ArchLinuxTemplate {
 	pub general: GeneralContainer,
 
 	//pub luks: LuksContainer,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	#[serde(flatten)]
+	pub provisioners: ProvisionersContainer,
 }
 
 impl ArchLinuxTemplate {
@@ -83,10 +83,9 @@ impl Default for ArchLinuxTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::ArchLinux,
 				storage_size: String::from("10 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
-			provisioners: None,
+			provisioners: ProvisionersContainer::default(),
 		}
 	}
 }
@@ -130,6 +129,7 @@ impl Template for ArchLinuxTemplate {
 
 		// Run install script
 		if let Some(resource) = Resources::get("install.sh") {
+			info!("Running base installation");
 			match ssh.upload_exec(
 				resource.data.to_vec(),
 				vec![
@@ -143,11 +143,7 @@ impl Template for ArchLinuxTemplate {
 		}
 
 		// Run provisioners
-		if let Some(provisioners) = &self.provisioners {
-			for provisioner in provisioners {
-				provisioner.run(&mut ssh)?;
-			}
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

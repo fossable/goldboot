@@ -8,6 +8,11 @@ use rand::Rng;
 use simple_error::bail;
 use std::{error::Error, thread, time::SystemTime};
 
+// UEFI firmwares for various platforms
+const OVMF_X86_64: &[u8; 1051773] = include_bytes!("../res/OVMF_x86_64.fd.zst");
+const OVMF_I386: &[u8; 1635380] = include_bytes!("../res/OVMF_i386.fd.zst");
+const OVMF_AARCH64: &[u8; 1478920] = include_bytes!("../res/OVMF_aarch64.fd.zst");
+
 /// Represents an image build job.
 pub struct BuildJob {
 	/// A general purpose temporary directory for the run
@@ -52,7 +57,7 @@ impl BuildJob {
 	}
 
 	/// Create a new generic build context.
-	fn new_worker(&self, template: Box<dyn Template>) -> BuildWorker {
+	fn new_worker(&self, template: Box<dyn Template>) -> Result<BuildWorker, Box<dyn Error>> {
 		// Obtain a temporary directory
 		let tmp = tempfile::tempdir().unwrap();
 
@@ -64,21 +69,45 @@ impl BuildJob {
 		if let Some(arch) = &self.config.arch {
 			match arch.as_str() {
 				"x86_64" => {
-					std::fs::write(&ovmf_path, include_bytes!("../res/OVMF_x86_64.fd")).unwrap()
+					std::fs::write(
+						&ovmf_path,
+						zstd::decode_all(std::io::Cursor::new(OVMF_X86_64))?,
+					)?;
 				}
 				"i386" => {
-					std::fs::write(&ovmf_path, include_bytes!("../res/OVMF_i386.fd")).unwrap()
+					std::fs::write(
+						&ovmf_path,
+						zstd::decode_all(std::io::Cursor::new(OVMF_I386))?,
+					)?;
 				}
 				"aarch64" => {
-					std::fs::write(&ovmf_path, include_bytes!("../res/OVMF_aarch64.fd")).unwrap()
+					std::fs::write(
+						&ovmf_path,
+						zstd::decode_all(std::io::Cursor::new(OVMF_AARCH64))?,
+					)?;
 				}
-				_ => panic!(),
+				_ => bail!("Unsupported architecture"),
 			}
 		} else {
-			// TODO
+			if cfg!(target_arch = "x86_64") {
+				std::fs::write(
+					&ovmf_path,
+					zstd::decode_all(std::io::Cursor::new(OVMF_X86_64))?,
+				)?;
+			} else if cfg!(target_arch = "i386") {
+				std::fs::write(
+					&ovmf_path,
+					zstd::decode_all(std::io::Cursor::new(OVMF_I386))?,
+				)?;
+			} else if cfg!(target_arch = "aarch64") {
+				std::fs::write(
+					&ovmf_path,
+					zstd::decode_all(std::io::Cursor::new(OVMF_AARCH64))?,
+				)?;
+			};
 		}
 
-		BuildWorker {
+		Ok(BuildWorker {
 			tmp,
 			image_path,
 			ovmf_path,
@@ -88,7 +117,7 @@ impl BuildJob {
 			config: self.config.clone(),
 			record: self.record,
 			debug: self.debug,
-		}
+		})
 	}
 
 	/// Run the entire build process.
@@ -113,7 +142,7 @@ impl BuildJob {
 		// If we're in debug mode, run workers sequentially
 		if self.debug {
 			for template in templates.into_iter() {
-				let worker = self.new_worker(template);
+				let worker = self.new_worker(template)?;
 				worker.run()?;
 				workers.push(worker);
 			}
@@ -123,7 +152,7 @@ impl BuildJob {
 			let mut handles = Vec::new();
 
 			for template in templates.into_iter() {
-				let worker = self.new_worker(template);
+				let worker = self.new_worker(template)?;
 				handles.push(thread::spawn(move || {
 					worker.run().unwrap();
 					worker

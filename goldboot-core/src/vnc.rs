@@ -49,7 +49,7 @@ impl VncScreenshot {
 		for y in 0..rect.height as usize {
 			let dst = y * w;
 			let src = (y + t) * self.width as usize + l;
-			data[dst .. dst + w].copy_from_slice(&self.data[src.. src + w]);
+			data[dst..dst + w].copy_from_slice(&self.data[src..src + w]);
 		}
 
 		Ok(VncScreenshot {

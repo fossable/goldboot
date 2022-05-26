@@ -21,21 +21,22 @@ pub struct MacOsTemplate {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	#[serde(flatten)]
+	pub provisioners: ProvisionersContainer,
 }
 
 impl Default for MacOsTemplate {
 	fn default() -> Self {
 		Self {
-			provisioners: Some(vec![
-				ShellProvisioner::inline("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""),
-			]),
+			provisioners: ProvisionersContainer {
+				provisioners: Some(vec![
+					serde_json::to_value(ShellProvisioner::inline("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"")).unwrap(),
+				])
+			},
 			version: MacOsVersion::Monterey,
 			general: GeneralContainer{
 				base: TemplateBase::MacOs,
 				storage_size: String::from("50 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
 		}
@@ -121,9 +122,7 @@ impl Template for MacOsTemplate {
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", "root")?;
 
 		// Run provisioners
-		for provisioner in &self.provisioners {
-			// TODO
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("shutdown -h now")?;

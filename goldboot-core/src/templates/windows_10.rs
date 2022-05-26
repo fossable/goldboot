@@ -27,8 +27,8 @@ pub struct Windows10Template {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	#[serde(flatten)]
+	pub provisioners: ProvisionersContainer,
 }
 
 impl Default for Windows10Template {
@@ -44,10 +44,9 @@ impl Default for Windows10Template {
 			general: GeneralContainer {
 				base: TemplateBase::Windows10,
 				storage_size: String::from("40 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
-			provisioners: None,
+			provisioners: ProvisionersContainer::default(),
 		}
 	}
 }
@@ -110,9 +109,7 @@ impl Template for Windows10Template {
 		let mut ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
 
 		// Run provisioners
-		for provisioner in &self.provisioners {
-			// TODO
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("shutdown /s /t 0 /f /d p:4:1")?;

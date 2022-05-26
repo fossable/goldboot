@@ -32,8 +32,8 @@ pub struct DebianTemplate {
 
 	pub version: DebianVersion,
 
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	#[serde(flatten)]
+	pub provisioners: ProvisionersContainer,
 }
 
 impl Default for DebianTemplate {
@@ -48,10 +48,9 @@ impl Default for DebianTemplate {
 			general: GeneralContainer{
 				base: TemplateBase::Debian,
 				storage_size: String::from("15 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
-			provisioners: None,
+			provisioners: ProvisionersContainer::default(),
 		}
 	}
 }
@@ -91,9 +90,7 @@ impl Template for DebianTemplate {
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run provisioners
-		for provisioner in &self.provisioners {
-			// TODO
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

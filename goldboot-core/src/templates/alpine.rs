@@ -42,7 +42,6 @@ impl Default for AlpineTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::Alpine,
 				storage_size: String::from("5 GiB"),
-				partitions: None,
 				qemuargs: None,
 			},
 			provisioners: ProvisionersContainer::default(),
@@ -106,9 +105,7 @@ iface eth0 inet dhcp
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
 		// Run provisioners
-		for provisioner in &self.provisioners.provisioners {
-			// TODO
-		}
+		self.provisioners.run(&mut ssh)?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

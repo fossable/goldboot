@@ -1,6 +1,6 @@
 use crate::{build::BuildWorker, *};
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
+
 use std::error::Error;
 use validator::Validate;
 
@@ -104,8 +104,35 @@ pub struct IsoContainer {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ProvisionersContainer {
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub provisioners: Option<Vec<Provisioner>>,
+	pub provisioners: Option<Vec<serde_json::Value>>,
+}
+
+impl ProvisionersContainer {
+	pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+		if let Some(provisioners) = &self.provisioners {
+			for provisioner in provisioners {
+				match provisioner.get("type").unwrap().as_str().unwrap() {
+					"ansible" => {
+						let provisioner: AnsibleProvisioner =
+							serde_json::from_value(provisioner.to_owned())?;
+						provisioner.run(ssh)?;
+					}
+					"shell" => {
+						let provisioner: ShellProvisioner =
+							serde_json::from_value(provisioner.to_owned())?;
+						provisioner.run(ssh)?;
+					}
+					"script" => {
+						let provisioner: ScriptProvisioner =
+							serde_json::from_value(provisioner.to_owned())?;
+						provisioner.run(ssh)?;
+					}
+					_ => {}
+				}
+			}
+		}
+		Ok(())
+	}
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
@@ -117,9 +144,6 @@ pub struct GeneralContainer {
 	pub qemuargs: Option<Vec<String>>,
 
 	pub storage_size: String,
-
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub partitions: Option<Vec<Partition>>,
 }
 
 impl GeneralContainer {
@@ -131,11 +155,18 @@ impl GeneralContainer {
 	}
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct RootPasswordContainer {
-	// TODO randomize
 	#[validate(length(max = 64))]
 	pub root_password: String,
+}
+
+impl Default for RootPasswordContainer {
+	fn default() -> RootPasswordContainer {
+		RootPasswordContainer {
+			root_password: crate::random_password(),
+		}
+	}
 }
 
 pub struct LuksContainer {
