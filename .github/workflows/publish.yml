@@ -16,23 +16,25 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cargo install cross
-          sudo dpkg --add-architecture arm64
+          #cargo install cross
+          #sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y libudev-dev libgtk-4-dev
-          sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
+          #sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
 
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build release
         run: |
-          cross build --release --target aarch64-unknown-linux-gnu
-          cross build --release --target x86_64-unknown-linux-gnu
+          #cross build --release --target aarch64-unknown-linux-gnu
+          cargo build --release
 
           mkdir release
-          cp target/release/aarch64-unknown-linux-gnu/goldboot release/goldboot-aarch64-unknown-linux-gnu
-          cp target/release/x86_64-unknown-linux-gnu/goldboot release/goldboot-x86_64-unknown-linux-gnu
+          #cp target/release/aarch64-unknown-linux-gnu/goldboot release/goldboot-aarch64-unknown-linux-gnu
+          cp target/release/goldboot release/goldboot-x86_64-unknown-linux-gnu
+          cp target/release/goldboot-gui release/goldboot-gui-x86_64-unknown-linux-gnu
+          cp target/release/goldboot-registry release/goldboot-registry-x86_64-unknown-linux-gnu
 
       - name: Create release
         uses: softprops/action-gh-release@v1
