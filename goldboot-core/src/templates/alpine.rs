@@ -92,9 +92,9 @@ iface eth0 inet dhcp
 			enter!("export DISKOPTS='-m sys /dev/vda'"),
 			// Start install
 			enter!("echo -e 'root\nroot\ny' | setup-alpine"),
-			wait!(180),
+			wait_screen_rect!("6d7b9fc9229c4f4ae8bc84f0925d8479ccd3e7d2", 668, 0, 1024, 100),
 			// Remount root partition
-			enter!("mount -t ext4 /dev/vda3 /mnt"), wait!(10),
+			enter!("mount -t ext4 /dev/vda3 /mnt"),
 			// Configure SSH
 			enter!("echo 'PermitRootLogin yes' >>/mnt/etc/ssh/sshd_config"),
 			// Reboot into installation

@@ -1,0 +1,40 @@
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  publish:
+    name: Publish release
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Install dependencies
+        run: |
+          cargo install cross
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libgtk-4-dev
+          sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build release
+        run: |
+          cross build --release --target aarch64-unknown-linux-gnu
+          cross build --release --target x86_64-unknown-linux-gnu
+
+          mkdir release
+          cp target/release/aarch64-unknown-linux-gnu/goldboot release/goldboot-aarch64-unknown-linux-gnu
+          cp target/release/x86_64-unknown-linux-gnu/goldboot release/goldboot-x86_64-unknown-linux-gnu
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*
