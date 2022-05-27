@@ -1,3 +1,8 @@
+cargo-features = ["strip"]
+
+[profile.release]
+strip = true
+
 [package]
 name = "goldboot-gui"
 description = "A graphical application for deploying goldboot images"

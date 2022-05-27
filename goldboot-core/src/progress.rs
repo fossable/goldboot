@@ -24,21 +24,25 @@ impl ProgressBar {
 			ProgressBar::Hash => {
 				let progress = indicatif::ProgressBar::new(len);
 				progress.set_style(indicatif::ProgressStyle::default_bar().template("{spinner:.blue} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").progress_chars("=>-"));
+				progress.enable_steady_tick(50);
 				progress
 			}
 			ProgressBar::Convert => {
 				let progress = indicatif::ProgressBar::new(len);
 				progress.set_style(indicatif::ProgressStyle::default_bar().template("{spinner:.yellow} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").progress_chars("=>-"));
+				progress.enable_steady_tick(50);
 				progress
 			}
 			ProgressBar::Download => {
 				let progress = indicatif::ProgressBar::new(len);
 				progress.set_style(indicatif::ProgressStyle::default_bar().template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").progress_chars("=>-"));
+				progress.enable_steady_tick(50);
 				progress
 			}
 			ProgressBar::Write => {
 				let progress = indicatif::ProgressBar::new(len);
 				progress.set_style(indicatif::ProgressStyle::default_bar().template("{spinner:.red} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").progress_chars("=>-"));
+				progress.enable_steady_tick(50);
 				progress
 			}
 		}

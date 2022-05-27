@@ -1,3 +1,8 @@
+cargo-features = ["strip"]
+
+[profile.release]
+strip = true
+
 [package]
 name = "goldboot"
 description = "A command-line application for building goldboot images"

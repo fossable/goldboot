@@ -1,3 +1,8 @@
+cargo-features = ["strip"]
+
+[profile.release]
+strip = true
+
 [package]
 name = "goldboot-core"
 description = "Contains the core implementation of goldboot"
@@ -27,7 +32,7 @@ serde_json = "1"
 sha1 = "0.10.1"
 sha2 = "0.10.2"
 simple-error = "0.2.3"
-ssh2 = "0.9"
+ssh2 = {version = "0.9", features = ["vendored-openssl"]}
 tempfile = "3.3.0"
 ubyte = "0.10.1"
 validator = { version = "0.12", features = ["derive"] }

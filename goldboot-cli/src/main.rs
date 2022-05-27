@@ -49,6 +49,10 @@ enum Commands {
 		/// The output destination
 		#[clap(long)]
 		output: Option<String>,
+
+		/// The config file (default: ./goldboot.json)
+		#[clap(long)]
+		config: Option<String>,
 	},
 
 	/// Manage local images
@@ -167,12 +171,19 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			record,
 			debug,
 			output,
+			config,
 		} => {
 			print_banner();
-			debug!("Loading config from ./goldboot.json");
+
+			let config_path = if let Some(path) = config.to_owned() {
+				path
+			} else {
+				String::from("./goldboot.json")
+			};
+			debug!("Loading config from {}", config_path);
 
 			// Load build config from current directory
-			let config: BuildConfig = serde_json::from_slice(&std::fs::read("goldboot.json")?)?;
+			let config: BuildConfig = serde_json::from_slice(&std::fs::read(config_path)?)?;
 			debug!("Loaded: {:#?}", &config);
 
 			// Fully verify config before proceeding
