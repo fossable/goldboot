@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [ArchLinux, Alpine, Windows10, MacOS]
+        profile: [ArchLinux, Alpine, Windows10, MacOs]
     steps:
       - name: Increase free space
         uses: easimon/maximize-build-space@master
@@ -69,7 +69,7 @@ jobs:
           goldboot init --template ${{ matrix.profile }} --disk 16G
           goldboot build --record
           fallocate -l 16GiB disk.raw
-          goldboot image write --image ${{ matrix.profile }} --disk disk.raw
+          goldboot write --image ${{ matrix.profile }} --output disk.raw
 
       - name: Store debug output
         if: always()
@@ -97,7 +97,7 @@ jobs:
       - name: Install goldboot
         uses: actions/download-artifact@v3
         with:
-          name: build-aarch64
+          name: build-x86_64
           path: /home/runner/.local/bin
 
       - name: Install dependencies
@@ -112,7 +112,7 @@ jobs:
           goldboot init --template ${{ matrix.profile }} --arch aarch64 --disk 16G
           goldboot build --record
           fallocate -l 16GiB disk.raw
-          goldboot image write --image ${{ matrix.profile }} --disk disk.raw
+          goldboot write --image ${{ matrix.profile }} --output disk.raw
 
       - name: Store debug output
         if: always()

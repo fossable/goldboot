@@ -19,7 +19,7 @@ fn main() {
 	app.connect_activate(|app| {
 		let window = gtk::ApplicationWindow::builder()
 			.application(app)
-			//.fullscreened(true)
+			.fullscreened(true)
 			.title("goldboot")
 			.build();
 
