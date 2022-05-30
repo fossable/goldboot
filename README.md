@@ -10,13 +10,17 @@ bare-metal.
 **Warning: this tool is totally unfinshed and should be used for testing only! Proceed
 at your own risk!**
 
+<p align="center">
+	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/build.gif" />
+</p>
+
 ## Golden Images
 
 Golden images contain your operating system(s), applications, software patches, and
 configuration all rolled into one easily deployable package.
 
 Keeping the configuration of a large number of servers consistent might be the
-most obvious benefit to golden images, but they are also useful for workstations
+most obvious benefit to golden images, but they are useful for workstations
 too. With golden images, you can boot a brand-new install of your favorite OS with all
 applications and custom configuration already present!
 
@@ -72,14 +76,14 @@ The following table shows planned support (nothing here is fully complete yet).
 
 | OS Name    | Testing         | Provisioners | Multiboot |
 |------------|-----------------|--------------|-----------|
-| ![Alpine](/.github/images/platforms/AlpineLinux.png) Alpine Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg) | Yes | Yes |
-| ![Arch Linux](/.github/images/platforms/ArchLinux.png) Arch Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes | Yes |
-| ![Debian](/.github/images/platforms/Debian.png) Debian | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg) | Yes | Yes |
-| ![macOS](/.github/images/platforms/MacOs.png) macOS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg) | Yes | No |
-| ![Pop!_OS](/.github/images/platforms/pop_os.png) Pop!\_OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg) | Yes | Yes |
-| ![Steam Deck](/.github/images/platforms/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg) | No | Yes |
-| ![Steam OS](/.github/images/platforms/steam_os.png) Steam OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg) | Yes | Yes |
-| ![Windows 10](/.github/images/platforms/Windows10.png) Windows 10 | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg) | Yes | No |
+| ![Alpine](/.github/images/templates/AlpineLinux.png) Alpine Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg) | Yes | Yes |
+| ![Arch Linux](/.github/images/templates/ArchLinux.png) Arch Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes | Yes |
+| ![Debian](/.github/images/templates/Debian.png) Debian | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg) | Yes | Yes |
+| ![macOS](/.github/images/templates/MacOs.png) macOS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg) | Yes | No |
+| ![Pop!_OS](/.github/images/templates/pop_os.png) Pop!\_OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg) | Yes | Yes |
+| ![Steam Deck](/.github/images/templates/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg) | No | Yes |
+| ![Steam OS](/.github/images/templates/steam_os.png) Steam OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg) | Yes | Yes |
+| ![Windows 10](/.github/images/templates/Windows10.png) Windows 10 | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg) | Yes | No |
 
 ## Getting Started
 
@@ -133,7 +137,7 @@ Once the USB is created, you can use it to boot into the goldboot live environme
 and select an image to write:
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/build.png" />
+	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/select_image.png" />
 </p>
 
 Once the image has been applied, remove the bootable USB drive and reboot the machine.
