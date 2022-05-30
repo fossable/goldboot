@@ -986,7 +986,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chrono",
  "clap",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-core"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "binrw",
  "bzip2-rs",
@@ -1044,8 +1044,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "goldboot-gui"
-version = "0.1.0"
+name = "goldboot-linux"
+version = "0.0.1"
 dependencies = [
  "block-utils",
  "env_logger",
@@ -1063,7 +1063,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-registry"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "actix-web",
  "env_logger",

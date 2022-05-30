@@ -1,8 +1,11 @@
+[profile.release]
+strip = true
+
 [workspace]
 members = [
     "goldboot-cli",
     "goldboot-core",
     "goldboot-graphics",
-    "goldboot-gui",
+    "goldboot-linux",
     "goldboot-registry",
 ]
