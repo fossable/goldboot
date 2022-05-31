@@ -6,16 +6,18 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  build-linux:
     name: Build Linux
     runs-on: ubuntu-22.04
     steps:
       - name: Install dependencies
         run: |
+          #sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y libudev-dev libgtk-4-dev
+          #sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
 
-      - name: Install rust nightly
+      - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -24,20 +26,100 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Build
-        run: |
-          cargo build --target x86_64-unknown-linux-gnu
+      - name: Run unit tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Build x86_64
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 
       - name: Store build output
         uses: actions/upload-artifact@v3
         with:
-          name: build-x86_64
-          path: target/x86_64-unknown-linux-gnu/debug/goldboot
+          name: build-linux
+          path: |
+            target/release/goldboot
+            target/release/goldboot-registry
+            target/release/goldboot-linux
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Disable goldboot-linux
+        run: sed -i '/goldboot-linux/d' Cargo.toml
+
+      - name: Run unit tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Build x86_64
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Store build output
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-macos
+          path: |
+            target/release/goldboot
+            target/release/goldboot-registry
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Disable goldboot-linux
+        run: sed -i '/goldboot-linux/d' Cargo.toml
+
+      - name: Run unit tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Build x86_64
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Store build output
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-windows
+          path: |
+            target/release/goldboot
+            target/release/goldboot-registry
 
   test-x86_64:
     name: Test ${{ matrix.profile }} x86_64
     runs-on: ubuntu-22.04
-    needs: build
+    needs: build-linux
     strategy:
       fail-fast: false
       matrix:
@@ -53,13 +135,14 @@ jobs:
       - name: Install goldboot
         uses: actions/download-artifact@v3
         with:
-          name: build-x86_64
+          name: build-linux
           path: /home/runner/.local/bin
 
       - name: Install dependencies
         run: |
+          ls -l /home/runner/.local/bin
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 ovmf
+          sudo apt-get install -y qemu-system-x86
           sudo mkdir -p /var/lib/goldboot/images
           sudo chmod -R 777 /var/lib/goldboot
           sudo chmod +x /home/runner/.local/bin/goldboot
@@ -81,7 +164,7 @@ jobs:
   test-aarch64:
     name: Test ${{ matrix.profile }} aarch64
     runs-on: ubuntu-22.04
-    needs: build
+    needs: build-linux
     strategy:
       fail-fast: false
       matrix:
@@ -97,12 +180,12 @@ jobs:
       - name: Install goldboot
         uses: actions/download-artifact@v3
         with:
-          name: build-x86_64
+          name: build-linux
           path: /home/runner/.local/bin
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y qemu-system-aarch64 ovmf
+          sudo apt-get install -y qemu-system-aarch64
           sudo mkdir -p /var/lib/goldboot/images
           sudo chmod -R 777 /var/lib/goldboot
           sudo chmod +x /home/runner/.local/bin/goldboot

@@ -6,30 +6,17 @@ on:
 jobs:
   publish:
     name: Publish release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Install rust nightly
-        uses: actions-rs/toolchain@v1
+      - name: Download release
+        uses: dawidd6/action-download-artifact@v2
         with:
-          toolchain: nightly
-          override: true
+          workflow: build.yml
+          path: .
 
-      - name: Install dependencies
+      - name: Assemble release
         run: |
-          #cargo install cross
-          #sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev libgtk-4-dev
-          #sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build release
-        run: |
-          #cross build --release --target aarch64-unknown-linux-gnu
-          cargo build --release
-
+          ls -l
           mkdir release
           #cp target/release/aarch64-unknown-linux-gnu/goldboot release/goldboot-aarch64-unknown-linux-gnu
           cp target/release/goldboot release/goldboot-x86_64-unknown-linux-gnu
