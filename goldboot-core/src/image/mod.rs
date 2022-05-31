@@ -375,6 +375,8 @@ mod tests {
 
 	#[test]
 	fn test_convert_empty() -> Result<(), Box<dyn Error>> {
+		let tmp = tempfile::tempdir()?;
+
 		GoldbootImage::convert(
 			&Qcow3::open("test/empty.qcow2")?,
 			BuildConfig {
@@ -388,14 +390,16 @@ mod tests {
 			"/tmp/empty.gb",
 		)?;
 
-		let image = GoldbootImage::open("/tmp/empty.gb")?;
-		image.write("/tmp/empty.raw")?;
+		let image = GoldbootImage::open(tmp.path().join("empty.gb"))?;
+		image.write(tmp.path().join("empty.raw"))?;
 
 		Ok(())
 	}
 
 	#[test]
 	fn test_convert_small() -> Result<(), Box<dyn Error>> {
+		let tmp = tempfile::tempdir()?;
+
 		GoldbootImage::convert(
 			&Qcow3::open("test/small.qcow2")?,
 			BuildConfig {
@@ -406,17 +410,17 @@ mod tests {
 				nvme: None,
 				templates: vec![],
 			},
-			"/tmp/small.gb",
+			tmp.path().join("small.gb"),
 		)?;
 
-		let image = GoldbootImage::open("/tmp/small.gb")?;
-		image.write("/tmp/small.raw")?;
+		let image = GoldbootImage::open(tmp.path().join("small.gb"))?;
+		image.write(tmp.path().join("small.raw"))?;
 
 		// Hash content
 		assert_eq!(
 			hex::encode(
 				Sha1::new()
-					.chain_update(&std::fs::read("/tmp/small.raw")?)
+					.chain_update(&std::fs::read(tmp.path().join("small.raw"))?)
 					.finalize()
 			),
 			"34e1c79c80941e5519ec76433790191318a5c77b"

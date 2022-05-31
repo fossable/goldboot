@@ -37,14 +37,20 @@ jobs:
           command: build
           args: --release
 
-      - name: Store build output
-        uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v3
         with:
-          name: build-linux
-          path: |
-            target/release/goldboot
-            target/release/goldboot-registry
-            target/release/goldboot-linux
+          name: goldboot-x86_64-unknown-linux-gnu
+          path: target/release/goldboot
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: goldboot-registry-x86_64-unknown-linux-gnu
+          path: target/release/goldboot-registry
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: goldboot-linux-x86_64-unknown-linux-gnu
+          path: target/release/goldboot-linux
 
   build-macos:
     name: Build macOS
@@ -73,13 +79,15 @@ jobs:
           command: build
           args: --release
 
-      - name: Store build output
-        uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v3
         with:
-          name: build-macos
-          path: |
-            target/release/goldboot
-            target/release/goldboot-registry
+          name: goldboot-x86_64-apple-darwin
+          path: target/release/goldboot
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: goldboot-registry-x86_64-apple-darwin
+          path: target/release/goldboot-registry
 
   build-windows:
     name: Build Windows
@@ -108,62 +116,19 @@ jobs:
           command: build
           args: --release
 
-      - name: Store build output
-        uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v3
         with:
-          name: build-windows
-          path: |
-            target/release/goldboot
-            target/release/goldboot-registry
+          name: goldboot-x86_64-pc-windows-msvc
+          path: target/release/goldboot
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: goldboot-registry-x86_64-pc-windows-msvc
+          path: target/release/goldboot-registry
 
   test-x86_64:
     name: Test ${{ matrix.profile }} x86_64
-    runs-on: ubuntu-22.04
-    needs: build-linux
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: [ArchLinux, Alpine, Windows10, MacOs]
-    steps:
-      - name: Increase free space
-        uses: easimon/maximize-build-space@master
-        with:
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-
-      - name: Install goldboot
-        uses: actions/download-artifact@v3
-        with:
-          name: build-linux
-          path: /home/runner/.local/bin
-
-      - name: Install dependencies
-        run: |
-          ls -l /home/runner/.local/bin
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86
-          sudo mkdir -p /var/lib/goldboot/images
-          sudo chmod -R 777 /var/lib/goldboot
-          sudo chmod +x /home/runner/.local/bin/goldboot
-
-      - name: Run goldboot
-        run: |
-          goldboot init --template ${{ matrix.profile }} --disk 16G
-          goldboot build --record
-          fallocate -l 16GiB disk.raw
-          goldboot write --image ${{ matrix.profile }} --output disk.raw
-
-      - name: Store debug output
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: Debug output
-          path: './*/screenshots'
-
-  test-aarch64:
-    name: Test ${{ matrix.profile }} aarch64
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: build-linux
     strategy:
       fail-fast: false
@@ -180,19 +145,20 @@ jobs:
       - name: Install goldboot
         uses: actions/download-artifact@v3
         with:
-          name: build-linux
+          name: goldboot-x86_64-unknown-linux-gnu
           path: /home/runner/.local/bin
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y qemu-system-aarch64
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86
           sudo mkdir -p /var/lib/goldboot/images
           sudo chmod -R 777 /var/lib/goldboot
           sudo chmod +x /home/runner/.local/bin/goldboot
 
       - name: Run goldboot
         run: |
-          goldboot init --template ${{ matrix.profile }} --arch aarch64 --disk 16G
+          goldboot init --template ${{ matrix.profile }} --disk 16G
           goldboot build --record
           fallocate -l 16GiB disk.raw
           goldboot write --image ${{ matrix.profile }} --output disk.raw

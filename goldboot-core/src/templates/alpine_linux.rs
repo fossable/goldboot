@@ -15,7 +15,7 @@ pub enum AlpineLinuxEdition {
 
 /// Template for Alpine Linux images (https://www.alpinelinux.org).
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AlpineTemplate {
+pub struct AlpineLinuxTemplate {
 	/// The root account password
 	pub root_password: String,
 
@@ -29,7 +29,7 @@ pub struct AlpineTemplate {
 	pub provisioners: ProvisionersContainer,
 }
 
-impl Default for AlpineTemplate {
+impl Default for AlpineLinuxTemplate {
 	fn default() -> Self {
 		Self {
 			root_password: String::from("root"),
@@ -40,7 +40,7 @@ impl Default for AlpineTemplate {
 				checksum: String::from("none"),
 			},
 			general: GeneralContainer {
-				base: TemplateBase::Alpine,
+				base: TemplateBase::AlpineLinux,
 				storage_size: String::from("5 GiB"),
 				qemuargs: None,
 			},
@@ -49,7 +49,7 @@ impl Default for AlpineTemplate {
 	}
 }
 
-impl Template for AlpineTemplate {
+impl Template for AlpineLinuxTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 

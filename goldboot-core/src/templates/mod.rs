@@ -5,13 +5,13 @@ use std::error::Error;
 use validator::Validate;
 
 use crate::templates::{
-	alpine::AlpineTemplate, arch_linux::ArchLinuxTemplate, debian::DebianTemplate,
+	alpine_linux::AlpineLinuxTemplate, arch_linux::ArchLinuxTemplate, debian::DebianTemplate,
 	goldboot_linux::GoldbootLinuxTemplate, mac_os::MacOsTemplate, pop_os::PopOsTemplate,
 	steam_deck::SteamDeckTemplate, steam_os::SteamOsTemplate, ubuntu::UbuntuTemplate,
 	windows_10::Windows10Template,
 };
 
-pub mod alpine;
+pub mod alpine_linux;
 pub mod arch_linux;
 pub mod debian;
 pub mod goldboot_linux;
@@ -40,7 +40,7 @@ pub trait Template {
 #[serde(tag = "base")]
 pub enum TemplateBase {
 	#[default]
-	Alpine,
+	AlpineLinux,
 	ArchLinux,
 	Debian,
 	GoldbootLinux,
@@ -57,10 +57,10 @@ impl TemplateBase {
 	pub fn parse_template(&self, value: serde_json::Value) -> Result<Box<dyn Template>, Box<dyn Error>> {
 
 		Ok(match self {
-			TemplateBase::Alpine        => Box::new(serde_json::from_value::<AlpineTemplate>(value)?),
+			TemplateBase::AlpineLinux   => Box::new(serde_json::from_value::<AlpineLinuxTemplate>(value)?),
 			TemplateBase::ArchLinux     => Box::new(serde_json::from_value::<ArchLinuxTemplate>(value)?),
 			TemplateBase::Debian        => Box::new(serde_json::from_value::<DebianTemplate>(value)?),
-			TemplateBase::GoldbootLinux   => Box::new(serde_json::from_value::<GoldbootLinuxTemplate>(value)?),
+			TemplateBase::GoldbootLinux => Box::new(serde_json::from_value::<GoldbootLinuxTemplate>(value)?),
 			TemplateBase::MacOs         => Box::new(serde_json::from_value::<MacOsTemplate>(value)?),
 			TemplateBase::PopOs         => Box::new(serde_json::from_value::<PopOsTemplate>(value)?),
 			TemplateBase::SteamDeck     => Box::new(serde_json::from_value::<SteamDeckTemplate>(value)?),
@@ -75,10 +75,10 @@ impl TemplateBase {
 	#[rustfmt::skip]
 	pub fn get_default_template(&self) -> Result<serde_json::Value, Box<dyn Error>> {
 		Ok(match self {
-			TemplateBase::Alpine         => serde_json::to_value(AlpineTemplate::default()),
+			TemplateBase::AlpineLinux    => serde_json::to_value(AlpineLinuxTemplate::default()),
 			TemplateBase::ArchLinux      => serde_json::to_value(ArchLinuxTemplate::default()),
 			TemplateBase::Debian         => serde_json::to_value(DebianTemplate::default()),
-			TemplateBase::GoldbootLinux    => serde_json::to_value(GoldbootLinuxTemplate::default()),
+			TemplateBase::GoldbootLinux  => serde_json::to_value(GoldbootLinuxTemplate::default()),
 			TemplateBase::MacOs          => serde_json::to_value(MacOsTemplate::default()),
 			TemplateBase::PopOs          => serde_json::to_value(PopOsTemplate::default()),
 			TemplateBase::SteamDeck      => serde_json::to_value(SteamDeckTemplate::default()),
