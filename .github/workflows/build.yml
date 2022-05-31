@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Disable goldboot-linux
-        run: sed -i '/goldboot-linux/d' Cargo.toml
+        run: sed -i '' '/goldboot-linux/d' Cargo.toml
 
       - name: Run unit tests
         uses: actions-rs/cargo@v1
