@@ -12,7 +12,7 @@ repository = "https://github.com/goldboot/goldboot/"
 [dependencies]
 actix-web = {version = "4.0.0-beta.21", features = ["rustls"]}
 env_logger = "0.9"
-goldboot-core = { path="../goldboot-core" }
+goldboot-core = { path="../goldboot-core", version = "0.0.1" }
 log = { version = "0.4.11", default-features = false }
 rustls = "0.20.2"
 rustls-pemfile = "0.2.1"

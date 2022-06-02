@@ -12,7 +12,7 @@ repository = "https://github.com/goldboot/goldboot/"
 [dependencies]
 block-utils = "0.10.6"
 env_logger = "0.9"
-goldboot-core = { path="../goldboot-core" }
+goldboot-core = { path="../goldboot-core", version = "0.0.1" }
 gtk4 = "0.4.7"
 gdk4 = "0.4.7"
 gdk-pixbuf = "0.15.11"

@@ -128,7 +128,7 @@ jobs:
 
   test-x86_64:
     name: Test ${{ matrix.profile }} x86_64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build-linux
     strategy:
       fail-fast: false
