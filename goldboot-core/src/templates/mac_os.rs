@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/MacOs/"]
-struct Resources;
+//#[derive(rust_embed::RustEmbed)]
+//#[folder = "res/MacOs/"]
+//struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum MacOsVersion {
@@ -48,9 +48,9 @@ impl Template for MacOsTemplate {
 		let mut qemuargs = QemuArgs::new(&context);
 
 		// Copy OpenCore partition
-		if let Some(resource) = Resources::get("OpenCore.qcow2") {
-			std::fs::write(context.tmp.path().join("OpenCore.qcow2"), resource.data)?;
-		}
+		//if let Some(resource) = Resources::get("OpenCore.qcow2") {
+		//	std::fs::write(context.tmp.path().join("OpenCore.qcow2"), resource.data)?;
+		//}
 
 		// Convert dmg to img
 		//qemu-img convert BaseSystem.dmg -O raw BaseSystem.img

@@ -387,7 +387,7 @@ mod tests {
 				nvme: None,
 				templates: vec![],
 			},
-			"/tmp/empty.gb",
+			tmp.path().join("empty.gb"),
 		)?;
 
 		let image = GoldbootImage::open(tmp.path().join("empty.gb"))?;

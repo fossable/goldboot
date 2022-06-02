@@ -2,7 +2,7 @@
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/logo-bg-256.png" />
 </p>
 
-![Build](https://github.com/goldboot/goldboot/workflows/.github/workflows/build.yml/badge.svg)
+[![Discord](https://img.shields.io/badge/goldboot-%237289DA.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Vzr7gT5dsd)
 
 `goldboot` simplifies the process of building and deploying golden images to
 bare-metal.
