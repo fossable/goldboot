@@ -4,6 +4,10 @@ set -e
 
 # Synchronize time
 timedatectl set-ntp true
+hwclock --systohc
+
+# Display current time. If this is wrong, pacman keys might fail to import
+date
 
 # Configure Pacman mirrors
 echo "${GB_MIRRORLIST:?}" >/etc/pacman.d/mirrorlist
