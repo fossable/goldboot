@@ -127,6 +127,7 @@ jobs:
           path: target/release/goldboot-registry
 
   test-x86_64:
+    if: github.event_name != 'pull_request'
     name: Test ${{ matrix.profile }} x86_64
     runs-on: ubuntu-22.04
     needs: build-linux
@@ -158,6 +159,7 @@ jobs:
 
       - name: Run goldboot
         run: |
+          export RUST_LOG=debug
           goldboot init --template ${{ matrix.profile }} --disk 16G
           goldboot build --record
           fallocate -l 16GiB disk.raw
