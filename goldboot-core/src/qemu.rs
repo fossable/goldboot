@@ -19,6 +19,35 @@ pub fn current_qemu_binary() -> &'static str {
 	}
 }
 
+/// Detect the best acceleration type
+pub fn detect_accel() -> String {
+	if std::env::var("CI").is_ok() {
+		return String::from("tcg");
+	}
+	if cfg!(target_arch = "x86_64") {
+		if cfg!(target_os = "linux") {
+			match Command::new("sh").arg("dmesg | grep -iq kvm").status() {
+				Ok(status) => {
+					if let Some(code) = status.code() {
+						if code == 0 {
+							String::from("kvm")
+						} else {
+							String::from("tcg")
+						}
+					} else {
+						String::from("tcg")
+					}
+				}
+				Err(_) => String::from("tcg"),
+			}
+		} else {
+			String::from("tcg")
+		}
+	} else {
+		String::from("tcg")
+	}
+}
+
 pub struct QemuProcess {
 	pub process: Child,
 	pub vnc: VncConnection,
@@ -26,7 +55,7 @@ pub struct QemuProcess {
 
 impl Drop for QemuProcess {
 	fn drop(&mut self) {
-		self.process.kill();
+		self.process.kill().unwrap_or_default();
 	}
 }
 
@@ -139,12 +168,9 @@ impl QemuArgs {
 			smbios: None,
 			device: vec![String::from("virtio-net,netdev=user.0")],
 			drive: vec![],
+			// This seems to be necessary for the EFI variables to persist
 			global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
-			machine: if std::env::var("CI").is_ok() {
-				String::from("type=pc")
-			} else {
-				String::from("type=pc,accel=kvm")
-			},
+			machine: format!("type=pc,accel={}", detect_accel()),
 			display: if context.debug && cfg!(target_os = "linux") {
 				String::from("gtk")
 			} else {

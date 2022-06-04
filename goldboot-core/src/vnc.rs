@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::{debug, info, trace};
 use rand::Rng;
 use sha1::{Digest, Sha1};
 use simple_error::bail;
@@ -40,6 +40,22 @@ impl VncScreenshot {
 
 	/// Create a trimmed screenshot according to the given dimensions
 	pub fn trim(&self, rect: vnc::Rect) -> Result<VncScreenshot, Box<dyn Error>> {
+		// Validate request
+		if rect.left + rect.width > self.width || rect.top + rect.height > self.height {
+			bail!(
+				"Cannot trim ({} x {}) to {:?}",
+				self.width,
+				self.height,
+				rect
+			);
+		}
+		trace!(
+			"Trimming screenshot ({} x {}) to {:?}",
+			self.width,
+			self.height,
+			rect
+		);
+
 		let w = rect.width as usize;
 		let h = rect.height as usize;
 		let t = rect.top as usize;
@@ -286,20 +302,21 @@ impl VncConnection {
 						debug!("Waiting for screen hash to equal: {}", &hash);
 						loop {
 							std::thread::sleep(Duration::from_secs(1));
-							// TODO add rect
-							if self
-								.screenshot()?
-								.trim(vnc::Rect {
-									top,
-									left,
-									width,
-									height,
-								})?
-								.hash() == hash
-							{
-								// Don't continue immediately
-								std::thread::sleep(Duration::from_secs(1));
-								break;
+							match self.screenshot()?.trim(vnc::Rect {
+								top,
+								left,
+								width,
+								height,
+							}) {
+								Ok(screenshot) => {
+									if screenshot.hash() == hash {
+										// Wait a few before continuing
+										std::thread::sleep(Duration::from_secs(1));
+										break;
+									}
+								}
+								// If the trim failed, the screen may not be the right size yet
+								Err(_) => continue,
 							}
 						}
 					}

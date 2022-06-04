@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use serde::Serialize;
 use std::{error::Error, path::Path};
 
