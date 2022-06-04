@@ -1,4 +1,3 @@
-#![feature(derive_default_enum)]
 #![feature(seek_stream_len)]
 
 use crate::{

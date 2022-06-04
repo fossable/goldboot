@@ -5,7 +5,7 @@ exec 1>&2
 
 # Synchronize time
 timedatectl set-ntp true
-hwclock --systohc
+sleep 15
 
 # Display current time. If this is wrong, pacman keys might fail to import
 date
@@ -26,9 +26,9 @@ mkfs.vfat /dev/vda1
 if [ "${GB_LUKS_PASSPHRASE}" != "" ]; then
 
 	# TODO configure parameters
-	# TODO don't leave this in history
 	echo -n "${GB_LUKS_PASSPHRASE}" | cryptsetup -v luksFormat /dev/vda2 -
 	echo -n "${GB_LUKS_PASSPHRASE}" | cryptsetup open /dev/vda2 root -
+	history -cw
 
 	# Format root
 	mkfs.ext4 /dev/mapper/root
@@ -45,6 +45,9 @@ fi
 
 # Mount boot partition
 mount --mkdir /dev/vda1 /mnt/boot
+
+# Display mounts before install
+mount
 
 # Bootstrap filesystem
 pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd openssh python python-pip

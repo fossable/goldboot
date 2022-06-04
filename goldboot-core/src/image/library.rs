@@ -106,6 +106,16 @@ impl ImageLibrary {
 
 	/// Remove an image from the library by ID.
 	pub fn delete(image_id: &str) -> Result<(), Box<dyn Error>> {
-		todo!();
+		for p in library_path().read_dir()? {
+			let path = p?.path();
+			let filename = path.file_name().unwrap().to_str().unwrap();
+
+			if filename == format!("{image_id}.gb") || filename == format!("{}.gb", &image_id[0..12]) {
+				std::fs::remove_file(path)?;
+				return Ok(());
+			}
+		}
+
+		Ok(())
 	}
 }
