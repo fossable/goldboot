@@ -30,7 +30,7 @@ impl Default for SteamDeckTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::SteamDeck,
 				storage_size: String::from("15 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
 		}
 	}

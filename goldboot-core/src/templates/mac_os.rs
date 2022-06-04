@@ -37,7 +37,7 @@ impl Default for MacOsTemplate {
 			general: GeneralContainer{
 				base: TemplateBase::MacOs,
 				storage_size: String::from("50 GiB"),
-				qemuargs: None,
+				.. Default::default()
 			},
 		}
 	}

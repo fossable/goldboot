@@ -1,13 +1,15 @@
 use chrono::TimeZone;
 use clap::{Parser, Subcommand};
 use colored::*;
-use goldboot_core::{build::BuildJob, image::library::ImageLibrary, BuildConfig};
+use goldboot_core::{
+	build::BuildJob, image::library::ImageLibrary, templates::TemplateBase, BuildConfig, *,
+};
 use log::debug;
+use simple_error::bail;
 use std::{env, error::Error, fs::File, path::Path};
 use ubyte::ToByteUnit;
 use validator::Validate;
 
-pub mod init;
 pub mod registry;
 
 #[rustfmt::skip]
@@ -86,6 +88,10 @@ enum Commands {
 		#[clap(long)]
 		template: Vec<String>,
 
+		/// The target architecture
+		#[clap(long)]
+		arch: Option<String>,
+
 		/// The amount of memory the image can access
 		#[clap(long)]
 		memory: Option<String>,
@@ -94,6 +100,7 @@ enum Commands {
 		#[clap(long)]
 		disk: Option<String>,
 
+		/// Attempt to copy the configuration of the current hardware as closely as possible
 		#[clap(long, takes_value = false)]
 		mimic_hardware: bool,
 
@@ -200,6 +207,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 		Commands::Init {
 			name,
 			template,
+			arch,
 			memory,
 			disk,
 			list_templates,
@@ -207,10 +215,58 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 		} => {
 			if *list_templates {
 				// TODO
-				Ok(())
-			} else {
-				crate::init::init(template, name, memory, disk)
+				return Ok(());
 			}
+
+			let config_path = Path::new("goldboot.json");
+
+			if config_path.exists() {
+				bail!("This directory has already been initialized. Delete goldboot.json to reinitialize.");
+			}
+
+			if template.len() == 0 {
+				bail!("Specify at least one template with --template");
+			}
+
+			// Create a new config to be filled in according to the given arguments
+			let mut config = BuildConfig::default();
+
+			if let Some(name) = name {
+				config.name = name.to_string();
+			} else {
+				// Set name equal to directory name
+				if let Some(name) = env::current_dir()?.file_name() {
+					config.name = name.to_str().unwrap().to_string();
+				}
+			}
+
+			// Generate QEMU flags for this hardware
+			//config.qemuargs = generate_qemuargs()?;
+
+			// Set architecture if given
+			if let Some(arch) = arch {
+				config.arch = match arch.as_str() {
+					"x86_64" => Architecture::amd64,
+					"amd64" => Architecture::amd64,
+					"aarch64" => Architecture::arm64,
+					"arm64" => Architecture::arm64,
+					"i386" => Architecture::i386,
+					_ => bail!("Unsupported platform"),
+				};
+			}
+
+			// Run template-specific initialization
+			let mut default_templates = Vec::new();
+			for t in template {
+				let t: TemplateBase =
+					serde_json::from_str(format!("{{\"base\": \"{}\"}}", &t).as_str())?;
+				default_templates.push(t.get_default_template()?);
+			}
+			config.templates = default_templates;
+
+			// Finally write out the config
+			std::fs::write(config_path, serde_json::to_string_pretty(&config)?)?;
+			Ok(())
 		}
 		Commands::MakeUsb {
 			output,

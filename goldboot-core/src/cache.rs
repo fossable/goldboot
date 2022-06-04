@@ -7,7 +7,7 @@ use std::{
 	error::Error,
 	fs::File,
 	io::{Read, Write},
-	path::PathBuf,
+	path::{Path, PathBuf},
 };
 
 pub enum MediaFormat {
@@ -33,6 +33,12 @@ impl MediaCache {
 		}
 
 		if !path.is_file() {
+			// Check for local URL
+			if !url.starts_with("http") && Path::new(&url).is_file() {
+				return Ok(url);
+			}
+
+			// Try to download it
 			let rs = reqwest::blocking::get(&url)?;
 			if rs.status().is_success() {
 				let length = rs.content_length().ok_or("Failed to get content length")?;

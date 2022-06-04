@@ -110,7 +110,9 @@ impl ImageLibrary {
 			let path = p?.path();
 			let filename = path.file_name().unwrap().to_str().unwrap();
 
-			if filename == format!("{image_id}.gb") || filename == format!("{}.gb", &image_id[0..12]) {
+			if filename == format!("{image_id}.gb")
+				|| filename == format!("{}.gb", &image_id[0..12])
+			{
 				std::fs::remove_file(path)?;
 				return Ok(());
 			}

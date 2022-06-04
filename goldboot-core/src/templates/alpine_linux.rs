@@ -42,7 +42,7 @@ impl Default for AlpineLinuxTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::AlpineLinux,
 				storage_size: String::from("5 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
 			provisioners: ProvisionersContainer::default(),
 		}

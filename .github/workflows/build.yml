@@ -134,7 +134,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [ArchLinux]
+        profile: [ArchLinux, Debian]
     steps:
       - name: Increase free space
         uses: easimon/maximize-build-space@master

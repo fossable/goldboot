@@ -49,7 +49,7 @@ impl Default for PopOsTemplate {
             general: GeneralContainer{
 				base: TemplateBase::PopOs,
 				storage_size: String::from("15 GiB"),
-				qemuargs: None,
+				.. Default::default()
 			},
 			provisioners: ProvisionersContainer::default(),
         }

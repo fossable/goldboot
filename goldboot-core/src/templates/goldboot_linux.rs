@@ -27,7 +27,7 @@ impl Default for GoldbootLinuxTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::GoldbootLinux,
 				storage_size: String::from("4 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
 		}
 	}
@@ -37,9 +37,6 @@ impl Template for GoldbootLinuxTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		info!("Starting {} build", "Goldboot Linux".blue());
 
-		// Fetch latest ISO
-		let (iso_url, iso_checksum) = crate::templates::arch_linux::fetch_latest_iso()?;
-
 		let mut qemuargs = QemuArgs::new(&context);
 
 		qemuargs.drive.push(format!(
@@ -48,7 +45,7 @@ impl Template for GoldbootLinuxTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(iso_url, &iso_checksum, MediaFormat::Iso)?
+			MediaCache::get(String::from("https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso"), "none", MediaFormat::Iso)?
 		));
 
 		// Start VM

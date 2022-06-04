@@ -6,18 +6,57 @@ use crate::{
 	templates::*,
 };
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use std::{
+	error::Error,
+	io::{BufRead, BufReader},
+};
 use validator::Validate;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/Debian/"]
 struct Resources;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum DebianVersion {
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub enum DebianEdition {
+	#[default]
 	Bullseye,
 	Bookworm,
 	Trixie,
+}
+
+/// Fetch the latest ISO
+fn fetch_latest_iso(
+	edition: DebianEdition,
+	arch: Architecture,
+) -> Result<IsoContainer, Box<dyn Error>> {
+	let arch = match arch {
+		Architecture::amd64 => "amd64",
+		Architecture::arm64 => "arm64",
+		Architecture::i386 => "i386",
+		_ => bail!("Unsupported architecture"),
+	};
+	let version = match edition {
+		DebianEdition::Bullseye => "11.2.0",
+		_ => bail!("Unsupported edition"),
+	};
+
+	let rs = reqwest::blocking::get(format!(
+		"https://cdimage.debian.org/cdimage/archive/{version}/{arch}/iso-cd/SHA256SUMS"
+	))?;
+	if rs.status().is_success() {
+		for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+			if line.ends_with(".iso") {
+				let split: Vec<&str> = line.split_whitespace().collect();
+				if let [hash, filename] = split[..] {
+					return Ok(IsoContainer{
+						url: format!("https://cdimage.debian.org/cdimage/archive/{version}/{arch}/iso-cd/{filename}"),
+						checksum: format!("sha256:{hash}"),
+					});
+				}
+			}
+		}
+	}
+	bail!("Failed to request latest ISO");
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -30,7 +69,7 @@ pub struct DebianTemplate {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
-	pub version: DebianVersion,
+	pub edition: DebianEdition,
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
@@ -40,16 +79,13 @@ impl Default for DebianTemplate {
 	fn default() -> Self {
 		Self {
 			root_password: String::from("root"),
-			iso: IsoContainer {
-				url: format!("https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.3.0-amd64-netinst.iso"),
-				checksum: String::from("none"),
-			},
-			version: DebianVersion::Bullseye,
-			general: GeneralContainer{
+			iso: fetch_latest_iso(DebianEdition::Bullseye, Architecture::amd64).unwrap(),
+			general: GeneralContainer {
 				base: TemplateBase::Debian,
 				storage_size: String::from("15 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
+			edition: DebianEdition::default(),
 			provisioners: ProvisionersContainer::default(),
 		}
 	}

@@ -52,6 +52,17 @@ pub fn is_interactive() -> bool {
 	!std::env::var("CI").is_ok()
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(tag = "arch")]
+pub enum Architecture {
+	#[default]
+	amd64,
+	arm64,
+	i386,
+	mips,
+	s390x,
+}
+
 /// The global configuration
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct BuildConfig {
@@ -64,8 +75,9 @@ pub struct BuildConfig {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub description: Option<String>,
 
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub arch: Option<String>,
+	/// The system architecture
+	#[serde(flatten)]
+	pub arch: Architecture,
 
 	/// The amount of memory to allocate to the VM
 	#[serde(skip_serializing_if = "Option::is_none")]

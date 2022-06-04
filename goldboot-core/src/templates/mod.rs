@@ -104,6 +104,7 @@ pub struct IsoContainer {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ProvisionersContainer {
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub provisioners: Option<Vec<serde_json::Value>>,
 }
 

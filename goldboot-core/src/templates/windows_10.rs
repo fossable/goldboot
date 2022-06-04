@@ -44,7 +44,7 @@ impl Default for Windows10Template {
 			general: GeneralContainer {
 				base: TemplateBase::Windows10,
 				storage_size: String::from("40 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
 			provisioners: ProvisionersContainer::default(),
 		}

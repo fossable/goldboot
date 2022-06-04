@@ -46,7 +46,7 @@ impl Default for UbuntuTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::Ubuntu,
 				storage_size: String::from("15 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
 			provisioners: ProvisionersContainer::default(),
 		}

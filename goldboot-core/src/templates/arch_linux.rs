@@ -49,7 +49,7 @@ impl ArchLinuxTemplate {
 }
 
 /// Fetch the latest iso URL and its SHA1 hash
-pub fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
+fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
 	let rs = reqwest::blocking::get(format!("{DEFAULT_MIRROR}/iso/latest/sha1sums.txt"))?;
 	if rs.status().is_success() {
 		for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
@@ -83,7 +83,7 @@ impl Default for ArchLinuxTemplate {
 			general: GeneralContainer {
 				base: TemplateBase::ArchLinux,
 				storage_size: String::from("10 GiB"),
-				qemuargs: None,
+				..Default::default()
 			},
 			provisioners: ProvisionersContainer::default(),
 		}

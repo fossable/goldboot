@@ -1,4 +1,4 @@
-use crate::{build::BuildWorker, ssh::SshConnection, vnc::VncConnection};
+use crate::{build::BuildWorker, ssh::SshConnection, vnc::VncConnection, Architecture};
 use log::{debug, info};
 use simple_error::bail;
 use std::error::Error;
@@ -185,14 +185,10 @@ impl QemuArgs {
 			)],
 			vnc: vec![format!("127.0.0.1:{}", context.vnc_port % 5900)],
 			vnc_port: context.vnc_port,
-			exe: if let Some(arch) = &context.config.arch {
-				match arch.as_str() {
-					"x86_64" => String::from("qemu-system-x86_64"),
-					"aarch64" => String::from("qemu-system-aarch64"),
-					_ => String::from("qemu-system-x86_64"),
-				}
-			} else {
-				String::from("qemu-system-x86_64")
+			exe: match &context.config.arch {
+				Architecture::amd64 => String::from("qemu-system-x86_64"),
+				Architecture::arm64 => String::from("qemu-system-aarch64"),
+				_ => String::from("qemu-system-x86_64"),
 			},
 			usbdevice: vec![],
 			record: context.record,

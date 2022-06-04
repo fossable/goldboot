@@ -5,7 +5,6 @@ exec 1>&2
 
 # Synchronize time
 timedatectl set-ntp true
-sleep 15
 
 # Display current time. If this is wrong, pacman keys might fail to import
 date

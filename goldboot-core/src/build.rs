@@ -1,7 +1,7 @@
 use crate::{
 	image::{library::ImageLibrary, GoldbootImage},
 	qcow::Qcow3,
-	BuildConfig, Template,
+	Architecture, BuildConfig, Template,
 };
 use log::{debug, info};
 use rand::Rng;
@@ -66,45 +66,27 @@ impl BuildJob {
 
 		// Unpack included firmware
 		let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
-		if let Some(arch) = &self.config.arch {
-			match arch.as_str() {
-				"x86_64" => {
-					std::fs::write(
-						&ovmf_path,
-						zstd::decode_all(std::io::Cursor::new(OVMF_X86_64))?,
-					)?;
-				}
-				"i386" => {
-					std::fs::write(
-						&ovmf_path,
-						zstd::decode_all(std::io::Cursor::new(OVMF_I386))?,
-					)?;
-				}
-				"aarch64" => {
-					std::fs::write(
-						&ovmf_path,
-						zstd::decode_all(std::io::Cursor::new(OVMF_AARCH64))?,
-					)?;
-				}
-				_ => bail!("Unsupported architecture"),
-			}
-		} else {
-			if cfg!(target_arch = "x86_64") {
+
+		match &self.config.arch {
+			Architecture::amd64 => {
 				std::fs::write(
 					&ovmf_path,
 					zstd::decode_all(std::io::Cursor::new(OVMF_X86_64))?,
 				)?;
-			} else if cfg!(target_arch = "i386") {
+			}
+			Architecture::i386 => {
 				std::fs::write(
 					&ovmf_path,
 					zstd::decode_all(std::io::Cursor::new(OVMF_I386))?,
 				)?;
-			} else if cfg!(target_arch = "aarch64") {
+			}
+			Architecture::arm64 => {
 				std::fs::write(
 					&ovmf_path,
 					zstd::decode_all(std::io::Cursor::new(OVMF_AARCH64))?,
 				)?;
-			};
+			}
+			_ => bail!("Unsupported architecture"),
 		}
 
 		Ok(BuildWorker {

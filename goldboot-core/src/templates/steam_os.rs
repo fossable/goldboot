@@ -43,7 +43,7 @@ impl Default for SteamOsTemplate {
 			general: GeneralContainer{
 				base: TemplateBase::SteamOs,
 				storage_size: String::from("15 GiB"),
-				qemuargs: None,
+				.. Default::default()
 			},
 			provisioners: ProvisionersContainer::default(),
 		}

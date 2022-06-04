@@ -371,6 +371,7 @@ impl GoldbootImage {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::Architecture;
 	use sha1::Sha1;
 
 	#[test]
@@ -382,7 +383,7 @@ mod tests {
 			BuildConfig {
 				name: String::from("Empty test"),
 				description: None,
-				arch: None,
+				arch: Architecture::amd64,
 				memory: None,
 				nvme: None,
 				templates: vec![],
@@ -405,7 +406,7 @@ mod tests {
 			BuildConfig {
 				name: String::from("Small test"),
 				description: None,
-				arch: None,
+				arch: Architecture::amd64,
 				memory: None,
 				nvme: None,
 				templates: vec![],
