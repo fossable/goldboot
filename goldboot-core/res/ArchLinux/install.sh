@@ -1,13 +1,14 @@
 #!/bin/bash -x
 ## Perform a basic Arch Linux install.
 set -e
+exec 1>&2
 
 # Synchronize time
 timedatectl set-ntp true
 hwclock --systohc
 
 # Display current time. If this is wrong, pacman keys might fail to import
-date 1>&2
+date
 
 # Configure Pacman mirrors
 echo "${GB_MIRRORLIST:?}" >/etc/pacman.d/mirrorlist

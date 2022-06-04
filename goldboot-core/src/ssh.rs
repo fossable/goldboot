@@ -2,7 +2,7 @@ use log::{debug, info};
 use simple_error::bail;
 use std::{
 	error::Error,
-	io::{BufRead, BufReader, Cursor, Read},
+	io::{BufRead, BufReader, Cursor},
 	net::TcpStream,
 	path::Path,
 	time::Duration,
@@ -85,7 +85,7 @@ impl SshConnection {
 
 		channel.exec(cmdline)?;
 
-		let mut stdout = BufReader::new(channel.stream(1));
+		let mut stdout = BufReader::new(channel.stderr());
 
 		loop {
 			let mut line = String::new();

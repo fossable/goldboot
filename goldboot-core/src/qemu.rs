@@ -217,7 +217,7 @@ impl QemuArgs {
 			String::from("-machine"),
 			self.machine.clone(),
 			String::from("-rtc"),
-			String::from("base=localtime"),
+			String::from("base=utc"),
 		];
 
 		if let Some(cpu) = &self.cpu {
