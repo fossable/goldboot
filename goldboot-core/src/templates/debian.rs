@@ -118,8 +118,10 @@ impl Template for DebianTemplate {
 			input!("aa"),
 			wait_screen!("53471d73e98f0109ce3262d9c45c522d7574366b"),
 			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
+			wait_screen!("97354165fd270a95fd3da41ef43c35bf24b7c09b"),
 			enter!(&self.root_password),
 			enter!(&self.root_password),
+			wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
 		])?;
 
 		// Wait for SSH

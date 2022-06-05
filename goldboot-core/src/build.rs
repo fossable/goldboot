@@ -95,7 +95,11 @@ impl BuildJob {
 			ovmf_path,
 			template,
 			ssh_port: rand::thread_rng().gen_range(10000..11000),
-			vnc_port: rand::thread_rng().gen_range(5900..5999),
+			vnc_port: if self.debug {
+				5900
+			} else {
+				rand::thread_rng().gen_range(5900..5999)
+			},
 			config: self.config.clone(),
 			record: self.record,
 			debug: self.debug,
