@@ -52,6 +52,16 @@ jobs:
           name: goldboot-linux-x86_64-unknown-linux-gnu
           path: target/release/goldboot-linux
 
+      - name: Build goldboot-linux image x86_64
+        run:
+          target/release/goldboot init --template GoldbootLinux
+          target/release/goldboot build --output goldboot-linux-x86_64.gb
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: goldboot-linux-x86_64.gb
+          path: goldboot-linux-x86_64.gb
+
   build-macos:
     name: Build macOS
     runs-on: macos-latest
@@ -170,4 +180,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Debug output
-          path: './*/screenshots'
+          path: './screenshots'
