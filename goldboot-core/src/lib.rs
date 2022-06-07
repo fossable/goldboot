@@ -22,6 +22,7 @@ pub mod ssh;
 pub mod templates;
 pub mod vnc;
 pub mod windows;
+pub mod registry;
 
 /// Find a random open TCP port in the given range.
 pub fn find_open_port(lower: u16, upper: u16) -> u16 {
@@ -54,6 +55,7 @@ pub fn is_interactive() -> bool {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 #[serde(tag = "arch")]
+#[allow(non_camel_case_types)]
 pub enum Architecture {
 	#[default]
 	amd64,
@@ -61,6 +63,31 @@ pub enum Architecture {
 	i386,
 	mips,
 	s390x,
+}
+
+impl TryFrom<String> for Architecture {
+	type Error = Box<dyn Error>;
+	fn try_from(s: String) -> Result<Self, Self::Error> {
+		match s.as_str() {
+			"amd64" => Ok(Architecture::amd64),
+			"x86_64" => Ok(Architecture::amd64),
+			"arm64" => Ok(Architecture::arm64),
+			"aarch64" => Ok(Architecture::arm64),
+			"i386" => Ok(Architecture::i386),
+			_ => bail!("Unknown architecture"),
+		}
+	}
+}
+
+impl ToString for Architecture {
+
+	fn to_string(&self) -> String {
+		match self {
+			Architecture::amd64 => String::from("amd64"),
+			_ => todo!(),
+
+		}
+	}
 }
 
 /// The global configuration

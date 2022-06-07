@@ -6,6 +6,6 @@ members = [
     "goldboot-cli",
     "goldboot-core",
     "goldboot-graphics",
-#    "goldboot-linux",
+    "goldboot-linux",
     "goldboot-registry",
 ]

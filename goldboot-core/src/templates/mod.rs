@@ -52,6 +52,16 @@ pub enum TemplateBase {
 	Windows10,
 }
 
+impl TryFrom<String> for TemplateBase {
+	type Error = Box<dyn Error>;
+	fn try_from(s: String) -> Result<Self, Self::Error> {
+		match s.as_str() {
+			"ArchLinux" => Ok(TemplateBase::ArchLinux),
+			_ => bail!("Unknown template name"),
+		}
+	}
+}
+
 impl TemplateBase {
 	#[rustfmt::skip]
 	pub fn parse_template(&self, value: serde_json::Value) -> Result<Box<dyn Template>, Box<dyn Error>> {

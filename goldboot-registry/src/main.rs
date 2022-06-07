@@ -1,21 +1,16 @@
-use actix_web::{get, web, App, HttpServer, Responder};
+use actix_web::{App, HttpServer};
 
 pub mod api {
 	pub mod build;
 	pub mod image;
-}
-
-#[get("/hello/{name}")]
-async fn greet(name: web::Path<String>) -> impl Responder {
-	format!("Hello {name}!")
+	pub mod media;
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	HttpServer::new(|| {
 		App::new()
-			.route("/hello", web::get().to(|| async { "Hello World!" }))
-			.service(greet)
+			.service(crate::api::media::download)
 	})
 	.bind(("127.0.0.1", 8080))?
 	.run()

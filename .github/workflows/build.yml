@@ -14,7 +14,7 @@ jobs:
         run: |
           #sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y libudev-dev libgtk-4-dev
+          sudo apt-get install -y libudev-dev libgtk-4-dev jq
           #sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
 
       - name: Install rust
@@ -53,8 +53,10 @@ jobs:
           path: target/release/goldboot-linux
 
       - name: Build goldboot-linux image x86_64
-        run:
+        run: |
           target/release/goldboot init --template GoldbootLinux
+          jq '.templates[0].executable = "target/release/goldboot-linux"' goldboot.json >goldboot.json.tmp
+          mv goldboot.json.tmp goldboot.json
           target/release/goldboot build --output goldboot-linux-x86_64.gb
 
       - uses: actions/upload-artifact@v3
