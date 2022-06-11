@@ -104,11 +104,9 @@ impl TemplateBase {
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct IsoContainer {
 	/// The installation media URL
-	#[serde(rename = "iso_url")]
 	pub url: String,
 
 	/// A hash of the installation media
-	#[serde(rename = "iso_checksum")]
 	pub checksum: String,
 }
 

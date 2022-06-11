@@ -25,7 +25,7 @@ pub struct PopOsTemplate {
 
 	pub root_password: String,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]

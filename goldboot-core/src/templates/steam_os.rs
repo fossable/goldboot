@@ -17,7 +17,7 @@ pub enum SteamOsVersion {
 pub struct SteamOsTemplate {
 	pub version: SteamOsVersion,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]

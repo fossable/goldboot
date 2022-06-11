@@ -21,7 +21,7 @@ pub struct Windows10Template {
 
 	hostname: String,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]
@@ -56,7 +56,7 @@ impl Windows10Template {
 		UnattendXml {
 			xmlns: "urn:schemas-microsoft-com:unattend".into(),
 			settings: vec![Settings {
-				pass: "specialize".into(),
+				pass: "specialize",
 				component: vec![Component {
 					name: "Microsoft-Windows-Shell-Setup".into(),
 					processorArchitecture: "amd64".into(),
@@ -115,11 +115,6 @@ impl Template for Windows10Template {
 		ssh.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
 		qemu.shutdown_wait()?;
 		Ok(())
-
-		/*builder.floppy_files = Some(vec![
-			"Autounattend.xml".into(),
-			"configure_winrm.ps1".into(),
-		]);*/
 	}
 
 	fn general(&self) -> GeneralContainer {

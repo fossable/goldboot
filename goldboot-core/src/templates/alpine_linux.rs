@@ -19,7 +19,7 @@ pub struct AlpineLinuxTemplate {
 	/// The root account password
 	pub root_password: String,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]

@@ -27,7 +27,7 @@ pub struct ArchLinuxTemplate {
 
 	pub mirrorlist: Vec<String>,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]

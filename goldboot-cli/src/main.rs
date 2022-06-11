@@ -40,7 +40,7 @@ struct CommandLine {
 enum Commands {
 	/// Build a new image
 	Build {
-		/// Save a screenshot to ./debug after each boot command
+		/// Save a screenshot to ./screenshots after each boot command for debugging
 		#[clap(long, takes_value = false)]
 		record: bool,
 
@@ -48,11 +48,15 @@ enum Commands {
 		#[clap(long, takes_value = false)]
 		debug: bool,
 
-		/// The output destination
+		/// Read the encryption password from STDIN
+		#[clap(long, takes_value = false)]
+		read_password: bool,
+
+		/// The optional output destination (defaults to image library)
 		#[clap(long)]
 		output: Option<String>,
 
-		/// The config file (default: ./goldboot.json)
+		/// The config file path (default: ./goldboot.json)
 		#[clap(long)]
 		config: Option<String>,
 	},
@@ -121,6 +125,10 @@ enum Commands {
 		/// A local image to include on the boot USB
 		#[clap(long)]
 		include: Vec<String>,
+
+		/// The architecture of the image to download
+		#[clap(long)]
+		arch: Option<String>,
 	},
 
 	/// Manage image registries
@@ -177,6 +185,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 		Commands::Build {
 			record,
 			debug,
+			read_password,
 			output,
 			config,
 		} => {
@@ -190,8 +199,20 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			debug!("Loading config from {}", config_path);
 
 			// Load build config from current directory
-			let config: BuildConfig = serde_json::from_slice(&std::fs::read(config_path)?)?;
+			let mut config: BuildConfig = serde_json::from_slice(&std::fs::read(config_path)?)?;
 			debug!("Loaded: {:#?}", &config);
+
+			// Include the encryption password if provided
+			if *read_password {
+				print!("Enter password: ");
+				let mut password = String::new();
+				std::io::stdin().read_line(&mut password)?;
+				config.password = Some(password);
+			} else if let Ok(password) = env::var("GOLDBOOT_PASSWORD") {
+				// Wipe out the value since we no longer need it
+				env::set_var("GOLDBOOT_PASSWORD", "");
+				config.password = Some(password);
+			}
 
 			// Fully verify config before proceeding
 			config.validate()?;
@@ -245,14 +266,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 			// Set architecture if given
 			if let Some(arch) = arch {
-				config.arch = match arch.as_str() {
-					"x86_64" => Architecture::amd64,
-					"amd64" => Architecture::amd64,
-					"aarch64" => Architecture::arm64,
-					"arm64" => Architecture::arm64,
-					"i386" => Architecture::i386,
-					_ => bail!("Unsupported platform"),
-				};
+				config.arch = arch.to_owned().try_into()?;
 			}
 
 			// Run template-specific initialization
@@ -272,6 +286,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			output,
 			confirm,
 			include,
+			arch,
 		} => {
 			if Path::new(output).exists() {
 				// TODO prompt
@@ -319,9 +334,17 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 		} => {
 			let image = ImageLibrary::find_by_id(image)?;
 
-			if Path::new(output).exists() {
-				// TODO prompt
-				//panic!();
+			if Path::new(output).exists() && !*confirm {
+				// Prompt to continue
+				print!("Confirm? [Y/N]");
+				let mut answer = String::new();
+				std::io::stdin().read_line(&mut answer)?;
+
+				match answer.as_str() {
+					"y" => {},
+					"Y" => {},
+					_ => std::process::exit(0),
+				}
 			}
 
 			image.write(output)

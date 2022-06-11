@@ -113,6 +113,10 @@ pub struct BuildConfig {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub nvme: Option<bool>,
 
+	/// The encryption password
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub password: Option<String>,
+
 	#[validate(length(min = 1))]
 	pub templates: Vec<serde_json::Value>,
 }

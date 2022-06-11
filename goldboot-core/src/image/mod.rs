@@ -1,3 +1,4 @@
+use rand::Rng;
 use crate::{progress::ProgressBar, qcow::Qcow3, BuildConfig};
 use binrw::{BinRead, BinReaderExt, BinWrite};
 use log::{debug, info, trace};
@@ -11,6 +12,8 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 use validator::Validate;
+use aes_gcm::{Aes256Gcm, Key, Nonce};
+use aes_gcm::aead::{Aead, NewAead};
 
 pub mod library;
 
@@ -185,6 +188,10 @@ impl GoldbootImage {
 		let mut dest_file = File::create(&destination)?;
 		let mut source_file = File::open(&source.path)?;
 
+		// Prepare cipher and RNG if the image should be encrypted
+		let cipher = Aes256Gcm::new(Key::from_slice(config.password.clone().unwrap_or("".to_string()).as_bytes()));
+		let mut rng = rand::thread_rng();
+
 		let metadata = ImageMetadata {
 			version: 1,
 			size: source.header.size,
@@ -261,7 +268,19 @@ impl GoldbootImage {
 						};
 
 						// Perform encryption
-						// TODO
+						cluster.data = match metadata.encryption_type {
+							ClusterEncryptionType::None => cluster.data,
+							ClusterEncryptionType::Aes => {
+								let mut ciphertext = vec![0_u8; cluster.data.len() + 12];
+
+								// Generate a random nonce for each cluster
+								let nonce = rng.gen::<[u8; 12]>();
+
+								ciphertext.copy_from_slice(&nonce);
+								ciphertext[12..].copy_from_slice(&cipher.encrypt(Nonce::from_slice(&nonce), cluster.data.as_ref()).unwrap());
+								ciphertext
+							}
+						};
 
 						cluster.size = cluster.data.len() as u32;
 
@@ -305,6 +324,9 @@ impl GoldbootImage {
 			.read(true)
 			.open(dest)?;
 
+		// Prepare cipher if the image should be decrypted
+		let cipher = Aes256Gcm::new(Key::from_slice(b"an example very very secret key."));
+
 		let progress = ProgressBar::Write
 			.new(self.metadata.cluster_count as u64 * self.metadata.block_size as u64);
 
@@ -346,7 +368,12 @@ impl GoldbootImage {
 				);
 
 				// Reverse encryption
-				// TODO
+				cluster.data = match self.metadata.encryption_type {
+					ClusterEncryptionType::None => cluster.data,
+					ClusterEncryptionType::Aes => {
+						cipher.decrypt(Nonce::from_slice(&cluster.data[0..12]), &cluster.data[12..]).unwrap()
+					}
+				};
 
 				// Reverse compression
 				cluster.data = match self.metadata.compression_type {

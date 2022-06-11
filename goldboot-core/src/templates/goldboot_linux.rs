@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::error::Error;
 use validator::Validate;
+use crate::http::HttpServer;
+use crate::templates::debian::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/GoldbootLinux/"]
@@ -19,6 +21,9 @@ struct Resources;
 pub struct GoldbootLinuxTemplate {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
+
+	/// The goldboot-linux executable to embed
+	pub executable: String,
 }
 
 impl Default for GoldbootLinuxTemplate {
@@ -29,6 +34,7 @@ impl Default for GoldbootLinuxTemplate {
 				storage_size: String::from("4 GiB"),
 				..Default::default()
 			},
+			executable: String::from(""),
 		}
 	}
 }
@@ -45,8 +51,12 @@ impl Template for GoldbootLinuxTemplate {
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(String::from("https://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2022.03.01-x86_64.iso"), "none", MediaFormat::Iso)?
+			MediaCache::get("https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-cd/debian-testing-amd64-netinst.iso".to_string(), "none", MediaFormat::Iso)?
 		));
+
+		// Start HTTP
+		let http =
+			HttpServer::serve_file(Resources::get("preseed.cfg").unwrap().data.to_vec())?;
 
 		// Start VM
 		let mut qemu = qemuargs.start_process()?;
@@ -57,32 +67,21 @@ impl Template for GoldbootLinuxTemplate {
 		// Send boot command
 		#[rustfmt::skip]
 		qemu.vnc.boot_command(vec![
-			// Initial wait
-			wait!(50),
-			// Wait for login
-			wait_screen_rect!("5b3ca88689e9d671903b3040889c7fa1cb5f244a", 100, 0, 1024, 400),
-			// Configure root password
-			enter!("passwd"), enter!(temp_password), enter!(temp_password),
-			// Configure SSH
-			enter!("echo 'AcceptEnv *' >>/etc/ssh/sshd_config"),
-			enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"),
-			// Start sshd
-			enter!("systemctl restart sshd"),
+			wait!(10),
+			input!("aa"),
+			wait_screen!("a5263becea998337f06070678e4bf3db2d437195"),
+			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
+			wait_screen!("97354165fd270a95fd3da41ef43c35bf24b7c09b"),
+			enter!(&temp_password),
+			enter!(&temp_password),
+			wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
 		])?;
 
 		// Wait for SSH
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &temp_password)?;
 
-		// Run install script
-		if let Some(resource) = Resources::get("install.sh") {
-			match ssh.upload_exec(
-				resource.data.to_vec(),
-				vec![("GB_ROOT_PASSWORD", &crate::random_password())],
-			) {
-				Ok(0) => debug!("Installation completed successfully"),
-				_ => bail!("Installation failed"),
-			}
-		}
+		// Copy executable
+		ssh.upload(std::fs::read(&self.executable)?, "/mnt/usr/bin/goldboot-linux")?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

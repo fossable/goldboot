@@ -9,7 +9,7 @@ use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum UbuntuVersion {
+pub enum UbuntuRelease {
 	Jammy,
 }
 
@@ -22,13 +22,13 @@ pub enum UbuntuEdition {
 pub struct UbuntuTemplate {
 	pub root_password: String,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
-	pub version: UbuntuVersion,
+	pub version: UbuntuRelease,
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
@@ -42,7 +42,7 @@ impl Default for UbuntuTemplate {
 				url: format!(""),
 				checksum: String::from("none"),
 			},
-			version: UbuntuVersion::Jammy,
+			version: UbuntuRelease::Jammy,
 			general: GeneralContainer {
 				base: TemplateBase::Ubuntu,
 				storage_size: String::from("15 GiB"),

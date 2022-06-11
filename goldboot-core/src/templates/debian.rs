@@ -22,10 +22,11 @@ pub enum DebianEdition {
 	Bullseye,
 	Bookworm,
 	Trixie,
+	Sid,
 }
 
 /// Fetch the latest ISO
-fn fetch_latest_iso(
+pub fn fetch_debian_iso(
 	edition: DebianEdition,
 	arch: Architecture,
 ) -> Result<IsoContainer, Box<dyn Error>> {
@@ -63,7 +64,7 @@ fn fetch_latest_iso(
 pub struct DebianTemplate {
 	pub root_password: String,
 
-	#[serde(flatten)]
+	/// The installation media
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]
@@ -79,7 +80,7 @@ impl Default for DebianTemplate {
 	fn default() -> Self {
 		Self {
 			root_password: String::from("root"),
-			iso: fetch_latest_iso(DebianEdition::Bullseye, Architecture::amd64).unwrap(),
+			iso: fetch_debian_iso(DebianEdition::Bullseye, Architecture::amd64).unwrap(),
 			general: GeneralContainer {
 				base: TemplateBase::Debian,
 				storage_size: String::from("15 GiB"),

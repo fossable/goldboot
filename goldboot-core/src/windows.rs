@@ -24,7 +24,7 @@ impl UnattendXml {
 #[derive(Clone, Serialize)]
 #[serde(rename = "settings")]
 pub struct Settings {
-	pub pass: String,
+	pub pass: &'static str,
 	pub component: Vec<Component>,
 }
 

@@ -35,3 +35,4 @@ vnc = "0.4"
 whoami = "1.2.1"
 zstd = "^0.10"
 flate2 = { version = "1" }
+aes-gcm = { version = "0.9.4" }
