@@ -313,6 +313,7 @@ impl GoldbootImage {
 	}
 
 	/// TODO multi threaded WriteWorkers
+	/// TODO write backup GPT header
 
 	/// Write the image out to disk.
 	pub fn write(&self, dest: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
@@ -413,6 +414,7 @@ mod tests {
 				arch: Architecture::amd64,
 				memory: None,
 				nvme: None,
+				password: None,
 				templates: vec![],
 			},
 			tmp.path().join("empty.gb"),
@@ -436,6 +438,7 @@ mod tests {
 				arch: Architecture::amd64,
 				memory: None,
 				nvme: None,
+				password: None,
 				templates: vec![],
 			},
 			tmp.path().join("small.gb"),

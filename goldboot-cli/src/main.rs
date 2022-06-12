@@ -9,6 +9,7 @@ use simple_error::bail;
 use std::{env, error::Error, fs::File, path::Path};
 use ubyte::ToByteUnit;
 use validator::Validate;
+use std::collections::HashMap;
 
 pub mod registry;
 
@@ -288,22 +289,39 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			include,
 			arch,
 		} => {
-			if Path::new(output).exists() {
-				// TODO prompt
-				//panic!();
+			if Path::new(output).exists() && !*confirm {
+				// Prompt to continue
+				print!("Confirm? [Y/N]");
+				let mut answer = String::new();
+				std::io::stdin().read_line(&mut answer)?;
+
+				match answer.as_str() {
+					"y" => {},
+					"Y" => {},
+					_ => std::process::exit(0),
+				}
 			}
 
 			// Find latest release
-			let rs = reqwest::blocking::Client::new()
-				.get("https://github.com/goldboot/goldboot-linux/releases/latest")
+			let rs: HashMap<String, serde_json::Value> = reqwest::blocking::Client::new()
+				.get("https://github.com/goldboot/goldboot/releases/latest")
 				.header("Accept", "application/json")
-				.send()?;
+				.send()?
+				.json()?;
 
-			// Download latest release to library
-			// TODO
-			let image = ImageLibrary::download(format!("https://github.com/goldboot/goldboot-linux/releases/download/v0.0.1/goldboot-linux-x86_64.gb"))?;
+			if let Some(version) = rs.get("tag_name") {
+				let version = version.as_str().unwrap();
 
-			image.write(output)
+				let arch = arch.clone().unwrap_or("amd64".to_string());
+
+				// Download latest release to library
+				let image = ImageLibrary::download(format!("https://github.com/goldboot/goldboot/releases/download/{version}/goldboot-linux-{arch}.gb"))?;
+
+				// Write image to device
+				image.write(output)
+			} else {
+				panic!();
+			}
 		}
 		Commands::Image { command } => match &command {
 			ImageCommands::List {} => {

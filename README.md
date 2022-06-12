@@ -1,101 +1,110 @@
 <p align="center">
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/logo-bg-256.png" />
 </p>
+<hr>
 
-[![Discord](https://img.shields.io/badge/goldboot-%237289DA.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Vzr7gT5dsd)
+Normal people don't reinstall their OS from scratch very often. When they do,
+the moment they reach that pristine desktop or terminal after a clean
+installation, all hell breaks loose. Settings get changed, applications are
+installed, bloatware is removed, files get downloaded here and there. The system
+is generally altered from its original state into a new "customized" state by a
+manual flurry of mouse clicks and key presses.
 
-`goldboot` simplifies the process of building and deploying golden images to
-bare-metal.
+If you think about your system like a server, this approach is called _mutable
+infrastructure_, meaning you mutate the state of your system repeatedly until it
+eventually suits your needs. And when something goes awry, you have to make the
+necessary changes to get it back in line.
 
-**Warning: this tool is totally unfinshed and should be used for testing only! Proceed
-at your own risk!**
+For normal people, mutable infrastructure works out fine until something major
+breaks or they have to migrate to a new computer altogether. In these cases,
+they probably end up starting over from scratch and have to reapply their
+changes again (and probably differently this time).
 
-<p align="center">
-	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/build.gif" />
-</p>
+Slightly less normal people might have scripts or even use a configuration
+management tool like Ansible or Puppet to automate all of those customizations.
+This is great, but you can't start at a boot prompt and immediately run an
+Ansible playbook. Something (or someone) has to install the OS before the
+automation can be "kicked off". Also, configuration management tools have
+limited scope.
 
-## Golden Images
+Truly sophisticated computer elites practice _immutable infrastructure_. Meaning
+that, every time they boot their system, its state begins identically to the
+time before. Any changes that are made during the course of runtime vanish on
+reboot. This approach has some real benefits, but requires quite a bit of effort
+from the user.
 
-Golden images contain your operating system(s), applications, software patches, and
-configuration all rolled into one easily deployable package.
+If you're looking to achieve something close to immutable infrastructure without
+creating a lot of extra work for yourself, you've come to the right place.
 
-Keeping the configuration of a large number of servers consistent might be the
-most obvious benefit to golden images, but they are useful for workstations
-too. With golden images, you can boot a brand-new install of your favorite OS with all
-applications and custom configuration already present!
+In the `goldboot` approach, you choose a starting template containing an
+absolutely minimal install of your favorite OS. Then you create _provisioners_
+which are the scripts that add all of your customizations on top of the
+template. From these pieces, `goldboot` builds a machine image ready to be
+deployed to real hardware.
 
-### Reset Security
+**Warning: this tool is totally unfinshed and should be used for testing only!
+Proceed at your own risk!**
 
-_Reset security_ is the concept that periodically rolling a machine's state back to a
-"known clean" checkpoint is a beneficial security practice. Malware (excluding
-firmware-level infections) cannot survive the rollback process and therefore can
-be removed easily.
+![License](https://img.shields.io/github/license/goldboot/goldboot)
+![build](https://github.com/goldboot/goldboot/actions/workflows/build.yml/badge.svg)
+[![Discord](https://img.shields.io/discord/981695209492606986)](https://discord.gg/Vzr7gT5dsd)
+![Lines of code](https://img.shields.io/tokei/lines/github/goldboot/goldboot)
+![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
 
-But how do you know the image you're applying is "known clean"? Supply chain attacks,
-although difficult to pull off, can compromise golden images themseleves. The best
-chance at catching this type of attack is automated testing/auditing which is still
-an active area of development.
+## `goldboot-cli`
 
-### Configuration Drift
+`goldboot` is a command-line utility similar in nature to
+[Packer](https://github.com/hashicorp/packer) that builds machine images for
+both servers and workstations alike.
 
-Golden images provide a single source of truth for a machine's configuration. Over
-time, it's common for configurations to change, new applications are installed,
-junk files accumulate here and there, etc.
+These machine images (also known as _golden images_) contain your operating
+system(s), applications, software patches, and configuration all rolled into one
+easily deployable package.
 
-Like a ship's hull, computers (metaphorically) gather barnacles over time. There
-are at least three solutions to this:
+The CLI is designed to run locally or in the cloud from a CI pipeline.
 
-- Mount your filesystems as read-only
-    - Making changes is now unwieldly, but the configuration can never drift
-    - Not possible on many operating systems
-- Sync your machine's configuration periodically after it has drifted
-    - There are many excellent tools out there for this like: Ansible, Puppet, Chef, etc
-    - The shortcoming of these tools is that they have limited scope
-- Rollback your machine's configuration to a clean state periodically
-    - Building that "clean state" and performing the rollback is what `goldboot` does
+## `goldboot-linux`
 
-### Application Data
+The golden images that `goldboot` produces can be deployed through a bootable
+Linux USB stick with a
+[graphical user interface](https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/select_image.png).
 
-_Application data_ is everything that needs to survive a rollback. This data must
-be synced/stored remotely with something like NFS, SMB, SSHFS, etc or it can reside
-locally on another drive. The golden image can contain the configuration necessary
-to mount the application data so it's immediately available.
+The `goldboot` command can create a bootable USB stick and include images on it.
 
-### Downtime
+## `goldboot-registry`
 
-A disadvantage to golden images is that applying them necessarily involves downtime.
-
-The time it takes to apply an image is proportional to the total size of the image
-and how far the machine's state has drifted. For this reason, the size of golden
-images should be kept to a minimum. They are not ideal for storing _application
-data_ like databases, archives, logs, backups, etc.
+There's also an optional HTTP server that hosts goldboot images over the
+network. `goldboot-linux` is capable of downloading images from a registry and
+applying it to the local machine.
 
 ## Platform Support Matrix
 
 The following table shows planned support (nothing here is fully complete yet).
 
-| OS Name    | Testing         | Provisioners | Multiboot |
-|------------|-----------------|--------------|-----------|
-| ![Alpine](/.github/images/templates/AlpineLinux.png) Alpine Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg) | Yes | Yes |
-| ![Arch Linux](/.github/images/templates/ArchLinux.png) Arch Linux | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes | Yes |
-| ![Debian](/.github/images/templates/Debian.png) Debian | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg) | Yes | Yes |
-| ![macOS](/.github/images/templates/MacOs.png) macOS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg) | Yes | No |
-| ![Pop!_OS](/.github/images/templates/pop_os.png) Pop!\_OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg) | Yes | Yes |
-| ![Steam Deck](/.github/images/templates/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg) | No | Yes |
-| ![Steam OS](/.github/images/templates/steam_os.png) Steam OS | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg) | Yes | Yes |
-| ![Windows 10](/.github/images/templates/Windows10.png) Windows 10 | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg) | Yes | No |
+| OS Name                                                            | Testing                                                                                                                                                                                                                             | Provisioners | Multiboot |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------- |
+| ![Alpine](/.github/images/templates/AlpineLinux.png) Alpine Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg)         | Yes          | Yes       |
+| ![Arch Linux](/.github/images/templates/ArchLinux.png) Arch Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes          | Yes       |
+| ![Debian](/.github/images/templates/Debian.png) Debian             | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg)         | Yes          | Yes       |
+| ![macOS](/.github/images/templates/MacOs.png) macOS                | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | No        |
+| ![Pop!_OS](/.github/images/templates/pop_os.png) Pop!\_OS          | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | Yes       |
+| ![Steam Deck](/.github/images/templates/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg)                                                                                                                    | No           | Yes       |
+| ![Steam OS](/.github/images/templates/steam_os.png) Steam OS       | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg)                                                                                                                      | Yes          | Yes       |
+| ![Windows 10](/.github/images/templates/Windows10.png) Windows 10  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg)                                                                                                                    | Yes          | No        |
 
 ## Getting Started
 
 Let's build a basic Arch Linux image for simplicity.
 
 First, create a directory which can later be added to version control:
+
 ```sh
 mkdir Test
 cd Test
 ```
 
 Initialize the directory and choose the `ArchLinux` base template to start with:
+
 ```sh
 goldboot init --name Test --template ArchLinux
 ```
@@ -111,6 +120,7 @@ echo 'pacman -Syu firefox' >configure.sh
 ```
 
 And add it to the goldboot config:
+
 ```json
 "provisioners": [
 	{
@@ -121,23 +131,25 @@ And add it to the goldboot config:
 ```
 
 Now, build the image:
+
 ```sh
 goldboot build
 ```
 
-Once the build succeeds, the image will be saved to the system's library directory. To deploy
-it to a physical disk, you can use a bootable USB drive:
+Once the build succeeds, the image will be saved to the system's library
+directory. To deploy it to a physical disk, you can use a bootable USB drive:
 
 ```sh
 # THIS WILL OVERWRITE /dev/sdX!
 goldboot make_usb --output /dev/sdX --include Test
 ```
 
-Once the USB is created, you can use it to boot into the goldboot live environment
-and select an image to write:
+Once the USB is created, you can use it to boot into the goldboot live
+environment and select an image to write:
 
 <p align="center">
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/select_image.png" />
 </p>
 
-Once the image has been applied, remove the bootable USB drive and reboot the machine.
+Once the image has been applied, remove the bootable USB drive and reboot the
+machine.
