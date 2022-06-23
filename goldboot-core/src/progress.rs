@@ -64,8 +64,8 @@ impl ProgressBar {
 		})
 	}
 
-	/// Fully copy the given reader to the given writer and display a progressbar if
-	/// running in interactive mode.
+	/// Fully copy the given reader to the given writer and display a
+	/// progressbar if running in interactive mode.
 	pub fn copy(
 		&self,
 		reader: &mut dyn Read,

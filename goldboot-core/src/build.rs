@@ -1,5 +1,5 @@
 use crate::{
-	image::{library::ImageLibrary, GoldbootImage},
+	image::{library::ImageLibrary, ImageHandle},
 	qcow::Qcow3,
 	Architecture, BuildConfig, Template,
 };
@@ -106,8 +106,8 @@ impl BuildJob {
 		})
 	}
 
-	/// Run the entire build process. If no output file is given, the image is moved
-	/// into the image library.
+	/// Run the entire build process. If no output file is given, the image is
+	/// moved into the image library.
 	pub fn run(&mut self, output: Option<String>) -> Result<(), Box<dyn Error>> {
 		self.start_time = Some(SystemTime::now());
 
@@ -161,7 +161,7 @@ impl BuildJob {
 		};
 
 		// Convert into final immutable image
-		GoldbootImage::convert(&final_qcow, self.config.clone(), &self.image_path)?;
+		ImageHandle::convert(&final_qcow, self.config.clone(), &self.image_path)?;
 
 		if let Some(output) = output {
 			// Move the image to output

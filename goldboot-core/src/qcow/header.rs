@@ -50,17 +50,18 @@ pub struct QcowHeader {
 	/// starts. Must be aligned to a cluster boundary.
 	_snapshots_offset: u64,
 
-	/// Bitmask of incompatible features. An implementation must fail to open an image if an
-	/// unknown bit is set.
+	/// Bitmask of incompatible features. An implementation must fail to open an
+	/// image if an unknown bit is set.
 	#[br(align_after = 8)]
 	_incompatible_features: u64,
 
-	/// Bitmask of compatible features. An implementation can safely ignore any unknown bits
-	/// that are set.
+	/// Bitmask of compatible features. An implementation can safely ignore any
+	/// unknown bits that are set.
 	_compatible_features: u64,
 
-	/// Bitmask of auto-clear features. An implementation may only write to an image with unknown
-	/// auto-clear features if it clears the respective bits from this field first.
+	/// Bitmask of auto-clear features. An implementation may only write to an
+	/// image with unknown auto-clear features if it clears the respective bits
+	/// from this field first.
 	_autoclear_features: u64,
 
 	/// Describes the width of a reference count block entry (width

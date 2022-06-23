@@ -1,8 +1,9 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	http::HttpServer,
 	qemu::QemuArgs,
-	templates::*,
+	templates::{debian::*, *},
 };
 use colored::*;
 use log::info;
@@ -10,8 +11,6 @@ use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::error::Error;
 use validator::Validate;
-use crate::http::HttpServer;
-use crate::templates::debian::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/GoldbootLinux/"]
@@ -55,8 +54,7 @@ impl Template for GoldbootLinuxTemplate {
 		));
 
 		// Start HTTP
-		let http =
-			HttpServer::serve_file(Resources::get("preseed.cfg").unwrap().data.to_vec())?;
+		let http = HttpServer::serve_file(Resources::get("preseed.cfg").unwrap().data.to_vec())?;
 
 		// Start VM
 		let mut qemu = qemuargs.start_process()?;
@@ -81,7 +79,10 @@ impl Template for GoldbootLinuxTemplate {
 		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &temp_password)?;
 
 		// Copy executable
-		ssh.upload(std::fs::read(&self.executable)?, "/mnt/usr/bin/goldboot-linux")?;
+		ssh.upload(
+			std::fs::read(&self.executable)?,
+			"/mnt/usr/bin/goldboot-linux",
+		)?;
 
 		// Shutdown
 		ssh.shutdown("poweroff")?;

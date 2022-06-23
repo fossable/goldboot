@@ -1,4 +1,4 @@
-use crate::{image::GoldbootImage, progress::ProgressBar};
+use crate::{image::ImageHandle, progress::ProgressBar};
 use log::{debug, info};
 use sha1::Digest;
 use sha2::Sha256;
@@ -14,8 +14,8 @@ use std::{
 /// Depending on the platform, the directory will be located at:
 ///     - /var/lib/goldboot/images (linux)
 ///
-/// Images are named according to their SHA256 hash (ID) and have a file extension
-/// of ".gb".
+/// Images are named according to their SHA256 hash (ID) and have a file
+/// extension of ".gb".
 pub struct ImageLibrary;
 
 /// Return the image library path for the current platform.
@@ -51,7 +51,7 @@ impl ImageLibrary {
 	}
 
 	/// Download a goldboot image over HTTP.
-	pub fn download(url: String) -> Result<GoldbootImage, Box<dyn Error>> {
+	pub fn download(url: String) -> Result<ImageHandle, Box<dyn Error>> {
 		let path = library_path().join("goldboot-linux.gb");
 
 		let mut rs = reqwest::blocking::get(&url)?;
@@ -62,14 +62,14 @@ impl ImageLibrary {
 
 			info!("Saving goldboot image");
 			ProgressBar::Download.copy(&mut rs, &mut file, length)?;
-			GoldbootImage::open(&path)
+			ImageHandle::open(&path, None)
 		} else {
 			bail!("Failed to download");
 		}
 	}
 
 	/// Load images present in the local image library.
-	pub fn load() -> Result<Vec<GoldbootImage>, Box<dyn Error>> {
+	pub fn load() -> Result<Vec<ImageHandle>, Box<dyn Error>> {
 		let mut images = Vec::new();
 
 		for p in library_path().read_dir()? {
@@ -77,7 +77,7 @@ impl ImageLibrary {
 
 			if let Some(ext) = path.extension() {
 				if ext == "gb" {
-					match GoldbootImage::open(&path) {
+					match ImageHandle::open(&path, None) {
 						Ok(image) => images.push(image),
 						Err(error) => debug!("Failed to load image: {:?}", error),
 					}
@@ -89,15 +89,15 @@ impl ImageLibrary {
 	}
 
 	/// Find images in the library by name.
-	pub fn find_by_name(image_name: &str) -> Result<Vec<GoldbootImage>, Box<dyn Error>> {
+	pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>, Box<dyn Error>> {
 		Ok(ImageLibrary::load()?
 			.into_iter()
-			.filter(|image| image.metadata.config.name == image_name)
+			.filter(|image| image.config.name == image_name)
 			.collect())
 	}
 
 	/// Find images in the library by ID.
-	pub fn find_by_id(image_id: &str) -> Result<GoldbootImage, Box<dyn Error>> {
+	pub fn find_by_id(image_id: &str) -> Result<ImageHandle, Box<dyn Error>> {
 		Ok(ImageLibrary::load()?
 			.into_iter()
 			.find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])

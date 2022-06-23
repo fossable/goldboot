@@ -6,10 +6,9 @@ use goldboot_core::{
 };
 use log::debug;
 use simple_error::bail;
-use std::{env, error::Error, fs::File, path::Path};
+use std::{collections::HashMap, env, error::Error, fs::File, path::Path};
 use ubyte::ToByteUnit;
 use validator::Validate;
-use std::collections::HashMap;
 
 pub mod registry;
 
@@ -41,7 +40,8 @@ struct CommandLine {
 enum Commands {
 	/// Build a new image
 	Build {
-		/// Save a screenshot to ./screenshots after each boot command for debugging
+		/// Save a screenshot to ./screenshots after each boot command for
+		/// debugging
 		#[clap(long, takes_value = false)]
 		record: bool,
 
@@ -105,7 +105,8 @@ enum Commands {
 		#[clap(long)]
 		disk: Option<String>,
 
-		/// Attempt to copy the configuration of the current hardware as closely as possible
+		/// Attempt to copy the configuration of the current hardware as closely
+		/// as possible
 		#[clap(long, takes_value = false)]
 		mimic_hardware: bool,
 
@@ -296,8 +297,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				std::io::stdin().read_line(&mut answer)?;
 
 				match answer.as_str() {
-					"y" => {},
-					"Y" => {},
+					"y" => {}
+					"Y" => {}
 					_ => std::process::exit(0),
 				}
 			}
@@ -342,7 +343,12 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				}
 				Ok(())
 			}
-			ImageCommands::Info { image } => Ok(()),
+			ImageCommands::Info { image } => {
+				let image = ImageLibrary::find_by_id(image)?;
+				println!("{:?}", image.header.decode_metadata());
+
+				Ok(())
+			}
 			ImageCommands::Run { image } => Ok(()),
 		},
 		Commands::Write {
@@ -359,8 +365,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				std::io::stdin().read_line(&mut answer)?;
 
 				match answer.as_str() {
-					"y" => {},
-					"Y" => {},
+					"y" => {}
+					"Y" => {}
 					_ => std::process::exit(0),
 				}
 			}

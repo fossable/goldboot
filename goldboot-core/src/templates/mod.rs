@@ -24,7 +24,8 @@ pub mod windows_10;
 pub mod windows_11;
 pub mod windows_7;
 
-/// Represents a "base configuration" that users can modify and use to build images.
+/// Represents a "base configuration" that users can modify and use to build
+/// images.
 pub trait Template {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
 

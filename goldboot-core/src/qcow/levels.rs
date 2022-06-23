@@ -3,7 +3,8 @@ use std::io::*;
 
 use crate::qcow::CompressionType;
 
-/// An entry in an L1 table that can be used to lookup the location of an L2 table
+/// An entry in an L1 table that can be used to lookup the location of an L2
+/// table
 #[derive(BinRead, Debug, Clone)]
 pub struct L1Entry(pub u64);
 
@@ -38,15 +39,18 @@ impl L1Entry {
 #[br(import(cluster_bits: u32))]
 struct L2Entries(#[br(count = (1 << cluster_bits) / 8)] Vec<u64>);
 
-/// An entry in an L2 table that can be used to lookup the location and properties of the cluster
+/// An entry in an L2 table that can be used to lookup the location and
+/// properties of the cluster
 #[derive(Debug, Clone)]
 pub struct L2Entry {
-	/// A descriptor providing the information needed to read from the given cluster
+	/// A descriptor providing the information needed to read from the given
+	/// cluster
 	pub cluster_descriptor: ClusterDescriptor,
 
-	/// true if the contents of the cluster are compressed using a method specified by
-	/// the field [`Version3Header::compression_type`], otherwise defaulting to
-	/// [`CompressionType::Zlib`], which can also be specified via [`CompressionType::default`].
+	/// true if the contents of the cluster are compressed using a method
+	/// specified by the field [`Version3Header::compression_type`], otherwise
+	/// defaulting to [`CompressionType::Zlib`], which can also be specified via
+	/// [`CompressionType::default`].
 	pub is_compressed: bool,
 
 	/// Set to false for clusters that are unused, compressed or require COW.
@@ -131,8 +135,8 @@ impl L2Entry {
 	}
 }
 
-/// A descriptor providing the information needed to read from the given cluster regardless of
-/// whether or not the cluster itself is compressed.
+/// A descriptor providing the information needed to read from the given cluster
+/// regardless of whether or not the cluster itself is compressed.
 #[derive(Debug, Clone)]
 pub enum ClusterDescriptor {
 	/// A descriptor describing an uncompressed cluster

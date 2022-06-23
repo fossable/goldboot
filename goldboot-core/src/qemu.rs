@@ -26,7 +26,12 @@ pub fn detect_accel() -> String {
 	}
 	if cfg!(target_arch = "x86_64") {
 		if cfg!(target_os = "linux") {
-			match Command::new("grep").arg("-Eq").arg("vmx|svm|0xc0f").arg("/proc/cpuinfo").status() {
+			match Command::new("grep")
+				.arg("-Eq")
+				.arg("vmx|svm|0xc0f")
+				.arg("/proc/cpuinfo")
+				.status()
+			{
 				Ok(status) => {
 					if let Some(code) = status.code() {
 						if code == 0 {

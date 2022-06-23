@@ -73,8 +73,6 @@ fn cache_dir() -> PathBuf {
 	}
 }
 
-trait Hasher: Write + Digest {}
-
 fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
 	// "None" shortcut
 	if checksum == "none" {

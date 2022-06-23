@@ -15,14 +15,15 @@ pub mod build;
 pub mod cache;
 pub mod http;
 pub mod image;
+pub mod library;
 pub mod progress;
 pub mod qcow;
 pub mod qemu;
+pub mod registry;
 pub mod ssh;
 pub mod templates;
 pub mod vnc;
 pub mod windows;
-pub mod registry;
 
 /// Find a random open TCP port in the given range.
 pub fn find_open_port(lower: u16, upper: u16) -> u16 {
@@ -53,6 +54,7 @@ pub fn is_interactive() -> bool {
 	!std::env::var("CI").is_ok()
 }
 
+/// Represents a system architecture.
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 #[serde(tag = "arch")]
 #[allow(non_camel_case_types)]
@@ -80,12 +82,13 @@ impl TryFrom<String> for Architecture {
 }
 
 impl ToString for Architecture {
-
 	fn to_string(&self) -> String {
 		match self {
 			Architecture::amd64 => String::from("amd64"),
-			_ => todo!(),
-
+			Architecture::arm64 => String::from("arm64"),
+			Architecture::i386 => String::from("i386"),
+			Architecture::mips => String::from("mips"),
+			Architecture::s390x => String::from("s390x"),
 		}
 	}
 }
@@ -94,7 +97,7 @@ impl ToString for Architecture {
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct BuildConfig {
 	/// The image name
-	#[validate(length(min = 1))]
+	#[validate(length(min = 1, max = 64))]
 	pub name: String,
 
 	/// An image description
@@ -113,7 +116,9 @@ pub struct BuildConfig {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub nvme: Option<bool>,
 
-	/// The encryption password
+	/// The encryption password. This value can alternatively be specified on
+	/// the command line and will be cleared before the config is included in
+	/// an image file.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub password: Option<String>,
 
