@@ -1,7 +1,7 @@
 use gdk4 as gdk;
 use gdk_pixbuf::PixbufLoader;
 use glib::clone;
-use goldboot::image::{library::ImageLibrary, GoldbootImage};
+use goldboot::{image::{ImageHandle}, library::ImageLibrary};
 use gtk::glib;
 use gtk4 as gtk;
 use gtk4::{prelude::*, EventControllerKey};
@@ -93,13 +93,13 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
 	window.show();
 }
 
-fn create_image_row(image: &GoldbootImage) -> gtk::Box {
+fn create_image_row(image: &ImageHandle) -> gtk::Box {
 	let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
 	row.add_css_class("listRow");
 
 	if let Some(resource) = Resources::get(&format!(
 		"{}.png",
-		image.metadata.config.get_template_bases().unwrap()[0]
+		image.config.get_template_bases().unwrap()[0]
 	)) {
 		let image = crate::load_png(resource.data.to_vec(), 32, 32);
 		image.add_css_class("listIcon");
@@ -107,7 +107,7 @@ fn create_image_row(image: &GoldbootImage) -> gtk::Box {
 	}
 
 	// Image name
-	let image_name = gtk::Label::new(Some(&image.metadata.config.name));
+	let image_name = gtk::Label::new(Some(&image.config.name));
 	image_name.add_css_class("listEntry");
 	image_name.set_hexpand(true);
 	image_name.set_halign(gtk::Align::Start);
@@ -122,7 +122,7 @@ fn create_image_row(image: &GoldbootImage) -> gtk::Box {
 	// TODO
 
 	// Image size
-	let image_size = gtk::Label::new(Some(&image.size.bytes().to_string()));
+	let image_size = gtk::Label::new(Some(&image.primary_header.size.bytes().to_string()));
 	image_size.add_css_class("listEntry");
 	row.append(&image_size);
 

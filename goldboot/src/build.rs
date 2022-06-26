@@ -1,8 +1,5 @@
 use crate::{
-	image::{ImageHandle},
-	library::ImageLibrary,
-	qcow::Qcow3,
-	Architecture, BuildConfig, Template,
+	image::ImageHandle, library::ImageLibrary, qcow::Qcow3, Architecture, BuildConfig, Template,
 };
 use log::{debug, info};
 use rand::Rng;

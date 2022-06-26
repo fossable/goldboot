@@ -220,6 +220,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b613b8e1e3cf911a086f53f03bf286f52fd7a7258e4fa606f0ef220d39d8877"
 dependencies = [
  "generic-array",
+ "rand_core",
 ]
 
 [[package]]
@@ -1050,6 +1051,7 @@ dependencies = [
  "colored",
  "env_logger",
  "flate2 1.0.24",
+ "generic-array",
  "goldboot-graphics",
  "hex",
  "indicatif",
@@ -1066,6 +1068,7 @@ dependencies = [
  "simple-error",
  "ssh2",
  "tempfile",
+ "test-env-log",
  "ubyte",
  "validator",
  "vnc",
@@ -2492,6 +2495,17 @@ checksum = "633c1a546cee861a1a6d0dc69ebeca693bf4296661ba7852b9d21d159e0506df"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "test-env-log"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877189d680101869f65ef94168105d6c188b3a143c13a2d42cf8a09c4c704f8a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

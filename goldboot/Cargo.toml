@@ -10,7 +10,7 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-aes-gcm = { version = "0.9.4" }
+aes-gcm = { version = "0.9.4", features = ["std"] }
 binrw = "0.8.4"
 bzip2-rs = "0.1.2"
 chrono = "0.4.19"
@@ -39,3 +39,8 @@ validator = { version = "0.12", features = ["derive"] }
 vnc = "0.4"
 whoami = "1.2.1"
 zstd = "^0.10"
+"generic-array" = "0.14.5"
+
+[dev-dependencies]
+test-env-log = "0.2.8"
+env_logger = "*"
