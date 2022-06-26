@@ -51,7 +51,7 @@ Proceed at your own risk!**
 ![Lines of code](https://img.shields.io/tokei/lines/github/goldboot/goldboot)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
 
-## `goldboot-cli`
+## `goldboot`
 
 `goldboot` is a command-line utility similar in nature to
 [Packer](https://github.com/hashicorp/packer) that builds machine images for

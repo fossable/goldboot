@@ -1,8 +1,8 @@
 use chrono::TimeZone;
 use clap::{Parser, Subcommand};
 use colored::*;
-use goldboot_core::{
-	build::BuildJob, image::library::ImageLibrary, templates::TemplateBase, BuildConfig, *,
+use goldboot::{
+	build::BuildJob, library::ImageLibrary, templates::TemplateBase, BuildConfig, *,
 };
 use log::debug;
 use simple_error::bail;
@@ -224,8 +224,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 			job.run(output.to_owned())
 		}
 		Commands::Registry { command } => match &command {
-			RegistryCommands::Push { url } => crate::registry::push(),
-			RegistryCommands::Pull { url } => crate::registry::pull(),
+			RegistryCommands::Push { url } => todo!(),
+			RegistryCommands::Pull { url } => todo!(),
 		},
 		Commands::Init {
 			name,
@@ -319,7 +319,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				let image = ImageLibrary::download(format!("https://github.com/goldboot/goldboot/releases/download/{version}/goldboot-linux-{arch}.gb"))?;
 
 				// Write image to device
-				image.write(output)
+				image.write(output, None)
 			} else {
 				panic!();
 			}
@@ -332,21 +332,20 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				for image in images {
 					println!(
 						"{:15} {:12} {:31} {:12} {}",
-						image.metadata.config.name,
-						image.size.bytes().to_string(),
+						std::str::from_utf8(&image.primary_header.name)?,
+						image.primary_header.size.bytes().to_string(),
 						chrono::Utc
-							.timestamp(image.metadata.timestamp as i64, 0)
+							.timestamp(image.primary_header.timestamp as i64, 0)
 							.to_rfc2822(),
 						&image.id[0..12],
-						image.metadata.config.description.unwrap_or("".to_string())
+						"TODO",
 					);
 				}
 				Ok(())
 			}
 			ImageCommands::Info { image } => {
 				let image = ImageLibrary::find_by_id(image)?;
-				println!("{:?}", image.header.decode_metadata());
-
+				// TODO
 				Ok(())
 			}
 			ImageCommands::Run { image } => Ok(()),
@@ -371,7 +370,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				}
 			}
 
-			image.write(output)
+			image.write(output, None)
 		}
 	}
 }

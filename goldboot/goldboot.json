@@ -1,0 +1,11 @@
+{
+  "name": "goldboot-cli",
+  "arch": "amd64",
+  "templates": [
+    {
+      "base": "GoldbootLinux",
+      "executable": "/home/cilki/workspace/github.com/cilki/goldboot/target/debug/goldboot-linux",
+      "storage_size": "4 GiB"
+    }
+  ]
+}

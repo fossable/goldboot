@@ -1,6 +1,6 @@
 [package]
-name = "goldboot-core"
-description = "Contains the core implementation of goldboot"
+name = "goldboot"
+description = "A command-line application for building goldboot images"
 version = "0.0.1"
 edition = "2021"
 license = "AGPL-3.0-only"
@@ -10,10 +10,15 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
+aes-gcm = { version = "0.9.4" }
 binrw = "0.8.4"
 bzip2-rs = "0.1.2"
+chrono = "0.4.19"
+clap = { version = "3.1.2", features = ["derive"] }
 colored = "2"
 env_logger = "0.9"
+flate2 = { version = "1" }
+goldboot-graphics = { path="../goldboot-graphics", version = "0.0.1" }
 hex = "0.4.3"
 indicatif = "0.16.2"
 log = { version = "0.4.11", default-features = false }
@@ -34,5 +39,3 @@ validator = { version = "0.12", features = ["derive"] }
 vnc = "0.4"
 whoami = "1.2.1"
 zstd = "^0.10"
-flate2 = { version = "1" }
-aes-gcm = { version = "0.9.4" }

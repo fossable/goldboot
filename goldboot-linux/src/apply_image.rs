@@ -1,5 +1,5 @@
 use glib::clone;
-use goldboot_core::image::{library::ImageLibrary, GoldbootImage};
+use goldboot::{image::{ImageHandle},library::ImageLibrary};
 use gtk::glib;
 use gtk4 as gtk;
 use gtk4::prelude::*;

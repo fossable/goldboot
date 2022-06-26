@@ -246,31 +246,31 @@ pub struct Cluster {
 }
 
 impl ImageHandle {
-	fn seek_primary_header<S: Seek>(&self, stream: &S) -> Result<(), Box<dyn Error>> {
+	fn seek_primary_header<S: Seek>(&self, stream: &mut S) -> Result<(), Box<dyn Error>> {
 		stream.seek(SeekFrom::Start(0))?;
 		Ok(())
 	}
 
-	fn seek_protected_header<S: Seek>(&self, stream: &S) -> Result<(), Box<dyn Error>> {
+	fn seek_protected_header<S: Seek>(&self, stream: &mut S) -> Result<(), Box<dyn Error>> {
 		stream.seek(SeekFrom::Start(PrimaryHeader::size()))?;
 		Ok(())
 	}
 
-	fn seek_config<S: Seek>(&self, stream: &S) -> Result<(), Box<dyn Error>> {
+	fn seek_config<S: Seek>(&self, stream: &mut S) -> Result<(), Box<dyn Error>> {
 		stream.seek(SeekFrom::Start(
 			PrimaryHeader::size() + ProtectedHeader::size(),
 		))?;
 		Ok(())
 	}
 
-	fn seek_vault<S: Seek>(&self, stream: &S) -> Result<(), Box<dyn Error>> {
+	fn seek_vault<S: Seek>(&self, stream: &mut S) -> Result<(), Box<dyn Error>> {
 		stream.seek(SeekFrom::Start(
 			PrimaryHeader::size() + ProtectedHeader::size() + self.protected_header.config_size as u64,
 		))?;
 		Ok(())
 	}
 
-	fn seek_digest_table<S: Seek>(&self, stream: &S) -> Result<(), Box<dyn Error>> {
+	fn seek_digest_table<S: Seek>(&self, stream: &mut S) -> Result<(), Box<dyn Error>> {
 		stream.seek(SeekFrom::Start(
 			PrimaryHeader::size()
 				+ ProtectedHeader::size()
@@ -286,14 +286,18 @@ impl ImageHandle {
 	}
 
 	/// Read and decrypt the vault.
-	fn read_vault(&self) -> Result<Vault, Box<dyn Error>> {
+	fn read_vault(&self, password: String) -> Result<Vault, Box<dyn Error>> {
+		let cipher = Aes256Gcm::new(Key::from_slice(
+			password.as_bytes(),
+		));
+
 		match self.primary_header.encryption_type {
 			HeaderEncryptionType::None => bail!("Encryption type is none"),
 			HeaderEncryptionType::Aes256 => {
-				let mut file = File::open(self.path)?;
+				let mut file = File::open(&self.path)?;
 
 				let mut vault_bytes = vec![0u8; self.protected_header.config_size as usize];
-				self.seek_vault(&file)?;
+				self.seek_vault(&mut file)?;
 				file.read_exact(&mut vault_bytes)?;
 
 				let vault_bytes = cipher
@@ -308,16 +312,20 @@ impl ImageHandle {
 	}
 
 	/// Read and decrypt the digest table.
-	fn read_digest_table(&self) -> Result<Vec<DigestTableEntry>, Box<dyn Error>> {
-		let mut file = File::open(self.path)?;
+	fn read_digest_table(&self, password: Option<String>) -> Result<Vec<DigestTableEntry>, Box<dyn Error>> {
+		let mut file = File::open(&self.path)?;
 
 		let mut digest_table_bytes = vec![0u8; self.protected_header.config_size as usize];
-		self.seek_digest_table(&file)?;
+		self.seek_digest_table(&mut file)?;
 		file.read_exact(&mut digest_table_bytes)?;
 
-		let cursor = match self.protected_header.encryption_type {
+		let mut cursor = match self.protected_header.encryption_type {
 			ClusterEncryptionType::None => Cursor::new(digest_table_bytes),
 			ClusterEncryptionType::Aes256 => {
+				let cipher = Aes256Gcm::new(Key::from_slice(
+					password.unwrap().as_bytes(),
+				));
+
 				let digest_table_bytes = cipher
 					.decrypt(
 						Nonce::from_slice(&self.protected_header.vault_nonce),
@@ -405,7 +413,7 @@ impl ImageHandle {
 
 	/// Modify the password that encrypts the encyption header. This doesn't
 	/// re-encrypt the clusters because they are encrypted with the cluster key.
-	pub fn change_password(&self, new_password: String) -> Result<(), Box<dyn Error>> {
+	pub fn change_password(&self, old_password: String, new_password: String) -> Result<(), Box<dyn Error>> {
 		// Create the cipher and a RNG for the nonces
 		let cipher = Aes256Gcm::new(Key::from_slice(new_password.as_bytes()));
 		let mut rng = rand::thread_rng();
@@ -416,12 +424,12 @@ impl ImageHandle {
 		let vault_nonce = rng.gen::<[u8; 12]>();
 
 		// Reencrypt protected header
-		let mut protected_header_bytes = Vec::new();
-		self.protected_header.write(&mut protected_header_bytes)?;
+		let mut protected_header_bytes = Cursor::new(Vec::new());
+		self.protected_header.write_to(&mut protected_header_bytes)?;
 		let protected_header_bytes = cipher
 			.encrypt(
 				Nonce::from_slice(&protected_header_nonce),
-				protected_header_bytes.as_ref(),
+				protected_header_bytes.into_inner()[..].as_ref(),
 			)
 			.unwrap();
 
@@ -429,27 +437,27 @@ impl ImageHandle {
 		let mut config_bytes = cipher
 			.encrypt(
 				Nonce::from_slice(&config_nonce),
-				serde_json::to_vec(&self.config)?,
+				serde_json::to_vec(&self.config)?.as_ref(),
 			)
 			.unwrap();
 
 		// Reencrypt vault
-		let mut vault_bytes = Vec::new();
-		self.read_vault().unwrap().write(&mut vault_bytes)?;
+		let mut vault_bytes = Cursor::new(Vec::new());
+		self.read_vault(old_password).unwrap().write_to(&mut vault_bytes)?;
 		let vault_bytes = cipher
-			.encrypt(Nonce::from_slice(&vault_nonce), vault_bytes.as_ref())
+			.encrypt(Nonce::from_slice(&vault_nonce), vault_bytes.into_inner()[..].as_ref())
 			.unwrap();
 
 		// Lastly modify the image file
-		let mut file = File::open(self.path)?;
+		let mut file = File::open(&self.path)?;
 
-		ProtectedHeader::seek(&file)?;
+		self.seek_protected_header(&mut file)?;
 		file.write_all(&protected_header_bytes)?;
 
-		self.seek_config(&file)?;
+		self.seek_config(&mut file)?;
 		file.write_all(&config_bytes)?;
 
-		self.seek_vault(&file)?;
+		self.seek_vault(&mut file)?;
 		file.write_all(&vault_bytes)?;
 
 		Ok(())
@@ -473,7 +481,7 @@ impl ImageHandle {
 		let mut rng = rand::thread_rng();
 
 		// Prepare primary header
-		let primary_header = PrimaryHeader {
+		let mut primary_header = PrimaryHeader {
 			version: 1,
 			size: source.header.size,
 			protected_nonce: rng.gen::<[u8; 12]>(),
@@ -483,8 +491,10 @@ impl ImageHandle {
 			} else {
 				HeaderEncryptionType::None
 			},
-			name: config.name.clone().as_bytes(),
+			name: [0u8; 64],
 		};
+
+		primary_header.name.copy_from_slice(&config.name.clone().as_bytes()[..]);
 
 		// Prepare config
 		let mut config = config.clone();
@@ -508,13 +518,15 @@ impl ImageHandle {
 		};
 
 		// Prepare vault
-		let vault = Vault {
-			cluster_key: rng.gen::<[u8; 128]>(),
+		let mut vault = Vault {
+			cluster_key: [0u8; 128],
 			nonce_count: protected_header.cluster_count,
 			nonce_table: (0..protected_header.cluster_count)
 				.map(|_| rng.gen::<[u8; 12]>())
 				.collect(),
 		};
+
+		rng.fill(&mut vault.cluster_key);
 
 		// Load the cluster cipher we just generated
 		let cluster_cipher = Aes256Gcm::new(Key::from_slice(&vault.cluster_key));
@@ -526,20 +538,20 @@ impl ImageHandle {
 		// Write protected header
 		debug!("Writing: {:?}", &protected_header);
 		match primary_header.encryption_type {
-			HeaderEncryptionType::None => protected_header.write_to(&mut dest_file),
+			HeaderEncryptionType::None => protected_header.write_to(&mut dest_file)?,
 			HeaderEncryptionType::Aes256 => {
-				let mut protected_header_bytes = Vec::new();
-				protected_header.write(&mut protected_header_bytes)?;
+				let mut protected_header_bytes = Cursor::new(Vec::new());
+				protected_header.write_to(&mut protected_header_bytes)?;
 				dest_file.write_all(
 					&header_cipher
 						.encrypt(
 							Nonce::from_slice(&primary_header.protected_nonce),
-							protected_header_bytes.as_ref(),
+							protected_header_bytes.into_inner()[..].as_ref(),
 						)
 						.unwrap(),
 				)?;
 			}
-		}
+		};
 
 		// Write config
 		dest_file.write_all(&config_bytes)?;
@@ -547,13 +559,13 @@ impl ImageHandle {
 		// Write vault
 		match primary_header.encryption_type {
 			HeaderEncryptionType::Aes256 => {
-				let mut vault_bytes = Vec::new();
+				let mut vault_bytes = Cursor::new(Vec::new());
 				vault.write_to(&mut vault_bytes)?;
 				dest_file.write_all(
 					&header_cipher
 						.encrypt(
 							Nonce::from_slice(&protected_header.vault_nonce),
-							vault_bytes.as_ref(),
+							vault_bytes.into_inner()[..].as_ref(),
 						)
 						.unwrap(),
 				)?;
@@ -690,13 +702,13 @@ impl ImageHandle {
 
 		// Prepare cipher if the image should be decrypted
 		let cipher = Aes256Gcm::new(Key::from_slice(
-			password.unwrap_or("".to_string()).as_bytes(),
+			password.clone().unwrap_or("".to_string()).as_bytes(),
 		));
 
 		// Read the vault if we need it
 		let vault = match self.protected_header.encryption_type {
 			ClusterEncryptionType::None => todo!(),
-			ClusterEncryptionType::Aes256 => self.read_vault()?,
+			ClusterEncryptionType::Aes256 => self.read_vault(password.clone().unwrap())?,
 		};
 
 		let progress = ProgressBar::Write.new(
@@ -704,7 +716,7 @@ impl ImageHandle {
 		);
 
 		// Read entire digest table. This may consume quite a bit of memory!
-		let digest_table = self.read_digest_table()?;
+		let digest_table = self.read_digest_table(password)?;
 
 		// Open the cluster table for reading
 		let mut cluster_table = BufReader::new(File::open(&self.path)?);
@@ -719,7 +731,7 @@ impl ImageHandle {
 		// Write all of the clusters that have changed
 		for i in 0..self.protected_header.cluster_count as usize {
 			// Load digest table entry
-			let entry = digest_table[i];
+			let entry = &digest_table[i];
 
 			// Jump to the block corresponding to the cluster
 			dest.seek(SeekFrom::Start(entry.block_offset))?;

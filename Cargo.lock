@@ -291,9 +291,9 @@ checksum = "bb07d2053ccdbe10e2af2995a2f116c1330396493dc1269f6a91d0ae82e19704"
 
 [[package]]
 name = "array-init"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6945cc5422176fc5e602e590c2878d2c2acd9a4fe20a4baa7c28022521698ec6"
+checksum = "bfb6d71005dc22a708c7496eee5c8dc0300ee47355de6256c3b35b12b5fef596"
 
 [[package]]
 name = "arrayvec"
@@ -1042,32 +1042,15 @@ dependencies = [
 name = "goldboot"
 version = "0.0.1"
 dependencies = [
+ "aes-gcm",
+ "binrw",
+ "bzip2-rs",
  "chrono",
  "clap",
  "colored",
  "env_logger",
- "goldboot-core",
- "indicatif",
- "log 0.4.17",
- "reqwest",
- "serde",
- "serde_json",
- "simple-error",
- "tempfile",
- "ubyte",
- "validator",
-]
-
-[[package]]
-name = "goldboot-core"
-version = "0.0.1"
-dependencies = [
- "aes-gcm",
- "binrw",
- "bzip2-rs",
- "colored",
- "env_logger",
  "flate2 1.0.24",
+ "goldboot-graphics",
  "hex",
  "indicatif",
  "log 0.4.17",
@@ -1092,7 +1075,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-graphics"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "quick-xml",
  "serde",
@@ -1107,7 +1090,7 @@ dependencies = [
  "gdk-pixbuf",
  "gdk4",
  "glib-macros",
- "goldboot-core",
+ "goldboot",
  "gtk4",
  "log 0.4.17",
  "rust-embed",
@@ -1122,7 +1105,7 @@ version = "0.0.1"
 dependencies = [
  "actix-web",
  "env_logger",
- "goldboot-core",
+ "goldboot",
  "log 0.4.17",
  "reqwest",
  "rustls",
@@ -2382,9 +2365,9 @@ checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 
 [[package]]
 name = "smallvec"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
+checksum = "cc88c725d61fc6c3132893370cac4a0200e3fedf5da8331c570664b1987f5ca2"
 
 [[package]]
 name = "socket2"
@@ -2664,9 +2647,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7709595b8878a4965ce5e87ebf880a7d39c9afc6837721b21a5a816a8117d921"
+checksum = "7b7358be39f2f274f322d2aaed611acc57f382e8eb1e5b48cb9ae30933495ce7"
 dependencies = [
  "once_cell",
 ]
@@ -2719,9 +2702,9 @@ checksum = "5bd2fe26506023ed7b5e1e315add59d6f584c621d037f9368fea9cfb988f368c"
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.19"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d54590932941a9e9266f0832deed84ebe1bf2e4c9e4a3554d393d18f5e854bf9"
+checksum = "81dee68f85cab8cf68dec42158baf3a79a1cdc065a8b103025965d6ccb7f6cbd"
 dependencies = [
  "tinyvec",
 ]

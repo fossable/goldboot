@@ -1,5 +1,5 @@
 use actix_web::{get, put, web, HttpResponse, Responder};
-use goldboot_core::image::library::ImageLibrary;
+use goldboot::library::ImageLibrary;
 use std::{error::Error, fs::File, path::Path};
 
 /// Get image info

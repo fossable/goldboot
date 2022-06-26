@@ -1,5 +1,5 @@
 use actix_web::{get, put, web, HttpResponse, Responder, Result};
-use goldboot_core::{registry::media::GetMediaResponse, templates::TemplateBase};
+use goldboot::{registry::media::GetMediaResponse, templates::TemplateBase};
 use simple_error::bail;
 use std::{error::Error, fs::File, path::Path};
 

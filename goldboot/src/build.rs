@@ -1,5 +1,6 @@
 use crate::{
-	image::{library::ImageLibrary, ImageHandle},
+	image::{ImageHandle},
+	library::ImageLibrary,
 	qcow::Qcow3,
 	Architecture, BuildConfig, Template,
 };

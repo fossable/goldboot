@@ -1,7 +1,7 @@
 use gdk4 as gdk;
 use gdk_pixbuf::PixbufLoader;
 use glib::clone;
-use goldboot_core::image::{library::ImageLibrary, GoldbootImage};
+use goldboot::image::{library::ImageLibrary, GoldbootImage};
 use gtk::glib;
 use gtk4 as gtk;
 use gtk4::{prelude::*, EventControllerKey};

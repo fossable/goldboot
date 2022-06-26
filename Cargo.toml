@@ -3,8 +3,7 @@ strip = true
 
 [workspace]
 members = [
-    "goldboot-cli",
-    "goldboot-core",
+    "goldboot",
     "goldboot-graphics",
     "goldboot-linux",
     "goldboot-registry",
