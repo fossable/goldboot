@@ -23,7 +23,7 @@ hex = "0.4.3"
 indicatif = "0.16.2"
 log = { version = "0.4.11", default-features = false }
 png = "0.17.5"
-quick-xml = { version = "0.22.0", features = ["serialize"] }
+quick-xml = { version = "0.23.0", features = ["serialize"] }
 rand = "0.8.5"
 reqwest = { version = "0.11.9", features=["blocking", "stream", "json"] }
 rust-embed = "6.3.0"
