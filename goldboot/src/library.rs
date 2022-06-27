@@ -62,7 +62,7 @@ impl ImageLibrary {
 
 			info!("Saving goldboot image");
 			ProgressBar::Download.copy(&mut rs, &mut file, length)?;
-			ImageHandle::open(&path, None)
+			ImageHandle::open(&path)
 		} else {
 			bail!("Failed to download");
 		}
@@ -77,7 +77,7 @@ impl ImageLibrary {
 
 			if let Some(ext) = path.extension() {
 				if ext == "gb" {
-					match ImageHandle::open(&path, None) {
+					match ImageHandle::open(&path) {
 						Ok(image) => images.push(image),
 						Err(error) => debug!("Failed to load image: {:?}", error),
 					}
@@ -90,18 +90,20 @@ impl ImageLibrary {
 
 	/// Find images in the library by name.
 	pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>, Box<dyn Error>> {
-		Ok(ImageLibrary::load()?
-			.into_iter()
-			.filter(|image| image.config.name == image_name)
-			.collect())
+		todo!()
+		//Ok(ImageLibrary::load()?
+		//	.into_iter()
+		//	.filter(|image| image.primary_header.name == image_name)
+		//	.collect())
 	}
 
 	/// Find images in the library by ID.
 	pub fn find_by_id(image_id: &str) -> Result<ImageHandle, Box<dyn Error>> {
-		Ok(ImageLibrary::load()?
-			.into_iter()
-			.find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
-			.ok_or("Image not found")?)
+		todo!()
+		//Ok(ImageLibrary::load()?
+		//	.into_iter()
+		//	.find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
+		//	.ok_or("Image not found")?)
 	}
 
 	/// Remove an image from the library by ID.
