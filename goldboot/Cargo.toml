@@ -11,7 +11,7 @@ repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
 aes-gcm = { version = "0.9.4", features = ["std"] }
-binrw = "0.8.4"
+binrw = "0.9.1"
 bzip2-rs = "0.1.2"
 chrono = "0.4.19"
 clap = { version = "3.1.2", features = ["derive"] }
