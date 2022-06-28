@@ -54,6 +54,8 @@ jobs:
 
       - name: Build goldboot-linux image x86_64
         run: |
+          export RUST_BACKTRACE=1
+          export RUST_LOG=debug
           target/release/goldboot init --template GoldbootLinux
           jq '.templates[0].executable = "target/release/goldboot-linux"' goldboot.json >goldboot.json.tmp
           mv goldboot.json.tmp goldboot.json
