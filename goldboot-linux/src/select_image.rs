@@ -97,17 +97,20 @@ fn create_image_row(image: &ImageHandle) -> gtk::Box {
 	let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
 	row.add_css_class("listRow");
 
-	if let Some(resource) = Resources::get(&format!(
-		"{}.png",
-		image.config.get_template_bases().unwrap()[0]
-	)) {
-		let image = crate::load_png(resource.data.to_vec(), 32, 32);
-		image.add_css_class("listIcon");
-		row.append(&image);
+	if let Some(config) = &image.config {
+		if let Some(resource) =
+			Resources::get(&format!("{}.png", config.get_template_bases().unwrap()[0]))
+		{
+			let image = crate::load_png(resource.data.to_vec(), 32, 32);
+			image.add_css_class("listIcon");
+			row.append(&image);
+		}
+	} else {
+		// TODO encrypted
 	}
 
 	// Image name
-	let image_name = gtk::Label::new(Some(&image.config.name));
+	let image_name = gtk::Label::new(Some(&image.primary_header.name()));
 	image_name.add_css_class("listEntry");
 	image_name.set_hexpand(true);
 	image_name.set_halign(gtk::Align::Start);

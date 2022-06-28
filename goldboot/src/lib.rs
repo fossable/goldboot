@@ -1,4 +1,5 @@
 #![feature(seek_stream_len)]
+#![feature(let_chains)]
 
 use crate::{
 	ssh::SshConnection,

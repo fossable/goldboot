@@ -317,7 +317,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				let image = ImageLibrary::download(format!("https://github.com/goldboot/goldboot/releases/download/{version}/goldboot-linux-{arch}.gb"))?;
 
 				// Write image to device
-				image.write(output, None)
+				image.write(output)
 			} else {
 				panic!();
 			}
@@ -368,7 +368,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 				}
 			}
 
-			image.write(output, None)
+			image.write(output)
 		}
 	}
 }

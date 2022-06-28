@@ -10,36 +10,36 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-aes-gcm = { version = "0.9.4", features = ["std"] }
-binrw = "0.8.4"
-bzip2-rs = "0.1.2"
-chrono = "0.4.19"
-clap = { version = "3.1.2", features = ["derive"] }
+aes-gcm = { version = "0", features = ["std"] }
+binrw = "0"
+bzip2-rs = "0"
+chrono = "0"
+clap = { version = "3", features = ["derive"] }
 colored = "2"
-env_logger = "0.9"
-flate2 = { version = "1" }
+env_logger = "0"
+flate2 = "1"
 goldboot-graphics = { path="../goldboot-graphics", version = "0.0.1" }
-hex = "0.4.3"
-indicatif = "0.16.2"
-log = { version = "0.4.11", default-features = false }
-png = "0.17.5"
-quick-xml = { version = "0.22.0", features = ["serialize"] }
-rand = "0.8.5"
-reqwest = { version = "0.11.9", features=["blocking", "stream", "json"] }
-rust-embed = "6.3.0"
-serde = { version="1",features = ["derive"] }
+hex = "0"
+indicatif = "0"
+log = { version = "0", default-features = false }
+png = "0"
+quick-xml = { version = "0", features = ["serialize"] }
+rand = "0"
+reqwest = { version = "0", features=["blocking", "stream", "json"] }
+rust-embed = "6"
+serde = { version="1", features = ["derive"] }
 serde_json = "1"
-sha1 = "0.10.1"
-sha2 = "0.10.2"
-simple-error = "0.2.3"
-ssh2 = {version = "0.9", features = ["vendored-openssl"]}
-tempfile = "3.3.0"
-ubyte = "0.10.1"
-validator = { version = "0.12", features = ["derive"] }
-vnc = "0.4"
-whoami = "1.2.1"
+sha1 = "0"
+sha2 = "0"
+simple-error = "0"
+ssh2 = {version = "0", features = ["vendored-openssl"]}
+tempfile = "3"
+ubyte = "0"
+validator = { version = "0", features = ["derive"] }
+vnc = "0"
+whoami = "1"
 zstd = "^0.10"
-"generic-array" = "0.14.5"
+regex = "1"
 
 [dev-dependencies]
 test-env-log = "0.2.8"

@@ -90,20 +90,18 @@ impl ImageLibrary {
 
 	/// Find images in the library by name.
 	pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>, Box<dyn Error>> {
-		todo!()
-		//Ok(ImageLibrary::load()?
-		//	.into_iter()
-		//	.filter(|image| image.primary_header.name == image_name)
-		//	.collect())
+		Ok(ImageLibrary::load()?
+			.into_iter()
+			.filter(|image| image.primary_header.name() == image_name)
+			.collect())
 	}
 
 	/// Find images in the library by ID.
 	pub fn find_by_id(image_id: &str) -> Result<ImageHandle, Box<dyn Error>> {
-		todo!()
-		//Ok(ImageLibrary::load()?
-		//	.into_iter()
-		//	.find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
-		//	.ok_or("Image not found")?)
+		Ok(ImageLibrary::load()?
+			.into_iter()
+			.find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
+			.ok_or("Image not found")?)
 	}
 
 	/// Remove an image from the library by ID.

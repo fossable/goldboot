@@ -4,9 +4,9 @@ use aes_gcm::{
 	Aes256Gcm, Key, Nonce,
 };
 use binrw::{BinRead, BinReaderExt, BinWrite};
-use generic_array::GenericArray;
 use log::{debug, info, trace};
 use rand::Rng;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use simple_error::bail;
@@ -58,6 +58,9 @@ pub struct ImageHandle {
 
 	/// The size in bytes of the image file on disk
 	pub file_size: u64,
+
+	/// The image's ID (SHA256 hash)
+	pub id: String,
 }
 
 /// The cluster compression algorithm.
@@ -125,6 +128,12 @@ pub struct PrimaryHeader {
 	pub directory_size: u32,
 }
 
+impl PrimaryHeader {
+	pub fn name(&self) -> &str {
+		std::str::from_utf8(&self.name).unwrap()
+	}
+}
+
 /// Contains metadata which may be encrypted.
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(big)]
@@ -180,7 +189,7 @@ pub struct Directory {
 	pub digest_table_size: u32,
 }
 
-#[derive(BinRead, BinWrite, Debug, Clone)]
+#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(big)]
 pub struct DigestTable {
 	/// The number of digests (and therefore the number of clusters)
@@ -192,7 +201,7 @@ pub struct DigestTable {
 }
 
 /// An entry in the digest table which corresponds to one cluster.
-#[derive(BinRead, BinWrite, Debug, Clone)]
+#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(big)]
 pub struct DigestTableEntry {
 	/// The cluster's offset in the image file
@@ -224,18 +233,18 @@ fn new_key(password: String) -> Aes256Gcm {
 	Aes256Gcm::new(&Sha256::new().chain_update(password.as_bytes()).finalize())
 }
 
+/// Hash the entire image file to produce the image ID.
+pub fn compute_id(path: impl AsRef<Path>) -> Result<String, Box<dyn Error>> {
+	let mut file = File::open(&path)?;
+	let mut hasher = Sha256::new();
+
+	std::io::copy(&mut file, &mut hasher)?;
+	Ok(hex::encode(hasher.finalize()))
+}
+
 impl ImageHandle {
-
-	/// Hash the entire image file to produce the image ID.
-	pub fn compute_id(&self) -> Result<String, Box<dyn Error>> {
-		let mut file = File::open(&self.path)?;
-		let mut hasher = Sha256::new();
-
-		std::io::copy(&mut file, &mut hasher)?;
-		Ok(hex::encode(hasher.finalize()))
-	}
-
-	/// Load all sections into memory except the cluster table. If the image is encrypted, the sections will be decrypted.
+	/// Load all sections into memory except the cluster table. If the image is
+	/// encrypted, the sections will be decrypted.
 	pub fn load(&mut self, password: Option<String>) -> Result<(), Box<dyn Error>> {
 		let mut file = File::open(&self.path)?;
 
@@ -254,11 +263,14 @@ impl ImageHandle {
 					directory_bytes.as_ref(),
 				)?;
 				Cursor::new(directory_bytes).read_be()?
-			},
+			}
 		};
 
 		// Load the protected header
-		file.seek(SeekFrom::Start(self.primary_header.directory_offset))?;
+		file.seek(SeekFrom::Start(0))?;
+
+		// Throw this away so we're at the correct offset
+		let _primary: PrimaryHeader = file.read_be()?;
 		let protected_header: ProtectedHeader = match self.primary_header.encryption_type {
 			HeaderEncryptionType::None => file.read_be()?,
 			HeaderEncryptionType::Aes256 => {
@@ -270,7 +282,7 @@ impl ImageHandle {
 					protected_header_bytes.as_ref(),
 				)?;
 				Cursor::new(protected_header_bytes).read_be()?
-			},
+			}
 		};
 
 		// Load config
@@ -286,7 +298,7 @@ impl ImageHandle {
 					config_bytes.as_ref(),
 				)?;
 				serde_json::from_slice(&config_bytes)?
-			},
+			}
 		};
 
 		// Load the digest table
@@ -302,7 +314,7 @@ impl ImageHandle {
 					digest_table_bytes.as_ref(),
 				)?;
 				Cursor::new(digest_table_bytes).read_be()?
-			},
+			}
 		};
 
 		// Modify the current image handle finally
@@ -328,16 +340,49 @@ impl ImageHandle {
 		let primary_header: PrimaryHeader = file.read_be()?;
 		trace!("Read: {:?}", &primary_header);
 
-		// Don't load all sections now because they may not be needed
-		Ok(Self {
-			primary_header,
-			protected_header: None,
-			config: None,
-			digest_table: None,
-			directory: None,
-			path: path.to_path_buf(),
-			file_size: std::fs::metadata(&path)?.len(),
-		})
+		// Get image ID
+		let id = if let Some(stem) = path.file_stem() && Regex::new("[A-Fa-f0-9]{64}")?.is_match(stem.to_str().unwrap()) {
+			stem.to_str().unwrap().to_string()
+		} else {
+			compute_id(&path).unwrap()
+		};
+
+		if primary_header.encryption_type == HeaderEncryptionType::None {
+			// Read protected header
+			let protected_header: ProtectedHeader = file.read_be()?;
+
+			// Read directory
+			file.seek(SeekFrom::Start(primary_header.directory_offset))?;
+			let directory: Directory = file.read_be()?;
+
+			// Read config
+			let mut config_bytes = vec![0u8; directory.config_size as usize];
+			file.seek(SeekFrom::Start(directory.config_offset))?;
+			file.read_exact(&mut config_bytes)?;
+			let config = serde_json::from_slice(&config_bytes)?;
+
+			Ok(Self {
+				id,
+				primary_header,
+				protected_header: Some(protected_header),
+				config: Some(config),
+				digest_table: None,
+				directory: Some(directory),
+				path: path.to_path_buf(),
+				file_size: std::fs::metadata(&path)?.len(),
+			})
+		} else {
+			Ok(Self {
+				id,
+				primary_header,
+				protected_header: None,
+				config: None,
+				digest_table: None,
+				directory: None,
+				path: path.to_path_buf(),
+				file_size: std::fs::metadata(&path)?.len(),
+			})
+		}
 	}
 
 	/// Modify the password and re-encrypt all encrypted sections. This doesn't
@@ -404,8 +449,6 @@ impl ImageHandle {
 		let mut config = config.clone();
 		config.password = None;
 
-		let config_bytes = serde_json::to_vec(&config)?;
-
 		// Prepare protected header
 		let mut protected_header = ProtectedHeader {
 			block_size: source.header.cluster_size() as u32,
@@ -424,8 +467,8 @@ impl ImageHandle {
 		if config.password.is_some() {
 			protected_header.nonce_count = protected_header.cluster_count;
 			protected_header.nonce_table = (0..protected_header.cluster_count)
-			.map(|_| rng.gen::<[u8; 12]>())
-			.collect();
+				.map(|_| rng.gen::<[u8; 12]>())
+				.collect();
 		}
 
 		// Load the cluster cipher we just generated
@@ -436,27 +479,39 @@ impl ImageHandle {
 		primary_header.write_to(&mut dest_file)?;
 
 		// Write protected header
-		debug!("Writing: {:?}", &protected_header);
-		let mut protected_header_bytes = Cursor::new(Vec::new());
-		protected_header.write_to(&mut protected_header_bytes)?;
+		{
+			debug!("Writing: {:?}", &protected_header);
+			let mut protected_header_bytes = Cursor::new(Vec::new());
+			protected_header.write_to(&mut protected_header_bytes)?;
 
-		let protected_header_bytes = match primary_header.encryption_type {
-			HeaderEncryptionType::None => protected_header_bytes.into_inner(),
-			HeaderEncryptionType::Aes256 => {
-				header_cipher.encrypt(
+			let protected_header_bytes = match primary_header.encryption_type {
+				HeaderEncryptionType::None => protected_header_bytes.into_inner(),
+				HeaderEncryptionType::Aes256 => header_cipher.encrypt(
 					Nonce::from_slice(&directory.protected_nonce),
 					protected_header_bytes.into_inner()[..].as_ref(),
-				)?
-			}
-		};
+				)?,
+			};
 
-		directory.protected_size = protected_header_bytes.len() as u32;
-		dest_file.write_all(&protected_header_bytes)?;
+			directory.protected_size = protected_header_bytes.len() as u32;
+			dest_file.write_all(&protected_header_bytes)?;
+		}
 
 		// Write config
-		directory.config_offset = dest_file.stream_position()?;
-		directory.config_size = config_bytes.len() as u32;
-		dest_file.write_all(&config_bytes)?;
+		{
+			let config_bytes = serde_json::to_vec(&config)?;
+
+			let config_bytes = match primary_header.encryption_type {
+				HeaderEncryptionType::None => config_bytes,
+				HeaderEncryptionType::Aes256 => header_cipher.encrypt(
+					Nonce::from_slice(&directory.config_nonce),
+					config_bytes.as_ref(),
+				)?,
+			};
+
+			directory.config_offset = dest_file.stream_position()?;
+			directory.config_size = config_bytes.len() as u32;
+			dest_file.write_all(&config_bytes)?;
+		}
 
 		// Prepare the digest table
 		let mut digest_table = DigestTable {
@@ -496,7 +551,7 @@ impl ImageHandle {
 						// Compute hash of the block which will be used when writing the block later
 						let digest = Sha256::new().chain_update(&cluster.data).finalize();
 
-						digest_table.digest_table.push( DigestTableEntry {
+						digest_table.digest_table.push(DigestTableEntry {
 							digest: digest.into(),
 							block_offset,
 							cluster_offset,
@@ -553,12 +608,10 @@ impl ImageHandle {
 
 			let digest_table_bytes = match primary_header.encryption_type {
 				HeaderEncryptionType::None => digest_table_bytes.into_inner(),
-				HeaderEncryptionType::Aes256 => {
-					header_cipher.encrypt(
-						Nonce::from_slice(&directory.digest_table_nonce),
-						digest_table_bytes.into_inner()[..].as_ref(),
-					)?
-				}
+				HeaderEncryptionType::Aes256 => header_cipher.encrypt(
+					Nonce::from_slice(&directory.digest_table_nonce),
+					digest_table_bytes.into_inner()[..].as_ref(),
+				)?,
 			};
 
 			directory.digest_table_offset = dest_file.stream_position()?;
@@ -573,12 +626,10 @@ impl ImageHandle {
 
 			let directory_bytes = match primary_header.encryption_type {
 				HeaderEncryptionType::None => directory_bytes.into_inner(),
-				HeaderEncryptionType::Aes256 => {
-					header_cipher.encrypt(
-						Nonce::from_slice(&primary_header.directory_nonce),
-						directory_bytes.into_inner()[..].as_ref(),
-					)?
-				}
+				HeaderEncryptionType::Aes256 => header_cipher.encrypt(
+					Nonce::from_slice(&primary_header.directory_nonce),
+					directory_bytes.into_inner()[..].as_ref(),
+				)?,
 			};
 
 			primary_header.directory_offset = dest_file.stream_position()?;
@@ -591,6 +642,7 @@ impl ImageHandle {
 		primary_header.write_to(&mut dest_file)?;
 
 		Ok(ImageHandle {
+			id: compute_id(dest.as_ref())?,
 			primary_header,
 			protected_header: Some(protected_header),
 			config: Some(config),
@@ -606,7 +658,6 @@ impl ImageHandle {
 
 	/// Write the image contents out to disk.
 	pub fn write(&self, dest: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
-
 		if self.protected_header.is_none() || self.digest_table.is_none() {
 			bail!("Image not loaded");
 		}
@@ -624,9 +675,8 @@ impl ImageHandle {
 			.read(true)
 			.open(dest)?;
 
-		let progress = ProgressBar::Write.new(
-			protected_header.cluster_count as u64 * protected_header.block_size as u64,
-		);
+		let progress = ProgressBar::Write
+			.new(protected_header.cluster_count as u64 * protected_header.block_size as u64);
 
 		// Open the cluster table for reading
 		let mut cluster_table = BufReader::new(File::open(&self.path)?);
@@ -714,10 +764,15 @@ mod tests {
 			tmp.path().join("small.gb"),
 		)?;
 
-		// Try to load the image
-		let loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
+		// Try to open the image we just converted
+		let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
 		assert_eq!(loaded_image.primary_header, image.primary_header);
 		assert_eq!(loaded_image.protected_header, image.protected_header);
+
+		// Try to load all sections
+		assert_eq!(loaded_image.digest_table, None);
+		loaded_image.load(None)?;
+		assert_eq!(loaded_image.digest_table.unwrap().digest_count, 2);
 
 		// Check raw content
 		image.write(tmp.path().join("small.raw"))?;
@@ -752,11 +807,13 @@ mod tests {
 			tmp.path().join("small.gb"),
 		)?;
 
-		// Try to load the image
-		let loaded_image =
-			ImageHandle::open(tmp.path().join("small.gb"))?;
+		// Try to open the image
+		let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
 		assert_eq!(loaded_image.primary_header, image.primary_header);
-		assert_eq!(loaded_image.protected_header, image.protected_header);
+		assert_eq!(loaded_image.protected_header, None);
+
+		// Try to load all sections
+		loaded_image.load(Some("1234".to_string()))?;
 
 		// Check raw content
 		image.write(tmp.path().join("small.raw"))?;
