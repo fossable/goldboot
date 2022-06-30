@@ -4,7 +4,6 @@ use crate::{
 	qemu::QemuArgs,
 	templates::*,
 };
-use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -15,6 +14,12 @@ use std::{
 use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
+
+const MIRRORLIST: &'static [&'static str] = &[
+	"https://geo.mirror.pkgbuild.com/",
+	"https://mirror.rackspace.com/archlinux/",
+	"https://mirrors.edge.kernel.org/archlinux/",
+];
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/ArchLinux/"]
@@ -92,7 +97,7 @@ impl Default for ArchLinuxTemplate {
 
 impl Template for ArchLinuxTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
-		info!("Starting {} build", "ArchLinux".blue());
+		info!("Starting {} build", console::style("ArchLinux").blue());
 
 		let mut qemuargs = QemuArgs::new(&context);
 
@@ -149,6 +154,26 @@ impl Template for ArchLinuxTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
+	}
+
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>> {
+		let mut template = ArchLinuxTemplate::default();
+
+		// Prompt mirror list
+		{
+			let template_index = dialoguer::Select::with_theme(theme)
+				.with_prompt("Choose a mirror site")
+				.default(0)
+				.items(&MIRRORLIST)
+				.interact()?;
+
+			template.mirrorlist = vec![MIRRORLIST[template_index].to_string()];
+		}
+
+		Ok(serde_json::to_value(template)?)
 	}
 
 	fn general(&self) -> GeneralContainer {

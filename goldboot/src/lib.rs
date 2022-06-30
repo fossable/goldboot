@@ -14,6 +14,7 @@ use validator::Validate;
 
 pub mod build;
 pub mod cache;
+pub mod cmd;
 pub mod http;
 pub mod image;
 pub mod library;

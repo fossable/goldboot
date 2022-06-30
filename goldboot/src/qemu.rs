@@ -8,7 +8,7 @@ use std::{
 	time::Duration,
 };
 
-/// Get the QEMU system binary for the current platform
+/// Get the QEMU system binary for the current platform.
 pub fn current_qemu_binary() -> &'static str {
 	if cfg!(target_arch = "x86_64") {
 		"qemu-system-x86_64"
@@ -19,7 +19,7 @@ pub fn current_qemu_binary() -> &'static str {
 	}
 }
 
-/// Detect the best acceleration type
+/// Detect the best acceleration type for the current hardware.
 pub fn detect_accel() -> String {
 	if std::env::var("CI").is_ok() {
 		return String::from("tcg");
@@ -52,6 +52,8 @@ pub fn detect_accel() -> String {
 		String::from("tcg")
 	}
 }
+
+pub fn mimic_hardware() {}
 
 pub struct QemuProcess {
 	pub process: Child,

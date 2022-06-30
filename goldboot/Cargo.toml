@@ -15,16 +15,17 @@ binrw = "0"
 bzip2-rs = "0"
 chrono = "0"
 clap = { version = "3", features = ["derive"] }
-colored = "2"
+console = "0"
+dialoguer = "0"
 env_logger = "0"
 flate2 = "1"
-goldboot-graphics = { path="../goldboot-graphics", version = "0.0.1" }
 hex = "0"
 indicatif = "0"
 log = { version = "0", default-features = false }
 png = "0"
 quick-xml = { version = "0", features = ["serialize"] }
 rand = "0"
+regex = "1"
 reqwest = { version = "0", features=["blocking", "stream", "json"] }
 rust-embed = "6"
 serde = { version="1", features = ["derive"] }
@@ -39,8 +40,7 @@ validator = { version = "0", features = ["derive"] }
 vnc = "0"
 whoami = "1"
 zstd = "^0.10"
-regex = "1"
 
 [dev-dependencies]
-test-env-log = "0.2.8"
-env_logger = "*"
+test-env-log = "0"
+env_logger = "0"

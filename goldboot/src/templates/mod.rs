@@ -27,7 +27,15 @@ pub mod windows_7;
 /// Represents a "base configuration" that users can modify and use to build
 /// images.
 pub trait Template {
+	/// Build an image from the template.
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
+
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>>
+	where
+		Self: Sized;
 
 	/// Whether the template can be combined with others.
 	fn is_multiboot(&self) -> bool {
@@ -169,6 +177,16 @@ impl GeneralContainer {
 pub struct RootPasswordContainer {
 	#[validate(length(max = 64))]
 	pub root_password: String,
+}
+
+impl RootPasswordContainer {
+	pub fn prompt(theme: Box<dyn dialoguer::theme::Theme>) -> Result<Self, Box<dyn Error>> {
+		let root_password = dialoguer::Password::with_theme(theme.as_ref())
+			.with_prompt("Root password")
+			.interact()?;
+
+		Ok(RootPasswordContainer { root_password })
+	}
 }
 
 impl Default for RootPasswordContainer {

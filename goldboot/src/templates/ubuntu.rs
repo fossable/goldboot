@@ -89,4 +89,15 @@ impl Template for UbuntuTemplate {
 	fn general(&self) -> GeneralContainer {
 		self.general.clone()
 	}
+
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>>
+	where
+		Self: Sized,
+	{
+
+		// Prompt edition
+	}
 }
