@@ -156,6 +156,12 @@ impl Template for ArchLinuxTemplate {
 		Ok(())
 	}
 
+	fn general(&self) -> GeneralContainer {
+		self.general.clone()
+	}
+}
+
+impl Promptable for ArchLinuxTemplate {
 	fn prompt(
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
@@ -174,10 +180,6 @@ impl Template for ArchLinuxTemplate {
 		}
 
 		Ok(serde_json::to_value(template)?)
-	}
-
-	fn general(&self) -> GeneralContainer {
-		self.general.clone()
 	}
 }
 

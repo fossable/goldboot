@@ -30,19 +30,21 @@ pub trait Template {
 	/// Build an image from the template.
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
 
-	fn prompt(
-		config: &BuildConfig,
-		theme: &dialoguer::theme::ColorfulTheme,
-	) -> Result<serde_json::Value, Box<dyn Error>>
-	where
-		Self: Sized;
-
 	/// Whether the template can be combined with others.
 	fn is_multiboot(&self) -> bool {
 		true
 	}
 
 	fn general(&self) -> GeneralContainer;
+}
+
+pub trait Promptable {
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>>
+	where
+		Self: Sized;
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -153,6 +155,39 @@ impl ProvisionersContainer {
 	}
 }
 
+impl Promptable for ProvisionersContainer {
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>> {
+		loop {
+			if !dialoguer::Confirm::with_theme(theme)
+				.with_prompt("Do you want to add a provisioner?")
+				.interact()?
+			{
+				break;
+			}
+
+			// Prompt provisioner type
+			{
+				let provisioner_index = dialoguer::Select::with_theme(theme)
+					.with_prompt("Choose provisioner type")
+					.default(0)
+					.item("Shell script")
+					.item("Ansible playbook")
+					.interact()?;
+
+				match provisioner_index {
+					0 => {}
+					1 => {}
+					_ => panic!(),
+				};
+			}
+		}
+		todo!()
+	}
+}
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct GeneralContainer {
 	#[serde(flatten)]
@@ -179,13 +214,16 @@ pub struct RootPasswordContainer {
 	pub root_password: String,
 }
 
-impl RootPasswordContainer {
-	pub fn prompt(theme: Box<dyn dialoguer::theme::Theme>) -> Result<Self, Box<dyn Error>> {
-		let root_password = dialoguer::Password::with_theme(theme.as_ref())
+impl Promptable for RootPasswordContainer {
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>> {
+		let root_password = dialoguer::Password::with_theme(theme)
 			.with_prompt("Root password")
 			.interact()?;
 
-		Ok(RootPasswordContainer { root_password })
+		todo!()
 	}
 }
 
@@ -203,4 +241,22 @@ pub struct LuksContainer {
 
 	/// Whether the LUKS passphrase will be enrolled in a TPM
 	pub tpm: bool,
+}
+
+impl Promptable for LuksContainer {
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>> {
+		if dialoguer::Confirm::with_theme(theme)
+			.with_prompt("Do you want to encrypt the root partition with LUKS?")
+			.interact()?
+		{
+			let luks_password = dialoguer::Password::with_theme(theme)
+				.with_prompt("LUKS passphrase")
+				.interact()?;
+		}
+
+		todo!()
+	}
 }

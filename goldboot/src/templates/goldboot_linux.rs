@@ -5,7 +5,6 @@ use crate::{
 	qemu::QemuArgs,
 	templates::{debian::*, *},
 };
-use colored::*;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -40,7 +39,7 @@ impl Default for GoldbootLinuxTemplate {
 
 impl Template for GoldbootLinuxTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
-		info!("Starting {} build", "Goldboot Linux".blue());
+		info!("Starting {} build", console::style("goldboot Linux").blue());
 
 		let mut qemuargs = QemuArgs::new(&context);
 

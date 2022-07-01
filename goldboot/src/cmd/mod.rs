@@ -1,4 +1,8 @@
+pub mod build;
+pub mod image;
 pub mod init;
+pub mod registry;
+pub mod write;
 
 #[derive(clap::Subcommand, Debug)]
 pub enum Commands {
@@ -79,25 +83,6 @@ pub enum Commands {
 		list_templates: bool,
 	},
 
-	// TODO: pull a GBL image from a public registry instead
-	/// Create a bootable USB drive
-	MakeUsb {
-		/// The disk to erase and make bootable
-		output: String,
-
-		/// Do not check for confirmation
-		#[clap(long, takes_value = false)]
-		confirm: bool,
-
-		/// A local image to include on the boot USB
-		#[clap(long)]
-		include: Vec<String>,
-
-		/// The architecture of the image to download
-		#[clap(long)]
-		arch: Option<String>,
-	},
-
 	/// Manage image registries
 	Registry {
 		#[clap(subcommand)]
@@ -107,6 +92,9 @@ pub enum Commands {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum RegistryCommands {
+	/// Enter a token for a registry
+	Login {},
+
 	/// Upload a local image to a remote registry
 	Push { url: String },
 
@@ -119,12 +107,6 @@ pub enum ImageCommands {
 	/// List local images
 	List {},
 
-	Info {
-		image: String,
-	},
-
-	/// Run an existing image
-	Run {
-		image: String,
-	},
+	/// Get detailed image info
+	Info { image: Option<String> },
 }

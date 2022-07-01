@@ -27,54 +27,38 @@ pub fn build_headless_debug() -> bool {
 }
 
 pub fn main() -> Result<(), Box<dyn Error>> {
-	// Parse command line first
-	let cl = CommandLine::parse();
+	// Parse command line options before we configure logging so we can set the
+	// default level
+	let command_line = CommandLine::parse();
 
 	// Configure logging
-	env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
-
-	// Dispatch command
-	match &cl.command {
-		Commands::Init => crate::cmd::init::run(cl.command),
-		Commands::MakeUsb {
-			output,
-			confirm,
-			include,
-			arch,
-		} => {
-			if Path::new(output).exists() && !*confirm {
-				// Prompt to continue
-				print!("Confirm? [Y/N]");
-				let mut answer = String::new();
-				std::io::stdin().read_line(&mut answer)?;
-
-				match answer.as_str() {
-					"y" => {}
-					"Y" => {}
-					_ => std::process::exit(0),
+	{
+		let default_filter = match &command_line.command {
+			Commands::Build {
+				record,
+				debug,
+				read_password,
+				output,
+				config,
+			} => {
+				if *debug {
+					"debug"
+				} else {
+					"info"
 				}
 			}
+			_ => "info",
+		};
 
-			// Find latest release
-			let rs: HashMap<String, serde_json::Value> = reqwest::blocking::Client::new()
-				.get("https://github.com/goldboot/goldboot/releases/latest")
-				.header("Accept", "application/json")
-				.send()?
-				.json()?;
+		env_logger::init_from_env(env_logger::Env::new().default_filter_or(default_filter));
+	}
 
-			if let Some(version) = rs.get("tag_name") {
-				let version = version.as_str().unwrap();
-
-				let arch = arch.clone().unwrap_or("amd64".to_string());
-
-				// Download latest release to library
-				let image = ImageLibrary::download(format!("https://github.com/goldboot/goldboot/releases/download/{version}/goldboot-linux-{arch}.gb"))?;
-
-				// Write image to device
-				image.write(output)
-			} else {
-				panic!();
-			}
-		}
+	// Dispatch command
+	match &command_line.command {
+		Commands::Init { .. } => crate::cmd::init::run(command_line.command),
+		Commands::Build { .. } => crate::cmd::build::run(command_line.command),
+		Commands::Image { .. } => crate::cmd::image::run(command_line.command),
+		Commands::Registry { .. } => crate::cmd::registry::run(command_line.command),
+		Commands::Write { .. } => crate::cmd::write::run(command_line.command),
 	}
 }

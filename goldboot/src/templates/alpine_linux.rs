@@ -117,3 +117,16 @@ iface eth0 inet dhcp
 		self.general.clone()
 	}
 }
+
+impl Promptable for AlpineLinuxTemplate {
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<serde_json::Value, Box<dyn Error>> {
+		let mut template = ArchLinuxTemplate::default();
+
+		// Prompt mirror list
+
+		Ok(serde_json::to_value(template)?)
+	}
+}

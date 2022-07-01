@@ -1,11 +1,16 @@
+use crate::{
+	cmd::{Commands, ImageCommands},
+	library::ImageLibrary,
+};
+use chrono::TimeZone;
 use console::Style;
-use crate::cmd::Commands;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use std::error::Error;
+use ubyte::ToByteUnit;
 
 pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
-
-    match cmd {
-        Commands::Image { command } => match &command {
+	match cmd {
+		Commands::Image { command } => match &command {
 			ImageCommands::List {} => {
 				let images = ImageLibrary::load()?;
 
@@ -25,12 +30,14 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 				Ok(())
 			}
 			ImageCommands::Info { image } => {
-				let image = ImageLibrary::find_by_id(image)?;
-				// TODO
+				if let Some(image) = image {
+					let image = ImageLibrary::find_by_id(image)?;
+					// TODO
+				};
+
 				Ok(())
 			}
-			ImageCommands::Run { image } => Ok(()),
 		},
-        _ => panic!(),
-    }
+		_ => panic!(),
+	}
 }

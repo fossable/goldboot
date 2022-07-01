@@ -1,32 +1,35 @@
+use crate::{cmd::Commands, library::ImageLibrary};
 use console::Style;
-use crate::cmd::Commands;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use std::{error::Error, path::Path};
 
 pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
-
-    match cmd {
-        Commands::Write {
+	match cmd {
+		Commands::Write {
 			image,
 			output,
 			confirm,
 		} => {
-			let image = ImageLibrary::find_by_id(image)?;
+			let theme = ColorfulTheme {
+				values_style: Style::new().yellow().dim(),
+				..ColorfulTheme::default()
+			};
 
-			if Path::new(output).exists() && !*confirm {
-				// Prompt to continue
-				print!("Confirm? [Y/N]");
-				let mut answer = String::new();
-				std::io::stdin().read_line(&mut answer)?;
+			let image = ImageLibrary::find_by_id(&image)?;
 
-				match answer.as_str() {
-					"y" => {}
-					"Y" => {}
-					_ => std::process::exit(0),
+			if Path::new(&output).exists() && !confirm {
+				if !Confirm::with_theme(&theme)
+					.with_prompt("Do you want to continue?")
+					.interact()?
+				{
+					std::process::exit(0);
 				}
 			}
 
+			// TODO special case for GBL; select images to include
+
 			image.write(output)
-		},
-        _ => panic!(),
-    }
+		}
+		_ => panic!(),
+	}
 }

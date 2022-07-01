@@ -13,6 +13,7 @@ pub enum UbuntuRelease {
 	Jammy,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum UbuntuEdition {
 	Server,
 	Desktop,
@@ -28,7 +29,9 @@ pub struct UbuntuTemplate {
 	#[serde(flatten)]
 	pub general: GeneralContainer,
 
-	pub version: UbuntuRelease,
+	pub edition: UbuntuEdition,
+
+	pub release: UbuntuRelease,
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
@@ -42,7 +45,8 @@ impl Default for UbuntuTemplate {
 				url: format!(""),
 				checksum: String::from("none"),
 			},
-			version: UbuntuRelease::Jammy,
+			edition: UbuntuEdition::Desktop,
+			release: UbuntuRelease::Jammy,
 			general: GeneralContainer {
 				base: TemplateBase::Ubuntu,
 				storage_size: String::from("15 GiB"),
@@ -89,7 +93,9 @@ impl Template for UbuntuTemplate {
 	fn general(&self) -> GeneralContainer {
 		self.general.clone()
 	}
+}
 
+impl Promptable for UbuntuTemplate {
 	fn prompt(
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
@@ -97,7 +103,38 @@ impl Template for UbuntuTemplate {
 	where
 		Self: Sized,
 	{
+		let mut template = UbuntuTemplate::default();
 
 		// Prompt edition
+		{
+			let edition_index = dialoguer::Select::with_theme(theme)
+				.with_prompt("Choose Ubuntu edition")
+				.default(0)
+				.item("Desktop")
+				.item("Server")
+				.interact()?;
+
+			template.edition = match edition_index {
+				0 => UbuntuEdition::Desktop,
+				1 => UbuntuEdition::Server,
+				_ => panic!(),
+			};
+		}
+
+		// Prompt release
+		{
+			let release_index = dialoguer::Select::with_theme(theme)
+				.with_prompt("Choose Ubuntu release")
+				.default(0)
+				.item("22.04 LTS")
+				.interact()?;
+
+			template.release = match release_index {
+				0 => UbuntuRelease::Jammy,
+				_ => panic!(),
+			};
+		}
+
+		Ok(serde_json::to_value(template)?)
 	}
 }
