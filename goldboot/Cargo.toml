@@ -34,6 +34,7 @@ sha1 = "0"
 sha2 = "0"
 simple-error = "0"
 ssh2 = {version = "0", features = ["vendored-openssl"]}
+strum = { version = "0", features = ["derive"] }
 tempfile = "3"
 ubyte = "0"
 validator = { version = "0", features = ["derive"] }

@@ -1,7 +1,11 @@
 use crate::cmd::Commands;
 use chrono::TimeZone;
 use clap::{Parser, Subcommand};
-use goldboot::{build::BuildJob, library::ImageLibrary, templates::TemplateBase, BuildConfig, *};
+use goldboot::{
+	build::{BuildConfig, BuildJob},
+	library::ImageLibrary,
+	*,
+};
 use log::debug;
 use simple_error::bail;
 use std::{collections::HashMap, env, error::Error, fs::File, path::Path};

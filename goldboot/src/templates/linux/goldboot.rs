@@ -1,9 +1,10 @@
+use super::*;
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
 	http::HttpServer,
 	qemu::QemuArgs,
-	templates::{debian::*, *},
+	templates::*,
 };
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -12,23 +13,22 @@ use std::error::Error;
 use validator::Validate;
 
 #[derive(rust_embed::RustEmbed)]
-#[folder = "res/GoldbootLinux/"]
+#[folder = "res/Goldboot/"]
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct GoldbootLinuxTemplate {
-	#[serde(flatten)]
-	pub general: GeneralContainer,
+pub struct GoldbootTemplate {
+	pub id: TemplateId,
 
 	/// The goldboot-linux executable to embed
 	pub executable: String,
 }
 
-impl Default for GoldbootLinuxTemplate {
+impl Default for GoldbootTemplate {
 	fn default() -> Self {
 		Self {
 			general: GeneralContainer {
-				base: TemplateBase::GoldbootLinux,
+				base: TemplateId::Goldboot,
 				storage_size: String::from("4 GiB"),
 				..Default::default()
 			},
@@ -37,7 +37,7 @@ impl Default for GoldbootLinuxTemplate {
 	}
 }
 
-impl Template for GoldbootLinuxTemplate {
+impl Template for GoldbootTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		info!("Starting {} build", console::style("goldboot Linux").blue());
 
@@ -87,9 +87,5 @@ impl Template for GoldbootLinuxTemplate {
 		ssh.shutdown("poweroff")?;
 		qemu.shutdown_wait()?;
 		Ok(())
-	}
-
-	fn general(&self) -> GeneralContainer {
-		self.general.clone()
 	}
 }

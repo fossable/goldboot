@@ -61,26 +61,10 @@ pub enum Commands {
 		#[clap(long)]
 		template: Vec<String>,
 
-		/// The target architecture
-		#[clap(long)]
-		arch: Option<String>,
-
-		/// The amount of memory the image can access
-		#[clap(long)]
-		memory: Option<String>,
-
-		/// The amount of storage the image can access
-		#[clap(long)]
-		disk: Option<String>,
-
 		/// Attempt to copy the configuration of the current hardware as closely
 		/// as possible
 		#[clap(long, takes_value = false)]
 		mimic_hardware: bool,
-
-		/// List available templates and exit
-		#[clap(long, takes_value = false)]
-		list_templates: bool,
 	},
 
 	/// Manage image registries

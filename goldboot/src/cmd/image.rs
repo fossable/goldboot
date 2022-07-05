@@ -33,7 +33,7 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 				if let Some(image) = image {
 					let image = ImageLibrary::find_by_id(image)?;
 					// TODO
-				};
+				}
 
 				Ok(())
 			}

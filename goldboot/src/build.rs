@@ -1,15 +1,75 @@
 use crate::{
-	image::ImageHandle, library::ImageLibrary, qcow::Qcow3, Architecture, BuildConfig, Template,
+	image::ImageHandle, library::ImageLibrary, qcow::Qcow3, templates::Template, Architecture,
 };
 use log::{debug, info};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::{error::Error, thread, time::SystemTime};
+use validator::Validate;
 
 // UEFI firmwares for various platforms
 const OVMF_X86_64: &[u8; 1051773] = include_bytes!("../res/OVMF_x86_64.fd.zst");
 const OVMF_I386: &[u8; 1635380] = include_bytes!("../res/OVMF_i386.fd.zst");
 const OVMF_AARCH64: &[u8; 1478920] = include_bytes!("../res/OVMF_aarch64.fd.zst");
+
+/// The global configuration
+#[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
+pub struct BuildConfig {
+	/// The image name
+	#[validate(length(min = 1, max = 64))]
+	pub name: String,
+
+	/// An image description
+	#[validate(length(max = 4096))]
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub description: Option<String>,
+
+	/// The system architecture
+	#[serde(flatten)]
+	pub arch: Architecture,
+
+	/// The amount of memory to allocate to the VM
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub memory: Option<String>,
+
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub nvme: Option<bool>,
+
+	/// The encryption password. This value can alternatively be specified on
+	/// the command line and will be cleared before the config is included in
+	/// an image file.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub password: Option<String>,
+
+	#[validate(length(min = 1))]
+	pub templates: Vec<serde_json::Value>,
+}
+
+impl BuildConfig {
+	pub fn get_templates(&self) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
+		let mut templates: Vec<Box<dyn Template>> = Vec::new();
+
+		for template in &self.templates {
+			// Get type
+			let t: TemplateBase = serde_json::from_value(template.to_owned())?;
+			templates.push(t.parse_template(template.to_owned())?);
+		}
+
+		Ok(templates)
+	}
+
+	pub fn get_template_bases(&self) -> Result<Vec<String>, Box<dyn Error>> {
+		let mut bases: Vec<String> = Vec::new();
+
+		for template in &self.templates {
+			// Get base
+			bases.push(template.get("base").unwrap().as_str().unwrap().to_string());
+		}
+
+		Ok(bases)
+	}
+}
 
 /// Represents an image build job.
 pub struct BuildJob {
@@ -115,9 +175,9 @@ impl BuildJob {
 		// If there's more than one template, they must all support multiboot
 		if templates.len() > 1 {
 			for template in &templates {
-				if !template.is_multiboot() {
-					bail!("Template does not support multiboot");
-				}
+				//if !template.is_multiboot() {
+				//	bail!("Template does not support multiboot");
+				//}
 			}
 		}
 

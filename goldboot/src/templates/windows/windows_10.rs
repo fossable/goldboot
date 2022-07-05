@@ -3,11 +3,12 @@ use crate::{
 	cache::{MediaCache, MediaFormat},
 	qemu::QemuArgs,
 	templates::*,
-	windows::*,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+
+use super::*;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/Windows10/"]
@@ -15,6 +16,8 @@ struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Windows10Template {
+	pub id: TemplateId,
+
 	username: String,
 
 	password: String,
@@ -34,6 +37,7 @@ pub struct Windows10Template {
 impl Default for Windows10Template {
 	fn default() -> Self {
 		Self {
+			base: TemplateId::Windows10,
 			username: String::from("admin"),
 			password: String::from("admin"),
 			hostname: String::from("goldboot"),
@@ -116,8 +120,29 @@ impl Template for Windows10Template {
 		qemu.shutdown_wait()?;
 		Ok(())
 	}
+}
 
-	fn general(&self) -> GeneralContainer {
-		self.general.clone()
+impl Promptable for Windows10Template {
+	fn prompt(
+		&mut self,
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<(), Box<dyn Error>> {
+		// Prompt for installation media
+		{
+			let iso_url: String = dialoguer::Input::with_theme(theme)
+				.with_prompt("Enter the installation ISO URL")
+				.interact()?;
+		}
+
+		// Prompt for minimal install
+		if dialoguer::Confirm::with_theme(theme).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
+
+		}
+
+		// Prompt provisioners
+		self.provisioners.prompt(config, theme)?;
+
+		Ok(())
 	}
 }

@@ -8,7 +8,7 @@ use validator::Validate;
 //struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum MacOsVersion {
+pub enum MacOsRelease {
 	Catalina,
 	BigSur,
 	Monterey,
@@ -16,7 +16,8 @@ pub enum MacOsVersion {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct MacOsTemplate {
-	pub version: MacOsVersion,
+	pub id: TemplateId,
+	pub release: MacOsRelease,
 
 	#[serde(flatten)]
 	pub general: GeneralContainer,
@@ -28,6 +29,8 @@ pub struct MacOsTemplate {
 impl Default for MacOsTemplate {
 	fn default() -> Self {
 		Self {
+			id: TemplateId::MacOs,
+			release: MacOsRelease::Monterey,
 			provisioners: ProvisionersContainer {
 				provisioners: Some(vec![
 					serde_json::to_value(ShellProvisioner::inline("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"")).unwrap(),
@@ -98,8 +101,8 @@ impl Template for MacOsTemplate {
 		let mut qemu = qemuargs.start_process()?;
 
 		// Send boot command
-		match self.version {
-			MacOsVersion::Monterey => {
+		match self.release {
+			MacOsRelease::Monterey => {
 				#[rustfmt::skip]
 				qemu.vnc.boot_command(vec![
 					enter!(),
@@ -128,9 +131,5 @@ impl Template for MacOsTemplate {
 		ssh.shutdown("shutdown -h now")?;
 		qemu.shutdown_wait()?;
 		Ok(())
-	}
-
-	fn general(&self) -> GeneralContainer {
-		self.general.clone()
 	}
 }

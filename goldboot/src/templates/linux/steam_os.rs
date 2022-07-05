@@ -15,6 +15,7 @@ pub enum SteamOsVersion {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct SteamOsTemplate {
+	pub id: TemplateId,
 	pub version: SteamOsVersion,
 
 	/// The installation media

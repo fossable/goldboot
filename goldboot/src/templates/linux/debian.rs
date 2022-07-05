@@ -62,6 +62,7 @@ pub fn fetch_debian_iso(
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct DebianTemplate {
+	pub id: TemplateId,
 	pub root_password: String,
 
 	/// The installation media

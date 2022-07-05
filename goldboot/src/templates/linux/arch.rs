@@ -22,11 +22,13 @@ const MIRRORLIST: &'static [&'static str] = &[
 ];
 
 #[derive(rust_embed::RustEmbed)]
-#[folder = "res/ArchLinux/"]
+#[folder = "res/Arch/"]
 struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ArchLinuxTemplate {
+pub struct ArchTemplate {
+	pub id: TemplateId,
+
 	#[validate(length(max = 64))]
 	pub root_password: String,
 
@@ -43,7 +45,7 @@ pub struct ArchLinuxTemplate {
 	pub provisioners: ProvisionersContainer,
 }
 
-impl ArchLinuxTemplate {
+impl ArchTemplate {
 	pub fn format_mirrorlist(&self) -> String {
 		self.mirrorlist
 			.iter()
@@ -72,7 +74,7 @@ fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
 	bail!("Failed to request latest ISO");
 }
 
-impl Default for ArchLinuxTemplate {
+impl Default for ArchTemplate {
 	fn default() -> Self {
 		let (iso_url, iso_checksum) = fetch_latest_iso().unwrap_or((
 			format!("{DEFAULT_MIRROR}/iso/latest/archlinux-2022.03.01-x86_64.iso"),
@@ -95,7 +97,7 @@ impl Default for ArchLinuxTemplate {
 	}
 }
 
-impl Template for ArchLinuxTemplate {
+impl Template for ArchTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		info!("Starting {} build", console::style("ArchLinux").blue());
 
@@ -155,19 +157,14 @@ impl Template for ArchLinuxTemplate {
 		qemu.shutdown_wait()?;
 		Ok(())
 	}
-
-	fn general(&self) -> GeneralContainer {
-		self.general.clone()
-	}
 }
 
-impl Promptable for ArchLinuxTemplate {
+impl Promptable for ArchTemplate {
 	fn prompt(
+		&mut self,
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
-	) -> Result<serde_json::Value, Box<dyn Error>> {
-		let mut template = ArchLinuxTemplate::default();
-
+	) -> Result<(), Box<dyn Error>> {
 		// Prompt mirror list
 		{
 			let template_index = dialoguer::Select::with_theme(theme)
@@ -176,10 +173,13 @@ impl Promptable for ArchLinuxTemplate {
 				.items(&MIRRORLIST)
 				.interact()?;
 
-			template.mirrorlist = vec![MIRRORLIST[template_index].to_string()];
+			self.mirrorlist = vec![MIRRORLIST[template_index].to_string()];
 		}
 
-		Ok(serde_json::to_value(template)?)
+		// Prompt provisioners
+		self.provisioners.prompt(config, theme)?;
+
+		Ok(())
 	}
 }
 

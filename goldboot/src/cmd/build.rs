@@ -1,4 +1,7 @@
-use crate::{build::BuildJob, cmd::Commands, BuildConfig};
+use crate::{
+	build::{BuildConfig, BuildJob},
+	cmd::Commands,
+};
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use log::debug;

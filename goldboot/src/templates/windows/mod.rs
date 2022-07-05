@@ -3,6 +3,10 @@
 use serde::Serialize;
 use std::{error::Error, path::Path};
 
+pub mod windows_10;
+pub mod windows_11;
+pub mod windows_7;
+
 #[derive(Clone, Serialize)]
 #[serde(rename = "unattend")]
 pub struct UnattendXml {

@@ -1,4 +1,4 @@
-use crate::{progress::ProgressBar, qcow::Qcow3, BuildConfig};
+use crate::{build::BuildConfig, progress::ProgressBar, qcow::Qcow3};
 use aes_gcm::{
 	aead::{Aead, NewAead},
 	Aes256Gcm, Key, Nonce,

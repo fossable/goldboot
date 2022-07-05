@@ -1,21 +1,53 @@
-use crate::{build::BuildWorker, cache::*, qemu::QemuArgs, templates::*};
+use crate::{
+	build::BuildWorker,
+	cache::*,
+	qemu::QemuArgs,
+	templates::{config::*, *},
+};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
 
 const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum AlpineLinuxEdition {
+#[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
+pub enum AlpineEdition {
 	Standard,
 	Extended,
 	RaspberryPi,
 	Xen,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
+pub enum AlpineRelease {
+	Edge,
+	#[serde(rename = "v3.16")]
+	V3_16,
+	#[serde(rename = "v3.15")]
+	V3_15,
+}
+
+impl Display for AlpineRelease {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}",
+			match &self {
+				AlpineRelease::Edge => "Edge",
+				AlpineRelease::V3_16 => "v3.16",
+				AlpineRelease::V3_15 => "v3.15",
+			}
+		)
+	}
+}
+
 /// Template for Alpine Linux images (https://www.alpinelinux.org).
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AlpineLinuxTemplate {
+pub struct AlpineTemplate {
+	pub id: TemplateId,
+	pub edition: AlpineEdition,
+	pub release: AlpineRelease,
+
 	/// The root account password
 	pub root_password: String,
 
@@ -23,15 +55,18 @@ pub struct AlpineLinuxTemplate {
 	pub iso: IsoContainer,
 
 	#[serde(flatten)]
-	pub general: GeneralContainer,
+	pub storage: StorageContainer,
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
 }
 
-impl Default for AlpineLinuxTemplate {
+impl Default for AlpineTemplate {
 	fn default() -> Self {
 		Self {
+			id: TemplateId::Alpine,
+			edition: AlpineEdition::Standard,
+			release: AlpineRelease::V3_16,
 			root_password: String::from("root"),
 			iso: IsoContainer {
 				url: format!(
@@ -49,7 +84,7 @@ impl Default for AlpineLinuxTemplate {
 	}
 }
 
-impl Template for AlpineLinuxTemplate {
+impl Template for AlpineTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
@@ -112,21 +147,29 @@ iface eth0 inet dhcp
 		qemu.shutdown_wait()?;
 		Ok(())
 	}
-
-	fn general(&self) -> GeneralContainer {
-		self.general.clone()
-	}
 }
 
-impl Promptable for AlpineLinuxTemplate {
+impl Promptable for AlpineTemplate {
 	fn prompt(
+		&mut self,
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
-	) -> Result<serde_json::Value, Box<dyn Error>> {
-		let mut template = ArchLinuxTemplate::default();
+	) -> Result<(), Box<dyn Error>> {
+		// Prompt edition
+		{
+			let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
+			let edition_index = dialoguer::Select::with_theme(theme)
+				.with_prompt("Choose an edition")
+				.default(0)
+				.items(&editions)
+				.interact()?;
+
+			self.edition = editions[edition_index];
+		}
 
 		// Prompt mirror list
+		// TODO
 
-		Ok(serde_json::to_value(template)?)
+		Ok(())
 	}
 }

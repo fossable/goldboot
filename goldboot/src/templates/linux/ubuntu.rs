@@ -6,14 +6,39 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
 pub enum UbuntuRelease {
 	Jammy,
+	Impish,
+	Hirsute,
+	Groovy,
+	Focal,
+	Eoan,
+	Disco,
+	Cosmic,
+	Bionic,
+	Artful,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+impl Display for UbuntuRelease {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}",
+			match &self {
+				UbuntuRelease::Jammy => "22.04 LTS (Jammy Jellyfish)",
+				UbuntuRelease::Impish => "21.10     (Impish Indri)",
+				UbuntuRelease::Hirsute => "21.04     (Hirsute Hippo)",
+				UbuntuRelease::Groovy => "20.10     (Groovy Gorilla)",
+			}
+		)
+	}
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
 pub enum UbuntuEdition {
 	Server,
 	Desktop,
@@ -21,6 +46,10 @@ pub enum UbuntuEdition {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct UbuntuTemplate {
+	pub id: TemplateId,
+	pub edition: UbuntuEdition,
+	pub release: UbuntuRelease,
+
 	pub root_password: String,
 
 	/// The installation media
@@ -28,10 +57,6 @@ pub struct UbuntuTemplate {
 
 	#[serde(flatten)]
 	pub general: GeneralContainer,
-
-	pub edition: UbuntuEdition,
-
-	pub release: UbuntuRelease,
 
 	#[serde(flatten)]
 	pub provisioners: ProvisionersContainer,
@@ -97,44 +122,34 @@ impl Template for UbuntuTemplate {
 
 impl Promptable for UbuntuTemplate {
 	fn prompt(
+		&mut self,
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
-	) -> Result<serde_json::Value, Box<dyn Error>>
-	where
-		Self: Sized,
-	{
-		let mut template = UbuntuTemplate::default();
-
+	) -> Result<(), Box<dyn Error>> {
 		// Prompt edition
 		{
+			let editions: Vec<UbuntuEdition> = UbuntuEdition::iter().collect();
 			let edition_index = dialoguer::Select::with_theme(theme)
 				.with_prompt("Choose Ubuntu edition")
 				.default(0)
-				.item("Desktop")
-				.item("Server")
+				.items(&editions)
 				.interact()?;
 
-			template.edition = match edition_index {
-				0 => UbuntuEdition::Desktop,
-				1 => UbuntuEdition::Server,
-				_ => panic!(),
-			};
+			self.edition = editions[edition_index];
 		}
 
 		// Prompt release
 		{
+			let releases: Vec<UbuntuRelease> = UbuntuRelease::iter().collect();
 			let release_index = dialoguer::Select::with_theme(theme)
 				.with_prompt("Choose Ubuntu release")
 				.default(0)
-				.item("22.04 LTS")
+				.items(&releases)
 				.interact()?;
 
-			template.release = match release_index {
-				0 => UbuntuRelease::Jammy,
-				_ => panic!(),
-			};
+			self.release = releases[release_index];
 		}
 
-		Ok(serde_json::to_value(template)?)
+		Ok(())
 	}
 }

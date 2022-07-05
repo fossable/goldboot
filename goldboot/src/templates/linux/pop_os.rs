@@ -9,15 +9,27 @@ use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
-pub enum PopOsVersions {
+pub enum PopOsEdition {
+	#[default]
+	Amd,
+	Nvidia,
+}
+
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+pub enum PopOsRelease {
 	#[serde(rename = "21.10")]
 	#[default]
 	V21_10,
+
+	#[serde(rename = "22.04")]
+	V22_04,
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct PopOsTemplate {
-	pub version: PopOsVersions,
+	pub id: TemplateId,
+	pub edition: PopOsEdition,
+	pub release: PopOsRelease,
 
 	pub username: String,
 
@@ -38,7 +50,9 @@ pub struct PopOsTemplate {
 impl Default for PopOsTemplate {
 	fn default() -> Self {
 		Self {
-            version: PopOsVersions::V21_10,
+			id: TemplateId::PopOs,
+			edition: PopOsEdition::Amd,
+            release: PopOsRelease::V21_10,
             username: whoami::username(),
             password: String::from("88Password;"),
             root_password: String::from("root"),

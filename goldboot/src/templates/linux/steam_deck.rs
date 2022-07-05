@@ -10,12 +10,10 @@ use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct SteamDeckTemplate {
+	pub id: TemplateId,
 	pub recovery_url: String,
 
 	pub recovery_checksum: String,
-
-	#[serde(flatten)]
-	pub general: GeneralContainer,
 }
 
 impl Default for SteamDeckTemplate {
