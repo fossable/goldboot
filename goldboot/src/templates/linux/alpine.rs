@@ -1,12 +1,8 @@
-use crate::{
-	build::BuildWorker,
-	cache::*,
-	qemu::QemuArgs,
-	templates::{config::*, *},
-};
+use crate::{build::BuildWorker, cache::*, provisioners::*, qemu::QemuArgs, templates::*};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
+use strum::{Display, EnumIter, IntoEnumIterator};
 
 const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
 
@@ -48,17 +44,11 @@ pub struct AlpineTemplate {
 	pub edition: AlpineEdition,
 	pub release: AlpineRelease,
 
-	/// The root account password
-	pub root_password: String,
-
-	/// The installation media
-	pub iso: IsoContainer,
-
-	#[serde(flatten)]
-	pub storage: StorageContainer,
-
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub iso: IsoProvisioner,
+	pub hostname: HostnameProvisioner,
+	pub users: Option<Vec<UnixAccountProvisioner>>,
+	pub partitions: PartitionProvisioner,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for AlpineTemplate {
@@ -67,19 +57,18 @@ impl Default for AlpineTemplate {
 			id: TemplateId::Alpine,
 			edition: AlpineEdition::Standard,
 			release: AlpineRelease::V3_16,
-			root_password: String::from("root"),
-			iso: IsoContainer {
+			iso: IsoProvisioner {
 				url: format!(
 					"{DEFAULT_MIRROR}/v3.15/releases/x86_64/alpine-standard-3.15.0-x86_64.iso"
 				),
 				checksum: String::from("none"),
 			},
-			general: GeneralContainer {
-				base: TemplateBase::AlpineLinux,
-				storage_size: String::from("5 GiB"),
-				..Default::default()
+			hostname: HostnameProvisioner::default(),
+			users: None,
+			partitions: PartitionProvisioner {
+				total_size: String::from("5 GiB"),
 			},
-			provisioners: ProvisionersContainer::default(),
+			ansible: None,
 		}
 	}
 }
@@ -170,6 +159,7 @@ impl Promptable for AlpineTemplate {
 		// Prompt mirror list
 		// TODO
 
+		self.validate()?;
 		Ok(())
 	}
 }
