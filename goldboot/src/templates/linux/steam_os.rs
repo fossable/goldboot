@@ -1,6 +1,7 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -18,16 +19,12 @@ pub struct SteamOsTemplate {
 	pub id: TemplateId,
 	pub version: SteamOsVersion,
 
-	/// The installation media
-	pub iso: IsoContainer,
-
-	#[serde(flatten)]
-	pub general: GeneralContainer,
+	pub iso: IsoProvisioner,
+	pub hostname: HostnameProvisioner,
 
 	pub root_password: String,
 
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for SteamOsTemplate {

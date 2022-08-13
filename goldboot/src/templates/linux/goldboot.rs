@@ -3,6 +3,7 @@ use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
 	http::HttpServer,
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };

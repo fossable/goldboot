@@ -2,6 +2,7 @@ use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
 	http::HttpServer,
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -63,18 +64,11 @@ pub fn fetch_debian_iso(
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct DebianTemplate {
 	pub id: TemplateId,
-	pub root_password: String,
-
-	/// The installation media
-	pub iso: IsoContainer,
-
-	#[serde(flatten)]
-	pub general: GeneralContainer,
-
 	pub edition: DebianEdition,
 
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub iso: IsoProvisioner,
+	pub hostname: HostnameProvisioner,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for DebianTemplate {

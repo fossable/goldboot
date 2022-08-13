@@ -10,11 +10,6 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-pub enum MediaFormat {
-	Iso,
-	Bzip2,
-}
-
 /// Represents the local install media cache.
 pub struct MediaCache;
 

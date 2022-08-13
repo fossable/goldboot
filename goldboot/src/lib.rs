@@ -81,12 +81,19 @@ impl TryFrom<String> for Architecture {
 	}
 }
 
-pub trait Promptable {
+pub trait PromptMut {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
 	) -> Result<(), Box<dyn Error>>;
+}
+
+pub trait Prompt {
+	fn prompt(
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<Self, Box<dyn Error>> where Self: Sized;
 }
 
 #[cfg(test)]

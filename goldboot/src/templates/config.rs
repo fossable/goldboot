@@ -8,31 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
 use validator::Validate;
 
-///
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct IsoContainer {
-	/// The installation media URL
-	pub url: String,
-
-	/// A hash of the installation media
-	pub checksum: String,
-}
-
-impl Promptable for IsoContainer {
-	fn prompt(
-		&mut self,
-		config: &BuildConfig,
-		theme: &dialoguer::theme::ColorfulTheme,
-	) -> Result<(), Box<dyn Error>> {
-		self.url = dialoguer::Input::with_theme(theme)
-			.with_prompt("Enter the ISO URL")
-			.interact()?;
-
-		// TODO validate URL
-
-		Ok(())
-	}
-}
+// TODO delete
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ProvisionersContainer {

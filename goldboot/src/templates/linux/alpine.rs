@@ -1,41 +1,8 @@
 use crate::{build::BuildWorker, cache::*, provisioners::*, qemu::QemuArgs, templates::*};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use validator::Validate;
 use strum::{Display, EnumIter, IntoEnumIterator};
-
-const DEFAULT_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine";
-
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
-pub enum AlpineEdition {
-	Standard,
-	Extended,
-	RaspberryPi,
-	Xen,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
-pub enum AlpineRelease {
-	Edge,
-	#[serde(rename = "v3.16")]
-	V3_16,
-	#[serde(rename = "v3.15")]
-	V3_15,
-}
-
-impl Display for AlpineRelease {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(
-			f,
-			"{}",
-			match &self {
-				AlpineRelease::Edge => "Edge",
-				AlpineRelease::V3_16 => "v3.16",
-				AlpineRelease::V3_15 => "v3.15",
-			}
-		)
-	}
-}
+use validator::Validate;
 
 /// Template for Alpine Linux images (https://www.alpinelinux.org).
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -44,11 +11,15 @@ pub struct AlpineTemplate {
 	pub edition: AlpineEdition,
 	pub release: AlpineRelease,
 
-	pub iso: IsoProvisioner,
+	pub iso: Option<IsoProvisioner>,
 	pub hostname: HostnameProvisioner,
-	pub users: Option<Vec<UnixAccountProvisioner>>,
 	pub partitions: PartitionProvisioner,
-	pub ansible: Option<Vec<AnsibleProvisioner>>,
+	#[serde(flatten)]
+	pub users: Option<UnixAccountProvisioners>,
+	#[serde(flatten)]
+	pub ansible: Option<AnsibleProvisioners>,
+	#[serde(flatten)]
+	pub executables: Option<ExecutableProvisioners>,
 }
 
 impl Default for AlpineTemplate {
@@ -57,18 +28,16 @@ impl Default for AlpineTemplate {
 			id: TemplateId::Alpine,
 			edition: AlpineEdition::Standard,
 			release: AlpineRelease::V3_16,
-			iso: IsoProvisioner {
-				url: format!(
-					"{DEFAULT_MIRROR}/v3.15/releases/x86_64/alpine-standard-3.15.0-x86_64.iso"
-				),
-				checksum: String::from("none"),
-			},
+			iso: None,
 			hostname: HostnameProvisioner::default(),
-			users: None,
 			partitions: PartitionProvisioner {
 				total_size: String::from("5 GiB"),
 			},
+			users: Some(UnixAccountProvisioners {
+				users: vec![UnixAccountProvisioner::default()],
+			}),
 			ansible: None,
+			executables: None,
 		}
 	}
 }
@@ -77,13 +46,15 @@ impl Template for AlpineTemplate {
 	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
 		let mut qemuargs = QemuArgs::new(&context);
 
+		let iso = self.iso.unwrap_or_else(|| fetch_latest_iso(self.edition, self.release, context.config.arch).unwrap());
+
 		qemuargs.drive.push(format!(
 			"file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
 			context.image_path
 		));
 		qemuargs.drive.push(format!(
 			"file={},media=cdrom",
-			MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
+			iso.download()?
 		));
 
 		// Start VM
@@ -98,7 +69,7 @@ impl Template for AlpineTemplate {
 			enter!("root"),
 			// Configure install
 			enter!("export KEYMAPOPTS='us us'"),
-			enter!("export HOSTNAMEOPTS='-n goldboot'"),
+			enter!(format!("export HOSTNAMEOPTS='-n {}'", self.hostname.hostname)),
 			enter!("export INTERFACESOPTS='
 auto lo
 iface lo inet loopback
@@ -138,7 +109,7 @@ iface eth0 inet dhcp
 	}
 }
 
-impl Promptable for AlpineTemplate {
+impl PromptMut for AlpineTemplate {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -162,4 +133,66 @@ impl Promptable for AlpineTemplate {
 		self.validate()?;
 		Ok(())
 	}
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
+pub enum AlpineEdition {
+	Standard,
+	Extended,
+	RaspberryPi,
+	Xen,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
+pub enum AlpineRelease {
+	Edge,
+	#[serde(rename = "v3.16")]
+	V3_16,
+	#[serde(rename = "v3.15")]
+	V3_15,
+}
+
+impl Display for AlpineRelease {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}",
+			match &self {
+				AlpineRelease::Edge => "Edge",
+				AlpineRelease::V3_16 => "v3.16",
+				AlpineRelease::V3_15 => "v3.15",
+			}
+		)
+	}
+}
+
+fn fetch_latest_iso(edition: AlpineEdition, release: AlpineRelease, arch: Architecture) -> Result<IsoProvisioner, Box<dyn Error>> {
+
+	let arch = match arch {
+		Architecture::amd64 => "x86_64",
+		Architecture::arm64 => "aarch64",
+		_ => bail!("Unsupported architecture"),
+	};
+
+	let edition = match edition {
+		AlpineEdition::Standard => "standard",
+		AlpineEdition::Extended => "extended",
+		AlpineEdition::Xen => "virt",
+		AlpineEdition::RaspberryPi => "rpi",
+	};
+
+	let url = format!("https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/{arch}/alpine-{edition}-3.16.0-{arch}.iso");
+
+	// Download checksum
+	let rs = reqwest::blocking::get(format!("{url}.sha256"))?;
+	let checksum = if rs.status().is_success() {
+		None
+	} else {
+		None
+	};
+
+	Ok(IsoProvisioner{
+		url,
+		checksum,
+	})
 }

@@ -37,6 +37,7 @@ ssh2 = {version = "0", features = ["vendored-openssl"]}
 strum = { version = "0", features = ["derive"] }
 tempfile = "3"
 ubyte = "0"
+url = {version = "2", features = ["serde"] }
 validator = { version = "0", features = ["derive"] }
 vnc = "0"
 whoami = "1"

@@ -43,7 +43,7 @@ pub struct BuildConfig {
 	pub password: Option<String>,
 
 	#[validate(length(min = 1))]
-	pub templates: Vec<serde_json::Value>,
+	pub templates: Vec<serde_yaml::Value>,
 }
 
 impl BuildConfig {

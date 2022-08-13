@@ -1,6 +1,7 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -13,14 +14,6 @@ use std::{
 };
 use validator::Validate;
 
-const DEFAULT_MIRROR: &str = "https://mirrors.edge.kernel.org/archlinux";
-
-const MIRRORLIST: &'static [&'static str] = &[
-	"https://geo.mirror.pkgbuild.com/",
-	"https://mirror.rackspace.com/archlinux/",
-	"https://mirrors.edge.kernel.org/archlinux/",
-];
-
 #[derive(rust_embed::RustEmbed)]
 #[folder = "res/Arch/"]
 struct Resources;
@@ -29,70 +22,20 @@ struct Resources;
 pub struct ArchTemplate {
 	pub id: TemplateId,
 
-	#[validate(length(max = 64))]
-	pub root_password: String,
-
-	pub mirrorlist: Vec<String>,
-
-	/// The installation media
-	pub iso: IsoContainer,
-
-	#[serde(flatten)]
-	pub general: GeneralContainer,
-
-	//pub luks: LuksContainer,
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
-}
-
-impl ArchTemplate {
-	pub fn format_mirrorlist(&self) -> String {
-		self.mirrorlist
-			.iter()
-			.map(|s| format!("Server = {}", s))
-			.collect::<Vec<String>>()
-			.join("\n")
-	}
-}
-
-/// Fetch the latest iso URL and its SHA1 hash
-fn fetch_latest_iso() -> Result<(String, String), Box<dyn Error>> {
-	let rs = reqwest::blocking::get(format!("{DEFAULT_MIRROR}/iso/latest/sha1sums.txt"))?;
-	if rs.status().is_success() {
-		for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
-			if line.ends_with(".iso") {
-				let split: Vec<&str> = line.split_whitespace().collect();
-				if let [hash, filename] = split[..] {
-					return Ok((
-						format!("{DEFAULT_MIRROR}/iso/latest/{filename}"),
-						format!("sha1:{hash}"),
-					));
-				}
-			}
-		}
-	}
-	bail!("Failed to request latest ISO");
+	pub iso: Option<IsoProvisioner>,
+	pub mirrorlist: Option<ArchMirrorlistProvisioner>,
+	pub hostname: HostnameProvisioner,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for ArchTemplate {
 	fn default() -> Self {
-		let (iso_url, iso_checksum) = fetch_latest_iso().unwrap_or((
-			format!("{DEFAULT_MIRROR}/iso/latest/archlinux-2022.03.01-x86_64.iso"),
-			String::from("none"),
-		));
 		Self {
-			root_password: String::from("root"),
-			mirrorlist: vec![format!("{DEFAULT_MIRROR}/$repo/os/$arch",)],
-			iso: IsoContainer {
-				url: iso_url,
-				checksum: iso_checksum,
-			},
-			general: GeneralContainer {
-				base: TemplateBase::ArchLinux,
-				storage_size: String::from("10 GiB"),
-				..Default::default()
-			},
-			provisioners: ProvisionersContainer::default(),
+			id: TemplateId::Arch,
+			iso: None,
+			mirrorlist: None,
+			hostname: HostnameProvisioner::default(),
+			ansible: None,
 		}
 	}
 }
@@ -159,22 +102,13 @@ impl Template for ArchTemplate {
 	}
 }
 
-impl Promptable for ArchTemplate {
+impl PromptMut for ArchTemplate {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
 		theme: &dialoguer::theme::ColorfulTheme,
 	) -> Result<(), Box<dyn Error>> {
-		// Prompt mirror list
-		{
-			let template_index = dialoguer::Select::with_theme(theme)
-				.with_prompt("Choose a mirror site")
-				.default(0)
-				.items(&MIRRORLIST)
-				.interact()?;
-
-			self.mirrorlist = vec![MIRRORLIST[template_index].to_string()];
-		}
+		self.mirrorlist.prompt(config, theme)?;
 
 		// Prompt provisioners
 		self.provisioners.prompt(config, theme)?;
@@ -183,13 +117,83 @@ impl Promptable for ArchTemplate {
 	}
 }
 
+/// This provisioner configures the Archlinux mirror list.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct ArchMirrorlistProvisioner {
+	pub mirrors: Vec<String>,
+}
+
+impl Default for ArchMirrorlistProvisioner {
+	fn default() -> Self {
+		Self {
+			mirrors: vec![
+				String::from("https://geo.mirror.pkgbuild.com/"),
+				String::from("https://mirror.rackspace.com/archlinux/"),
+				String::from("https://mirrors.edge.kernel.org/archlinux/"),
+			],
+		}
+	}
+}
+
+impl PromptMut for ArchMirrorlistProvisioner {
+	fn prompt(
+		&mut self,
+		config: &BuildConfig,
+		theme: &dialoguer::theme::ColorfulTheme,
+	) -> Result<(), Box<dyn Error>> {
+		// Prompt mirror list
+		{
+			let mirror_index = dialoguer::Select::with_theme(theme)
+				.with_prompt("Choose a mirror site")
+				.default(0)
+				.items(&MIRRORLIST)
+				.interact()?;
+
+			self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
+		}
+
+		Ok(())
+	}
+}
+
+impl ArchMirrorlistProvisioner {
+	pub fn format_mirrorlist(&self) -> String {
+		self.mirrors
+			.iter()
+			.map(|s| format!("Server = {}", s))
+			.collect::<Vec<String>>()
+			.join("\n")
+	}
+}
+
+/// Fetch the latest installation ISO
+fn fetch_latest_iso(mirrorlist: ArchMirrorlistProvisioner) -> Result<IsoProvisioner, Box<dyn Error>> {
+	for mirror in mirrorlist.mirrors {
+		let rs = reqwest::blocking::get(format!("{mirror}/iso/latest/sha1sums.txt"))?;
+		if rs.status().is_success() {
+			for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+				if line.ends_with(".iso") {
+					let split: Vec<&str> = line.split_whitespace().collect();
+					if let [hash, filename] = split[..] {
+						return Ok(IsoProvisioner {
+							url: format!("{mirror}/iso/latest/{filename}"),
+							checksum: format!("sha1:{hash}"),
+						});
+					}
+				}
+			}
+		}
+	}
+	bail!("Failed to request latest ISO");
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 
 	#[test]
 	fn test_fetch_latest_iso() -> Result<(), Box<dyn Error>> {
-		fetch_latest_iso()?;
+		fetch_latest_iso(ArchMirrorlistProvisioner::default())?;
 		Ok(())
 	}
 }

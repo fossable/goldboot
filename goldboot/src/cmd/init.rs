@@ -34,10 +34,10 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 			template,
 			mimic_hardware,
 		} => {
-			let config_path = Path::new("goldboot.json");
+			let config_path = Path::new("goldboot.yml");
 
 			if config_path.exists() {
-				bail!("This directory has already been initialized. Delete goldboot.json to reinitialize.");
+				bail!("This directory has already been initialized. Delete goldboot.yml to reinitialize.");
 			}
 
 			// Build a new default config that we'll override
@@ -55,11 +55,11 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 
 				// Add default templates
 				for template_id in template {
-					if let Some(metadata) = TemplateId::iter()
-						.filter(|metadata| metadata.id == template_id)
+					if let Some(id) = TemplateId::iter()
+						.filter(|id| id.to_string() == template_id)
 						.next()
 					{
-						config.templates.push(metadata.default());
+						config.templates.push(id.default());
 					} else {
 						bail!("Template not found");
 					}
@@ -132,7 +132,7 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 			}
 
 			// Finally write out the config
-			std::fs::write(config_path, serde_json::to_string_pretty(&config)?)?;
+			std::fs::write(config_path, serde_yaml::to_string(&config)?)?;
 			Ok(())
 		}
 		_ => panic!(),

@@ -4,7 +4,7 @@
 //!
 //! A provisioner is simply an operation to be performed on an image.
 
-use crate::{build::BuildConfig, ssh::SshConnection, Promptable};
+use crate::{build::BuildConfig, ssh::SshConnection, PromptMut};
 use dialoguer::{theme::ColorfulTheme, Confirm, Password};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -12,18 +12,27 @@ use simple_error::bail;
 use std::{default::Default, error::Error, path::Path, process::Command};
 use strum::{Display, EnumIter};
 use validator::Validate;
+use url::Url;
 
 /// This provisioner loads an ISO install media from a URL.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct IsoProvisioner {
 	/// The installation media URL (http, https, or file)
-	pub url: String,
+	pub url: Url,
 
 	/// A hash of the installation media
-	pub checksum: String,
+	pub checksum: Option<String>,
 }
 
-impl Promptable for IsoProvisioner {
+impl IsoProvisioner {
+
+	/// Load the ISO into the cache and return its path
+	pub fn load(&self) -> Result<String, Box<dyn Error>> {
+		
+	}
+}
+
+impl PromptMut for IsoProvisioner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -36,6 +45,11 @@ impl Promptable for IsoProvisioner {
 		self.validate()?;
 		Ok(())
 	}
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct AnsibleProvisioners {
+	pub ansible: Vec<AnsibleProvisioner>,
 }
 
 /// This provisioner runs an Ansible playbook on the image remotely.
@@ -80,7 +94,7 @@ impl AnsibleProvisioner {
 	}
 }
 
-impl Promptable for AnsibleProvisioner {
+impl PromptMut for AnsibleProvisioner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -102,6 +116,11 @@ impl Promptable for AnsibleProvisioner {
 		self.validate()?;
 		Ok(())
 	}
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct ShellProvisioners {
+	pub commands: Vec<ShellProvisioner>,
 }
 
 /// This provisioner runs an inline shell command.
@@ -133,6 +152,11 @@ impl ShellProvisioner {
 	}
 }
 
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct ExecutableProvisioners {
+	pub executables: Vec<ExecutableProvisioner>,
+}
+
 /// This provisioner runs an executable file on the image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ExecutableProvisioner {
@@ -154,7 +178,7 @@ impl ExecutableProvisioner {
 	}
 }
 
-impl Promptable for ExecutableProvisioner {
+impl PromptMut for ExecutableProvisioner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -193,7 +217,7 @@ impl Default for HostnameProvisioner {
 	}
 }
 
-impl Promptable for HostnameProvisioner {
+impl PromptMut for HostnameProvisioner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -214,7 +238,7 @@ pub struct TimezoneProvisioner {
 	// TODO
 }
 
-impl Promptable for TimezoneProvisioner {
+impl PromptMut for TimezoneProvisioner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -224,14 +248,29 @@ impl Promptable for TimezoneProvisioner {
 	}
 }
 
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct UnixAccountProvisioners {
+	pub users: Vec<UnixAccountProvisioner>,
+}
+
+impl UnixAccountProvisioners {
+	/// Get the root user's password
+	pub fn get_root_password(&self) -> Option<String> {
+		self.users.iter().filter(|u| u.username == "root").map(|u| u.password).next()
+	}
+}
+
 /// This provisioner configures a UNIX-like user account.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct UnixAccountProvisioner {
 	#[validate(length(max = 64))]
+	pub username: String,
+
+	#[validate(length(max = 64))]
 	pub password: String,
 }
 
-impl Promptable for UnixAccountProvisioner {
+impl PromptMut for UnixAccountProvisioner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -249,6 +288,7 @@ impl Promptable for UnixAccountProvisioner {
 impl Default for UnixAccountProvisioner {
 	fn default() -> Self {
 		Self {
+			username: String::from("root"),
 			password: crate::random_password(),
 		}
 	}
@@ -264,7 +304,7 @@ pub struct LuksProvisoner {
 	pub tpm: bool,
 }
 
-impl Promptable for LuksProvisoner {
+impl PromptMut for LuksProvisoner {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,
@@ -297,3 +337,5 @@ impl PartitionProvisioner {
 		self.total_size.parse::<ubyte::ByteUnit>().unwrap().as_u64()
 	}
 }
+
+pub struct DnsResolverProvisioner {}

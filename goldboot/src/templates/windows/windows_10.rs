@@ -1,6 +1,7 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -24,20 +25,14 @@ pub struct Windows10Template {
 
 	hostname: String,
 
-	/// The installation media
-	pub iso: IsoContainer,
-
-	#[serde(flatten)]
-	pub general: GeneralContainer,
-
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub iso: IsoProvisioner,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for Windows10Template {
 	fn default() -> Self {
 		Self {
-			base: TemplateId::Windows10,
+			id: TemplateId::Windows10,
 			username: String::from("admin"),
 			password: String::from("admin"),
 			hostname: String::from("goldboot"),
@@ -122,7 +117,7 @@ impl Template for Windows10Template {
 	}
 }
 
-impl Promptable for Windows10Template {
+impl PromptMut for Windows10Template {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,

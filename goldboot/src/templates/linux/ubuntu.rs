@@ -1,6 +1,7 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -52,14 +53,10 @@ pub struct UbuntuTemplate {
 
 	pub root_password: String,
 
-	/// The installation media
-	pub iso: IsoContainer,
+	pub iso: IsoProvisioner,
+	pub hostname: HostnameProvisioner,
 
-	#[serde(flatten)]
-	pub general: GeneralContainer,
-
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for UbuntuTemplate {
@@ -120,7 +117,7 @@ impl Template for UbuntuTemplate {
 	}
 }
 
-impl Promptable for UbuntuTemplate {
+impl PromptMut for UbuntuTemplate {
 	fn prompt(
 		&mut self,
 		config: &BuildConfig,

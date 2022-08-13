@@ -5,7 +5,7 @@ use crate::{
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use log::debug;
-use std::error::Error;
+use std::{error::Error, path::Path};
 use validator::Validate;
 
 pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
@@ -18,14 +18,20 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 			config,
 		} => {
 			let config_path = if let Some(path) = config.to_owned() {
-				path
+				path.as_str()
 			} else {
-				String::from("./goldboot.json")
+				if Path::new("./goldboot.yaml").exists() {
+					"./goldboot.yaml"
+				} else if Path::new("./goldboot.yml").exists() {
+					"./goldboot.yml"
+				} else {
+					todo!()
+				}
 			};
 			debug!("Loading config from {}", config_path);
 
 			// Load build config from current directory
-			let mut config: BuildConfig = serde_json::from_slice(&std::fs::read(config_path)?)?;
+			let mut config: BuildConfig = serde_yaml::from_slice(&std::fs::read(config_path)?)?;
 			debug!("Loaded: {:#?}", &config);
 
 			// Include the encryption password if provided

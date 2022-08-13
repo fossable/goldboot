@@ -1,6 +1,7 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };

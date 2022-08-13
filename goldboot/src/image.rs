@@ -291,13 +291,13 @@ impl ImageHandle {
 		file.read_exact(&mut config_bytes)?;
 
 		let config = match self.primary_header.encryption_type {
-			HeaderEncryptionType::None => serde_json::from_slice(&config_bytes)?,
+			HeaderEncryptionType::None => serde_yaml::from_slice(&config_bytes)?,
 			HeaderEncryptionType::Aes256 => {
 				let config_bytes = cipher.decrypt(
 					Nonce::from_slice(&directory.config_nonce),
 					config_bytes.as_ref(),
 				)?;
-				serde_json::from_slice(&config_bytes)?
+				serde_yaml::from_slice(&config_bytes)?
 			}
 		};
 
@@ -359,7 +359,7 @@ impl ImageHandle {
 			let mut config_bytes = vec![0u8; directory.config_size as usize];
 			file.seek(SeekFrom::Start(directory.config_offset))?;
 			file.read_exact(&mut config_bytes)?;
-			let config = serde_json::from_slice(&config_bytes)?;
+			let config = serde_yaml::from_slice(&config_bytes)?;
 
 			Ok(Self {
 				id,
@@ -498,7 +498,7 @@ impl ImageHandle {
 
 		// Write config
 		{
-			let config_bytes = serde_json::to_vec(&config)?;
+			let config_bytes = serde_yaml::to_vec(&config)?;
 
 			let config_bytes = match primary_header.encryption_type {
 				HeaderEncryptionType::None => config_bytes,

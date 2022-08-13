@@ -1,6 +1,7 @@
 use crate::{
 	build::BuildWorker,
 	cache::{MediaCache, MediaFormat},
+	provisioners::*,
 	qemu::QemuArgs,
 	templates::*,
 };
@@ -31,20 +32,16 @@ pub struct PopOsTemplate {
 	pub edition: PopOsEdition,
 	pub release: PopOsRelease,
 
+	pub iso: IsoProvisioner,
+	pub hostname: HostnameProvisioner,
+
 	pub username: String,
 
 	pub password: String,
 
 	pub root_password: String,
 
-	/// The installation media
-	pub iso: IsoContainer,
-
-	#[serde(flatten)]
-	pub general: GeneralContainer,
-
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for PopOsTemplate {

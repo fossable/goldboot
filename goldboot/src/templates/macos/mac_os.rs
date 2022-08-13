@@ -1,4 +1,4 @@
-use crate::{build::BuildWorker, cache::MediaCache, qemu::QemuArgs, templates::*};
+use crate::{build::BuildWorker, cache::MediaCache, provisioners::*, qemu::QemuArgs, templates::*};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
@@ -19,11 +19,8 @@ pub struct MacOsTemplate {
 	pub id: TemplateId,
 	pub release: MacOsRelease,
 
-	#[serde(flatten)]
-	pub general: GeneralContainer,
-
-	#[serde(flatten)]
-	pub provisioners: ProvisionersContainer,
+	pub iso: IsoProvisioner,
+	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for MacOsTemplate {
