@@ -10,5 +10,5 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-quick-xml = {version = "0.22.0", features = ["serialize"] }
+quick-xml = {version = "0.25.0", features = ["serialize"] }
 serde = {version="1",features = ["derive"]}
