@@ -14,7 +14,7 @@ aes-gcm = { version = "0", features = ["std"] }
 binrw = "0"
 bzip2-rs = "0"
 chrono = "0"
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 console = "0"
 dialoguer = "0"
 env_logger = "0"
