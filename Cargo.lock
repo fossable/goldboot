@@ -1065,7 +1065,7 @@ dependencies = [
  "flate2 1.0.24",
  "hex",
  "indicatif",
- "log 0.3.9",
+ "log 0.4.17",
  "png",
  "quick-xml 0.23.0",
  "rand",
@@ -1108,7 +1108,7 @@ dependencies = [
  "glib-macros",
  "goldboot",
  "gtk4",
- "log 0.3.9",
+ "log 0.4.17",
  "rust-embed",
  "serde",
  "serde_json",
@@ -1122,7 +1122,7 @@ dependencies = [
  "actix-web",
  "env_logger",
  "goldboot",
- "log 0.3.9",
+ "log 0.4.17",
  "reqwest",
  "rustls",
  "rustls-pemfile",
@@ -1505,9 +1505,9 @@ checksum = "04c3b4822ccebfa39c02fc03d1534441b22ead323fa0f48bb7ddd8e6ba076a40"
 
 [[package]]
 name = "libssh2-sys"
-version = "0.2.23"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b094a36eb4b8b8c8a7b4b8ae43b2944502be3e59cd87687595cf6b0a71b3f4ca"
+checksum = "2dc8a030b787e2119a731f1951d6a773e2280c660f8ec4b0f5e1505a386e71ee"
 dependencies = [
  "cc",
  "libc",
@@ -2452,9 +2452,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "ssh2"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "269343e64430067a14937ae0e3c4ec604c178fb896dde0964b1acd22b3e2eeb1"
+checksum = "e7fe461910559f6d5604c3731d00d2aafc4a83d1665922e280f42f9a168d5455"
 dependencies = [
  "bitflags",
  "libc",
