@@ -505,9 +505,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.21"
+version = "0.4.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f725f340c3854e3cb3ab736dc21f0cca183303acea3b3ffec30f141503ac8eb"
+checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
 dependencies = [
  "iana-time-zone",
  "js-sys",
@@ -1065,7 +1065,7 @@ dependencies = [
  "flate2 1.0.24",
  "hex",
  "indicatif",
- "log 0.3.9",
+ "log 0.4.17",
  "png",
  "quick-xml 0.23.0",
  "rand",
@@ -1108,7 +1108,7 @@ dependencies = [
  "glib-macros",
  "goldboot",
  "gtk4",
- "log 0.3.9",
+ "log 0.4.17",
  "rust-embed",
  "serde",
  "serde_json",
@@ -1122,7 +1122,7 @@ dependencies = [
  "actix-web",
  "env_logger",
  "goldboot",
- "log 0.3.9",
+ "log 0.4.17",
  "reqwest",
  "rustls",
  "rustls-pemfile",
