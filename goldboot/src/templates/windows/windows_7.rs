@@ -7,6 +7,6 @@ use validator::Validate;
 pub struct Windows7Template {
 	pub id: TemplateId,
 
-	pub iso: IsoProvisioner,
+	pub iso: IsoSource,
 	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }

@@ -19,7 +19,7 @@ pub struct MacOsTemplate {
 	pub id: TemplateId,
 	pub release: MacOsRelease,
 
-	pub iso: IsoProvisioner,
+	pub iso: IsoSource,
 	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 

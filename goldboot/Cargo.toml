@@ -29,6 +29,7 @@ regex = "1"
 reqwest = { version = "0", features=["blocking", "stream", "json"] }
 rust-embed = "6"
 serde = { version="1", features = ["derive"] }
+serde_json = "1"
 serde_yaml = "0"
 sha1 = "0"
 sha2 = "0"
@@ -36,6 +37,7 @@ simple-error = "0"
 ssh2 = {version = "0", features = ["vendored-openssl"]}
 strum = { version = "0", features = ["derive"] }
 tempfile = "3"
+toml = { version = "0" }
 ubyte = "0"
 url = {version = "2", features = ["serde"] }
 validator = { version = "0", features = ["derive"] }

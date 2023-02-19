@@ -1,4 +1,6 @@
-use crate::{build::BuildWorker, cache::*, provisioners::*, qemu::QemuArgs, templates::*};
+use crate::{
+    build::BuildWorker, cache::*, provisioners::*, qemu::QemuArgs, sources::*, templates::*,
+};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use strum::{Display, EnumIter, IntoEnumIterator};
@@ -7,61 +9,61 @@ use validator::Validate;
 /// Template for Alpine Linux images (https://www.alpinelinux.org).
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct AlpineTemplate {
-	pub id: TemplateId,
-	pub edition: AlpineEdition,
-	pub release: AlpineRelease,
+    pub edition: AlpineEdition,
+    pub release: AlpineRelease,
 
-	pub iso: Option<IsoProvisioner>,
-	pub hostname: HostnameProvisioner,
-	pub partitions: PartitionProvisioner,
-	#[serde(flatten)]
-	pub users: Option<UnixAccountProvisioners>,
-	#[serde(flatten)]
-	pub ansible: Option<AnsibleProvisioners>,
-	#[serde(flatten)]
-	pub executables: Option<ExecutableProvisioners>,
+    pub source: Option<AlpineSource>,
+    pub provisioners: Option<Vec<AlpineProvisioner>>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AlpineSource {
+    Iso(IsoSource),
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AlpineProvisioner {
+    Ansible(AnsibleProvisioner),
+    Hostname(HostnameProvisioner),
+    User(UnixAccountProvisioners),
+    Partition(PartitionProvisioner),
+    Executable(ExecutableProvisioner),
 }
 
 impl Default for AlpineTemplate {
-	fn default() -> Self {
-		Self {
-			id: TemplateId::Alpine,
-			edition: AlpineEdition::Standard,
-			release: AlpineRelease::V3_16,
-			iso: None,
-			hostname: HostnameProvisioner::default(),
-			partitions: PartitionProvisioner {
-				total_size: String::from("5 GiB"),
-			},
-			users: Some(UnixAccountProvisioners {
-				users: vec![UnixAccountProvisioner::default()],
-			}),
-			ansible: None,
-			executables: None,
-		}
-	}
+    fn default() -> Self {
+        Self {
+            edition: AlpineEdition::Standard,
+            release: AlpineRelease::V3_16,
+            source: None,
+            provisioners: None,
+        }
+    }
 }
 
-impl Template for AlpineTemplate {
-	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
-		let mut qemuargs = QemuArgs::new(&context);
+impl BuildTemplate for AlpineTemplate {
+    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+        let mut qemuargs = QemuArgs::new(&context);
 
-		let iso = self.iso.unwrap_or_else(|| fetch_latest_iso(self.edition, self.release, context.config.arch).unwrap());
+        let iso = self.iso.unwrap_or_else(|| {
+            fetch_latest_iso(self.edition, self.release, context.config.arch).unwrap()
+        });
 
-		qemuargs.drive.push(format!(
-			"file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-			context.image_path
-		));
-		qemuargs.drive.push(format!(
-			"file={},media=cdrom",
-			iso.download()?
-		));
+        qemuargs.drive.push(format!(
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
+        ));
+        qemuargs
+            .drive
+            .push(format!("file={},media=cdrom", iso.download()?));
 
-		// Start VM
-		let mut qemu = qemuargs.start_process()?;
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
 
-		// Send boot command
-		#[rustfmt::skip]
+        // Send boot command
+        #[rustfmt::skip]
 		qemu.vnc.boot_command(vec![
 			// Initial wait
 			wait!(30),
@@ -96,103 +98,104 @@ iface eth0 inet dhcp
 			enter!("apk add efibootmgr; efibootmgr -n 0003; reboot"),
 		])?;
 
-		// Wait for SSH
-		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
+        // Wait for SSH
+        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
-		// Run provisioners
-		self.provisioners.run(&mut ssh)?;
+        // Run provisioners
+        self.provisioners.run(&mut ssh)?;
 
-		// Shutdown
-		ssh.shutdown("poweroff")?;
-		qemu.shutdown_wait()?;
-		Ok(())
-	}
+        // Shutdown
+        ssh.shutdown("poweroff")?;
+        qemu.shutdown_wait()?;
+        Ok(())
+    }
 }
 
 impl PromptMut for AlpineTemplate {
-	fn prompt(
-		&mut self,
-		config: &BuildConfig,
-		theme: &dialoguer::theme::ColorfulTheme,
-	) -> Result<(), Box<dyn Error>> {
-		// Prompt edition
-		{
-			let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
-			let edition_index = dialoguer::Select::with_theme(theme)
-				.with_prompt("Choose an edition")
-				.default(0)
-				.items(&editions)
-				.interact()?;
+    fn prompt(
+        &mut self,
+        config: &BuildConfig,
+        theme: &dialoguer::theme::ColorfulTheme,
+    ) -> Result<(), Box<dyn Error>> {
+        // Prompt edition
+        {
+            let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
+            let edition_index = dialoguer::Select::with_theme(theme)
+                .with_prompt("Choose an edition")
+                .default(0)
+                .items(&editions)
+                .interact()?;
 
-			self.edition = editions[edition_index];
-		}
+            self.edition = editions[edition_index];
+        }
 
-		// Prompt mirror list
-		// TODO
+        // Prompt mirror list
+        // TODO
 
-		self.validate()?;
-		Ok(())
-	}
+        self.validate()?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
 pub enum AlpineEdition {
-	Standard,
-	Extended,
-	RaspberryPi,
-	Xen,
+    Standard,
+    Extended,
+    RaspberryPi,
+    Xen,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
 pub enum AlpineRelease {
-	Edge,
-	#[serde(rename = "v3.16")]
-	V3_16,
-	#[serde(rename = "v3.15")]
-	V3_15,
+    Edge,
+    #[serde(rename = "v3.17")]
+    V3_17,
+    #[serde(rename = "v3.16")]
+    V3_16,
+    #[serde(rename = "v3.15")]
+    V3_15,
+    #[deprecated]
+    #[serde(rename = "v3.14")]
+    V3_14,
 }
 
 impl Display for AlpineRelease {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(
-			f,
-			"{}",
-			match &self {
-				AlpineRelease::Edge => "Edge",
-				AlpineRelease::V3_16 => "v3.16",
-				AlpineRelease::V3_15 => "v3.15",
-			}
-		)
-	}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match &self {
+                AlpineRelease::Edge => "Edge",
+                AlpineRelease::V3_16 => "v3.16",
+                AlpineRelease::V3_15 => "v3.15",
+            }
+        )
+    }
 }
 
-fn fetch_latest_iso(edition: AlpineEdition, release: AlpineRelease, arch: Architecture) -> Result<IsoProvisioner, Box<dyn Error>> {
+fn fetch_latest_iso(
+    edition: AlpineEdition,
+    release: AlpineRelease,
+    arch: Architecture,
+) -> Result<IsoSource, Box<dyn Error>> {
+    let arch = match arch {
+        Architecture::amd64 => "x86_64",
+        Architecture::arm64 => "aarch64",
+        _ => bail!("Unsupported architecture"),
+    };
 
-	let arch = match arch {
-		Architecture::amd64 => "x86_64",
-		Architecture::arm64 => "aarch64",
-		_ => bail!("Unsupported architecture"),
-	};
+    let edition = match edition {
+        AlpineEdition::Standard => "standard",
+        AlpineEdition::Extended => "extended",
+        AlpineEdition::Xen => "virt",
+        AlpineEdition::RaspberryPi => "rpi",
+    };
 
-	let edition = match edition {
-		AlpineEdition::Standard => "standard",
-		AlpineEdition::Extended => "extended",
-		AlpineEdition::Xen => "virt",
-		AlpineEdition::RaspberryPi => "rpi",
-	};
+    let url = format!("https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/{arch}/alpine-{edition}-3.16.0-{arch}.iso");
 
-	let url = format!("https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/{arch}/alpine-{edition}-3.16.0-{arch}.iso");
+    // Download checksum
+    let rs = reqwest::blocking::get(format!("{url}.sha256"))?;
+    let checksum = if rs.status().is_success() { None } else { None };
 
-	// Download checksum
-	let rs = reqwest::blocking::get(format!("{url}.sha256"))?;
-	let checksum = if rs.status().is_success() {
-		None
-	} else {
-		None
-	};
-
-	Ok(IsoProvisioner{
-		url,
-		checksum,
-	})
+    Ok(IsoSource { url, checksum })
 }

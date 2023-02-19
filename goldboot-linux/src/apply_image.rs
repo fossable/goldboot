@@ -8,7 +8,7 @@ use std::error::Error;
 use ubyte::ToByteUnit;
 
 pub fn init(window: &'static gtk::ApplicationWindow, image_id: String, device_id: String) {
-	let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
+    let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
-	window.set_child(Some(&container));
+    window.set_child(Some(&container));
 }

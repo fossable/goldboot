@@ -2,11 +2,11 @@ use binrw::{io::SeekFrom, BinRead, BinReaderExt};
 use log::debug;
 use simple_error::bail;
 use std::{
-	error::Error,
-	fs::File,
-	io::BufReader,
-	path::Path,
-	process::{Command, Stdio},
+    error::Error,
+    fs::File,
+    io::BufReader,
+    path::Path,
+    process::{Command, Stdio},
 };
 
 mod header;
@@ -19,82 +19,82 @@ use levels::*;
 #[derive(BinRead, Debug)]
 #[brw(big)]
 pub struct Qcow3 {
-	/// The image header
-	pub header: QcowHeader,
+    /// The image header
+    pub header: QcowHeader,
 
-	/// The "active" L1 table
-	#[br(seek_before = SeekFrom::Start(header.l1_table_offset), count = header.l1_size)]
-	pub l1_table: Vec<L1Entry>,
+    /// The "active" L1 table
+    #[br(seek_before = SeekFrom::Start(header.l1_table_offset), count = header.l1_size)]
+    pub l1_table: Vec<L1Entry>,
 
-	/// The file path
-	#[br(ignore)]
-	pub path: String,
+    /// The file path
+    #[br(ignore)]
+    pub path: String,
 }
 
 impl Qcow3 {
-	/// Open a qcow3 file from the given path.
-	pub fn open(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
-		let mut file = BufReader::new(File::open(&path)?);
+    /// Open a qcow3 file from the given path.
+    pub fn open(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+        let mut file = BufReader::new(File::open(&path)?);
 
-		let mut qcow: Qcow3 = file.read_be()?;
-		qcow.path = path.as_ref().to_string_lossy().to_string();
+        let mut qcow: Qcow3 = file.read_be()?;
+        qcow.path = path.as_ref().to_string_lossy().to_string();
 
-		debug!("Opened qcow image: {:?}", &qcow);
-		Ok(qcow)
-	}
+        debug!("Opened qcow image: {:?}", &qcow);
+        Ok(qcow)
+    }
 
-	/// Allocate a new qcow3 file.
-	pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
-		let status = Command::new("qemu-img")
-			.args([
-				"create",
-				"-f",
-				"qcow2",
-				"-o",
-				"cluster_size=65536",
-				&path,
-				&format!("{size}"),
-			])
-			.stdout(Stdio::null())
-			.stderr(Stdio::null())
-			.status()
-			.unwrap();
+    /// Allocate a new qcow3 file.
+    pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
+        let status = Command::new("qemu-img")
+            .args([
+                "create",
+                "-f",
+                "qcow2",
+                "-o",
+                "cluster_size=65536",
+                &path,
+                &format!("{size}"),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
 
-		if status.code().unwrap() != 0 {
-			bail!("Failed to allocate image with qemu-img");
-		}
+        if status.code().unwrap() != 0 {
+            bail!("Failed to allocate image with qemu-img");
+        }
 
-		Qcow3::open(path)
-	}
+        Qcow3::open(path)
+    }
 
-	/// Count the number of allocated clusters.
-	pub fn count_clusters(&self) -> Result<u64, Box<dyn Error>> {
-		let mut count = 0;
+    /// Count the number of allocated clusters.
+    pub fn count_clusters(&self) -> Result<u64, Box<dyn Error>> {
+        let mut count = 0;
 
-		for l1_entry in &self.l1_table {
-			if let Some(l2_table) =
-				l1_entry.read_l2(&mut File::open(&self.path)?, self.header.cluster_bits)
-			{
-				for l2_entry in l2_table {
-					if l2_entry.is_used {
-						count += 1;
-					}
-				}
-			}
-		}
-		Ok(count)
-	}
+        for l1_entry in &self.l1_table {
+            if let Some(l2_table) =
+                l1_entry.read_l2(&mut File::open(&self.path)?, self.header.cluster_bits)
+            {
+                for l2_entry in l2_table {
+                    if l2_entry.is_used {
+                        count += 1;
+                    }
+                }
+            }
+        }
+        Ok(count)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+    use super::*;
 
-	#[test]
-	fn test_open() -> Result<(), Box<dyn Error>> {
-		let qcow = Qcow3::open("test/empty.qcow2")?;
-		assert_eq!(qcow.header.cluster_bits, 16);
-		assert_eq!(qcow.header.cluster_size(), 65536);
-		Ok(())
-	}
+    #[test]
+    fn test_open() -> Result<(), Box<dyn Error>> {
+        let qcow = Qcow3::open("test/empty.qcow2")?;
+        assert_eq!(qcow.header.cluster_bits, 16);
+        assert_eq!(qcow.header.cluster_size(), 65536);
+        Ok(())
+    }
 }

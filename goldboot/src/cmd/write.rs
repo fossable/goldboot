@@ -4,32 +4,32 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use std::{error::Error, path::Path};
 
 pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
-	match cmd {
-		Commands::Write {
-			image,
-			output,
-			confirm,
-		} => {
-			let theme = ColorfulTheme {
-				values_style: Style::new().yellow().dim(),
-				..ColorfulTheme::default()
-			};
+    match cmd {
+        Commands::Write {
+            image,
+            output,
+            confirm,
+        } => {
+            let theme = ColorfulTheme {
+                values_style: Style::new().yellow().dim(),
+                ..ColorfulTheme::default()
+            };
 
-			let image = ImageLibrary::find_by_id(&image)?;
+            let image = ImageLibrary::find_by_id(&image)?;
 
-			if Path::new(&output).exists() && !confirm {
-				if !Confirm::with_theme(&theme)
-					.with_prompt("Do you want to continue?")
-					.interact()?
-				{
-					std::process::exit(0);
-				}
-			}
+            if Path::new(&output).exists() && !confirm {
+                if !Confirm::with_theme(&theme)
+                    .with_prompt("Do you want to continue?")
+                    .interact()?
+                {
+                    std::process::exit(0);
+                }
+            }
 
-			// TODO special case for GBL; select images to include
+            // TODO special case for GBL; select images to include
 
-			image.write(output)
-		}
-		_ => panic!(),
-	}
+            image.write(output)
+        }
+        _ => panic!(),
+    }
 }

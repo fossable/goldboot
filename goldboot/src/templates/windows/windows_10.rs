@@ -25,7 +25,7 @@ pub struct Windows10Template {
 
 	hostname: String,
 
-	pub iso: IsoProvisioner,
+	pub iso: IsoSource,
 	pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 

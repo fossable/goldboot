@@ -1,5 +1,4 @@
 comment_width = 80
-hard_tabs = true
 imports_granularity = "Crate"
 reorder_imports = true
 unstable_features = true
