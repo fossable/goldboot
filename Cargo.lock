@@ -1065,7 +1065,7 @@ dependencies = [
  "flate2 1.0.24",
  "hex",
  "indicatif",
- "log 0.4.17",
+ "log 0.3.9",
  "png",
  "quick-xml 0.23.0",
  "rand",
@@ -1110,7 +1110,7 @@ dependencies = [
  "glib-macros",
  "goldboot",
  "gtk4",
- "log 0.4.17",
+ "log 0.3.9",
  "rust-embed",
  "serde",
  "serde_json",
@@ -1124,7 +1124,7 @@ dependencies = [
  "actix-web",
  "env_logger",
  "goldboot",
- "log 0.4.17",
+ "log 0.3.9",
  "reqwest",
  "rustls",
  "rustls-pemfile",
@@ -1245,9 +1245,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.13"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37a82c6d637fc9515a4694bbf1cb2457b79d81ce52b3108bdeea58b07dd34a57"
+checksum = "66b91535aa35fea1523ad1b86cb6b53c28e0ae566ba4a460f4457e936cad7c6f"
 dependencies = [
  "bytes",
  "fnv",
