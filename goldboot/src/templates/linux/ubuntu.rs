@@ -47,34 +47,28 @@ pub enum UbuntuEdition {
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct UbuntuTemplate {
-    pub id: TemplateId,
     pub edition: UbuntuEdition,
     pub release: UbuntuRelease,
 
-    pub root_password: String,
+    pub source: UbuntuSource,
+    pub provisioners: Option<Vec<UbuntuProvisioner>>,
+}
 
-    pub iso: IsoSource,
-    pub hostname: HostnameProvisioner,
+pub enum UbuntuSource {
+    Iso(IsoSource),
+}
 
-    pub ansible: Option<Vec<AnsibleProvisioner>>,
+pub enum UbuntuProvisioner {
+    Ansible(AnsibleProvisioner),
+    Hostname(HostnameProvisoner),
 }
 
 impl Default for UbuntuTemplate {
     fn default() -> Self {
         Self {
-            root_password: String::from("root"),
-            iso: IsoContainer {
-                url: format!(""),
-                checksum: String::from("none"),
-            },
             edition: UbuntuEdition::Desktop,
             release: UbuntuRelease::Jammy,
-            general: GeneralContainer {
-                base: TemplateBase::Ubuntu,
-                storage_size: String::from("15 GiB"),
-                ..Default::default()
-            },
-            provisioners: ProvisionersContainer::default(),
+            provisioners: None,
         }
     }
 }

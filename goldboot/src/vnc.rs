@@ -1,3 +1,7 @@
+//! Contains a VNC interface for automating graphical operations in Qemu. Mostly
+//! we compare the state of the screen with specifications from templates in order
+//! to act on timing events.
+
 use log::{debug, info, trace};
 use rand::Rng;
 use sha1::{Digest, Sha1};
@@ -5,6 +9,7 @@ use simple_error::bail;
 use std::{error::Error, fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
 use vnc::client::Event;
 
+/// A rectangular snapshot of the entire screen or an arbitrary subsection.
 pub struct VncScreenshot {
     pub data: Vec<u8>,
     pub width: u16,
@@ -12,6 +17,7 @@ pub struct VncScreenshot {
 }
 
 impl VncScreenshot {
+    /// Produce a hash of the data in the screenshot to be used for comparison.
     pub fn hash(&self) -> String {
         hex::encode(Sha1::new().chain_update(&self.data).finalize())
     }
@@ -78,9 +84,16 @@ impl VncScreenshot {
 
 #[derive(Debug, Clone)]
 pub enum VncCmd {
+    /// Input the enter key.
     Enter,
+
+    /// Input the spacebar key.
     Spacebar,
+
+    /// Input the tab key.
     Tab,
+
+    /// Input the escape key.
     Escape,
 
     /// Input the left super button.
@@ -95,7 +108,7 @@ pub enum VncCmd {
     /// Wait for the screen to match the given hash.
     WaitScreen(String),
 
-    /// Wait for a section of the screen to match the given hash.
+    /// Wait for a subsection of the screen to match the given hash.
     WaitScreenRect(String, u16, u16, u16, u16),
 }
 
@@ -143,7 +156,7 @@ impl VncConnection {
         Ok(Self {
             width,
             height,
-            vnc: vnc,
+            vnc,
             record,
             debug,
         })

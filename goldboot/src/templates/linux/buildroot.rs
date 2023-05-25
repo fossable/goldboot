@@ -14,14 +14,10 @@ use std::{
 };
 use validator::Validate;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/Arch/"]
-struct Resources;
-
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ArchTemplate {
-    pub source: ArchSource,
-    pub provisioners: Option<Vec<ArchProvisioner>>,
+pub struct BuildrootTemplate {
+    pub source: BuildrootSource,
+    pub provisioners: Option<Vec<BuildrootProvisioner>>,
 }
 
 pub enum ArchSource {
@@ -31,7 +27,7 @@ pub enum ArchSource {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ArchProvisioner {
-    Ansible(AnsibleProvisioner),
+    Ansible(AnsibleProvisioner)
     Mirrorlist(ArchMirrorlistProvisioner),
     Hostname(HostnameProvisioner),
 }
