@@ -10,11 +10,10 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-actix-web = {version = "4", features = ["rustls"]}
-env_logger = "0"
+env_logger = "0.10.0"
 goldboot = { path="../goldboot", version = "0.0.1" }
-log = { version = "0", default-features = false }
-rustls = "0"
-rustls-pemfile = "1"
-simple-error = "0"
-reqwest = { version = "0", features=["stream"] }
+log = { version = "0.4.20", default-features = false }
+reqwest = { version = "0.11.22", features = ["stream"] }
+rustls = "0.21.8"
+rustls-pemfile = "1.0.3"
+simple-error = "0.3.0"
