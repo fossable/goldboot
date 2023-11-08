@@ -20,20 +20,14 @@ struct Resources;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchTemplate {
-    pub source: ArchSource,
-    pub provisioners: Option<Vec<ArchProvisioner>>,
+    pub source: sources::ArchSource,
+    pub provisioners: Option<Vec<provisioners::ArchProvisioner>>,
 }
 
-pub enum ArchSource {
-    Iso(IsoSource),
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum ArchProvisioner {
-    Ansible(AnsibleProvisioner),
-    Mirrorlist(ArchMirrorlistProvisioner),
-    Hostname(HostnameProvisioner),
+pub mod sources {
+    pub enum ArchSource {
+        Iso(IsoSource),
+    }
 }
 
 impl Default for ArchTemplate {
@@ -122,52 +116,69 @@ impl PromptMut for ArchTemplate {
     }
 }
 
-/// This provisioner configures the Archlinux mirror list.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ArchMirrorlistProvisioner {
-    pub mirrors: Vec<String>,
-}
+pub mod provisioners {
+    use std::error::Error;
 
-impl Default for ArchMirrorlistProvisioner {
-    fn default() -> Self {
-        Self {
-            mirrors: vec![
-                String::from("https://geo.mirror.pkgbuild.com/"),
-                String::from("https://mirror.rackspace.com/archlinux/"),
-                String::from("https://mirrors.edge.kernel.org/archlinux/"),
-            ],
+    use serde::{Deserialize, Serialize};
+    use validator::Validate;
+
+    use crate::build::BuildConfig;
+
+    #[derive(Clone, Serialize, Deserialize, Debug)]
+    #[serde(tag = "type", rename_all = "snake_case")]
+    pub enum ArchProvisioner {
+        Ansible(AnsibleProvisioner),
+        Mirrorlist(ArchMirrorlistProvisioner),
+        Hostname(HostnameProvisioner),
+    }
+
+    /// This provisioner configures the Archlinux mirror list.
+    #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+    pub struct ArchMirrorlistProvisioner {
+        pub mirrors: Vec<String>,
+    }
+
+    impl Default for ArchMirrorlistProvisioner {
+        fn default() -> Self {
+            Self {
+                mirrors: vec![
+                    String::from("https://geo.mirror.pkgbuild.com/"),
+                    String::from("https://mirror.rackspace.com/archlinux/"),
+                    String::from("https://mirrors.edge.kernel.org/archlinux/"),
+                ],
+            }
         }
     }
-}
 
-impl PromptMut for ArchMirrorlistProvisioner {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
-    ) -> Result<(), Box<dyn Error>> {
-        // Prompt mirror list
-        {
-            let mirror_index = dialoguer::Select::with_theme(theme)
-                .with_prompt("Choose a mirror site")
-                .default(0)
-                .items(&MIRRORLIST)
-                .interact()?;
+    impl PromptMut for ArchMirrorlistProvisioner {
+        fn prompt(
+            &mut self,
+            config: &BuildConfig,
+            theme: &dialoguer::theme::ColorfulTheme,
+        ) -> Result<(), Box<dyn Error>> {
+            // Prompt mirror list
+            {
+                let mirror_index = dialoguer::Select::with_theme(theme)
+                    .with_prompt("Choose a mirror site")
+                    .default(0)
+                    .items(&MIRRORLIST)
+                    .interact()?;
 
-            self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
+                self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
+            }
+
+            Ok(())
         }
-
-        Ok(())
     }
-}
 
-impl ArchMirrorlistProvisioner {
-    pub fn format_mirrorlist(&self) -> String {
-        self.mirrors
-            .iter()
-            .map(|s| format!("Server = {}", s))
-            .collect::<Vec<String>>()
-            .join("\n")
+    impl ArchMirrorlistProvisioner {
+        pub fn format_mirrorlist(&self) -> String {
+            self.mirrors
+                .iter()
+                .map(|s| format!("Server = {}", s))
+                .collect::<Vec<String>>()
+                .join("\n")
+        }
     }
 }
 

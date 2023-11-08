@@ -1,12 +1,10 @@
+//! Templates are the central concept that make it easy to define images.
+
 use crate::{build::BuildWorker, *};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Display, path::Path};
 
-pub mod linux;
-
-// Temporary
-//pub mod macos;
-//pub mod windows;
+pub mod arch_linux;
 
 pub trait BuildTemplate {
     /// Build an image from the template.
