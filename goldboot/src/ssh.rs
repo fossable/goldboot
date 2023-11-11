@@ -45,7 +45,7 @@ impl SshConnection {
 
     pub fn upload_exec(
         &mut self,
-        source: Vec<u8>,
+        source: &[u8],
         env: Vec<(&str, &str)>,
     ) -> Result<i32, Box<dyn Error>> {
         self.upload(source, "/tmp/tmp.script")?;
@@ -54,7 +54,7 @@ impl SshConnection {
         Ok(exit)
     }
 
-    pub fn upload(&self, source: Vec<u8>, dest: &str) -> Result<(), Box<dyn Error>> {
+    pub fn upload(&self, source: &[u8], dest: &str) -> Result<(), Box<dyn Error>> {
         let mut channel =
             self.session
                 .scp_send(Path::new(dest), 0o700, source.len().try_into()?, None)?;

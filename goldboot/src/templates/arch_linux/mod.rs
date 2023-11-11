@@ -1,10 +1,4 @@
-use crate::{
-    build::BuildWorker,
-    cache::{MediaCache, MediaFormat},
-    provisioners::*,
-    qemu::QemuArgs,
-    templates::*,
-};
+use crate::{build::BuildWorker, cache::MediaCache, provisioners::*, qemu::QemuArgs, templates::*};
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -14,23 +8,24 @@ use std::{
 };
 use validator::Validate;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/Arch/"]
-struct Resources;
-
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ArchTemplate {
+pub struct ArchLinuxTemplate {
     pub source: sources::ArchSource,
     pub provisioners: Option<Vec<provisioners::ArchProvisioner>>,
 }
 
 pub mod sources {
+    use serde::{Deserialize, Serialize};
+
+    use crate::sources::iso::IsoSource;
+
+    #[derive(Clone, Serialize, Deserialize, Debug)]
     pub enum ArchSource {
         Iso(IsoSource),
     }
 }
 
-impl Default for ArchTemplate {
+impl Default for ArchLinuxTemplate {
     fn default() -> Self {
         Self {
             source: None,
@@ -39,7 +34,16 @@ impl Default for ArchTemplate {
     }
 }
 
-impl BuildTemplate for ArchTemplate {
+impl BuildTemplate for ArchLinuxTemplate {
+    fn metadata() -> TemplateMetadata {
+        TemplateMetadata {
+            id: TemplateId::ArchLinux,
+            name: String::from("Arch Linux"),
+            architectures: vec![],
+            multiboot: true,
+        }
+    }
+
     fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
         info!("Starting {} build", console::style("ArchLinux").blue());
 
@@ -77,18 +81,16 @@ impl BuildTemplate for ArchTemplate {
         let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
 
         // Run install script
-        if let Some(resource) = Resources::get("install.sh") {
-            info!("Running base installation");
-            match ssh.upload_exec(
-                resource.data.to_vec(),
-                vec![
-                    ("GB_MIRRORLIST", &self.format_mirrorlist()),
-                    ("GB_ROOT_PASSWORD", &self.root_password),
-                ],
-            ) {
-                Ok(0) => debug!("Installation completed successfully"),
-                _ => bail!("Installation failed"),
-            }
+        info!("Running base installation");
+        match ssh.upload_exec(
+            include_bytes!("install.sh"),
+            vec![
+                ("GB_MIRRORLIST", &self.format_mirrorlist()),
+                ("GB_ROOT_PASSWORD", &self.root_password),
+            ],
+        ) {
+            Ok(0) => debug!("Installation completed successfully"),
+            _ => bail!("Installation failed"),
         }
 
         // Run provisioners
@@ -101,7 +103,7 @@ impl BuildTemplate for ArchTemplate {
     }
 }
 
-impl PromptMut for ArchTemplate {
+impl PromptMut for ArchLinuxTemplate {
     fn prompt(
         &mut self,
         config: &BuildConfig,
@@ -122,7 +124,11 @@ pub mod provisioners {
     use serde::{Deserialize, Serialize};
     use validator::Validate;
 
-    use crate::build::BuildConfig;
+    use crate::{
+        build::BuildConfig,
+        provisioners::{ansible::AnsibleProvisioner, hostname::HostnameProvisioner},
+        PromptMut,
+    };
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
     #[serde(tag = "type", rename_all = "snake_case")]

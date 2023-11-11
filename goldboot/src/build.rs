@@ -1,5 +1,9 @@
 use crate::{
-    image::ImageHandle, library::ImageLibrary, qcow::Qcow3, templates::Template, Architecture,
+    image::ImageHandle,
+    library::ImageLibrary,
+    qcow::Qcow3,
+    templates::{BuildTemplate, Template},
+    Architecture,
 };
 use log::{debug, info};
 use rand::Rng;
@@ -44,32 +48,7 @@ pub struct BuildConfig {
     pub password: Option<String>,
 
     #[validate(length(min = 1))]
-    pub templates: Vec<serde_yaml::Value>,
-}
-
-impl BuildConfig {
-    pub fn get_templates(&self) -> Result<Vec<Box<dyn Template>>, Box<dyn Error>> {
-        let mut templates: Vec<Box<dyn Template>> = Vec::new();
-
-        for template in &self.templates {
-            // Get type
-            let t: TemplateBase = serde_json::from_value(template.to_owned())?;
-            templates.push(t.parse_template(template.to_owned())?);
-        }
-
-        Ok(templates)
-    }
-
-    pub fn get_template_bases(&self) -> Result<Vec<String>, Box<dyn Error>> {
-        let mut bases: Vec<String> = Vec::new();
-
-        for template in &self.templates {
-            // Get base
-            bases.push(template.get("base").unwrap().as_str().unwrap().to_string());
-        }
-
-        Ok(bases)
-    }
+    pub templates: Vec<Template>,
 }
 
 /// Represents an image build job.
@@ -116,7 +95,7 @@ impl BuildJob {
     }
 
     /// Create a new generic build context.
-    fn new_worker(&self, template: Box<dyn Template>) -> Result<BuildWorker, Box<dyn Error>> {
+    fn new_worker(&self, template: Box<dyn BuildTemplate>) -> Result<BuildWorker, Box<dyn Error>> {
         // Obtain a temporary directory
         let tmp = tempfile::tempdir().unwrap();
 
@@ -170,12 +149,9 @@ impl BuildJob {
     pub fn run(&mut self, output: Option<String>) -> Result<(), Box<dyn Error>> {
         self.start_time = Some(SystemTime::now());
 
-        // Load templates
-        let templates = self.config.get_templates()?;
-
         // If there's more than one template, they must all support multiboot
-        if templates.len() > 1 {
-            for template in &templates {
+        if self.config.templates.len() > 1 {
+            for template in &self.config.templates {
                 //if !template.is_multiboot() {
                 //	bail!("Template does not support multiboot");
                 //}
@@ -187,7 +163,7 @@ impl BuildJob {
 
         // If we're in debug mode, run workers sequentially
         if self.debug {
-            for template in templates.into_iter() {
+            for template in self.config.templates.into_iter() {
                 let worker = self.new_worker(template)?;
                 worker.run()?;
                 workers.push(worker);
@@ -197,7 +173,7 @@ impl BuildJob {
         else {
             let mut handles = Vec::new();
 
-            for template in templates.into_iter() {
+            for template in self.config.templates.into_iter() {
                 let worker = self.new_worker(template)?;
                 handles.push(thread::spawn(move || {
                     worker.run().unwrap();
@@ -258,7 +234,7 @@ pub struct BuildWorker {
     /// The build config
     pub config: BuildConfig,
 
-    pub template: Box<dyn Template>,
+    pub template: Box<dyn BuildTemplate>,
 
     /// The path to an OVMF.fd file
     pub ovmf_path: String,

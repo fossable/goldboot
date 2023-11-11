@@ -499,7 +499,7 @@ impl ImageHandle {
 
         // Write config
         {
-            let config_bytes = toml::to_vec(&config)?;
+            let config_bytes = serde_json::to_vec(&config)?;
 
             let config_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => config_bytes,

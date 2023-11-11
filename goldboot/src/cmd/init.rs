@@ -1,7 +1,7 @@
 use crate::{
     build::BuildConfig,
     cmd::Commands,
-    templates::{Template, TemplateId},
+    templates::{Template, TemplateMetadata},
     Architecture,
 };
 use console::Style;
@@ -55,7 +55,7 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 
                 // Add default templates
                 for template_id in template {
-                    if let Some(id) = TemplateId::iter()
+                    if let Some(id) = Template::iter()
                         .filter(|id| id.to_string() == template_id)
                         .next()
                     {
@@ -107,7 +107,7 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 
                 loop {
                     // Find templates suitable for the architecture
-                    let templates: Vec<TemplateMetadata> = TemplateMetadata::load()
+                    let templates: Vec<TemplateMetadata> = TemplateMetadata::all()
                         .into_iter()
                         .filter(|metadata| metadata.architectures.contains(&config.arch))
                         .filter(|metadata| config.templates.len() == 0 || metadata.multiboot)

@@ -18,7 +18,9 @@ pub struct IsoSource {
 
 impl Source for IsoSource {
     /// Load the ISO into the cache and return its path
-    pub fn load(&self) -> Result<String, Box<dyn Error>> {}
+    fn load(&self) -> Result<String, Box<dyn Error>> {
+        todo!()
+    }
 }
 
 impl PromptMut for IsoSource {

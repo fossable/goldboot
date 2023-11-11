@@ -1,3 +1,12 @@
+use std::error::Error;
+
+use log::info;
+use serde::{Deserialize, Serialize};
+use simple_error::bail;
+use validator::Validate;
+
+use crate::ssh::SshConnection;
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ShellProvisioners {
     pub commands: Vec<ShellProvisioner>,

@@ -1,3 +1,13 @@
+use std::{error::Error, path::Path};
+
+use dialoguer::theme::ColorfulTheme;
+use log::info;
+use serde::{Deserialize, Serialize};
+use simple_error::bail;
+use validator::Validate;
+
+use crate::{build::BuildConfig, ssh::SshConnection, PromptMut};
+
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ExecutableProvisioners {
     pub executables: Vec<ExecutableProvisioner>,
@@ -17,7 +27,7 @@ impl ExecutableProvisioner {
     pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
         info!("Running executable provisioner");
 
-        if ssh.upload_exec(std::fs::read(self.path.clone())?, vec![])? != 0 {
+        if ssh.upload_exec(&std::fs::read(self.path.clone())?, vec![])? != 0 {
             bail!("Provisioner failed");
         }
         Ok(())

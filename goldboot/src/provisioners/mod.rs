@@ -7,6 +7,14 @@
 use crate::ssh::SshConnection;
 use std::error::Error;
 
+pub mod ansible;
+pub mod exe;
+pub mod hostname;
+pub mod luks;
+pub mod shell;
+pub mod timezone;
+pub mod unix_account;
+
 pub trait Provisioner {
     fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>>;
 }
