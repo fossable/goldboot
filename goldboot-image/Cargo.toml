@@ -1,0 +1,15 @@
+[package]
+name = "goldboot-image"
+description = "Defines the goldboot image format"
+version = "0.0.1"
+edition = "2021"
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
+homepage = "https://goldboot.fossable.org"
+repository = "https://github.com/fossable/goldboot"
+
+[dependencies]
+aes-gcm = { version = "0.10.3", features = ["std"] }
+binrw = "0.13.1"
+
+[dev-dependencies]

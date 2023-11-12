@@ -8,7 +8,6 @@ use strum::{Display, EnumIter};
 use validator::Validate;
 
 pub mod build;
-pub mod cache;
 pub mod cmd;
 pub mod http;
 pub mod image;

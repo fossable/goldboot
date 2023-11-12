@@ -1,0 +1,13 @@
+[package]
+name = "goldboot-build"
+description = "Support for building goldboot images"
+version = "0.0.1"
+edition = "2021"
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
+homepage = "https://goldboot.fossable.org"
+repository = "https://github.com/fossable/goldboot"
+
+[dependencies]
+
+[dev-dependencies]

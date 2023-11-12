@@ -1,4 +1,4 @@
-use crate::{build::BuildWorker, cache::MediaCache, provisioners::*, qemu::QemuArgs, templates::*};
+use crate::{build::BuildWorker, provisioners::*, qemu::QemuArgs, templates::*};
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -11,6 +11,7 @@ use validator::Validate;
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinuxTemplate {
     pub source: sources::ArchSource,
+    pub installer: installer::ArchLinuxInstaller,
     pub provisioners: Option<Vec<provisioners::ArchProvisioner>>,
 }
 
