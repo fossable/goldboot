@@ -38,7 +38,7 @@ simple-error = "0.3.0"
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 strum = { version = "0.25.0", features = ["derive"] }
 tempfile = "3.8.1"
-toml = "0.8.6"
+toml = "0.8.8"
 ubyte = "0.10.4"
 url = { version = "2.4.1", features = ["serde"] }
 validator = { version = "0.16.1", features = ["derive"] }
