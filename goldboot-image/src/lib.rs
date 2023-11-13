@@ -1,10 +1,10 @@
-use crate::{build::BuildConfig, progress::ProgressBar, qcow::Qcow3};
+use crate::qcow::Qcow3;
+use aes_gcm::KeyInit;
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, Nonce};
 use binrw::{BinRead, BinReaderExt, BinWrite};
 use log::{debug, info, trace};
 use rand::Rng;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use simple_error::bail;
 use std::{
@@ -14,7 +14,8 @@ use std::{
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
-use validator::Validate;
+
+mod qcow;
 
 /// Represents a goldboot image on disk.
 ///
@@ -41,8 +42,8 @@ pub struct ImageHandle {
     /// The secondary header
     pub protected_header: Option<ProtectedHeader>,
 
-    /// The config used to build the image
-    pub config: Option<BuildConfig>,
+    /// The encoded config used to build the image
+    pub config: Option<Vec<u8>>,
 
     /// The digest table
     pub digest_table: Option<DigestTable>,
@@ -287,15 +288,12 @@ impl ImageHandle {
         let mut config_bytes = vec![0u8; directory.config_size as usize];
         file.read_exact(&mut config_bytes)?;
 
-        let config = match self.primary_header.encryption_type {
-            HeaderEncryptionType::None => serde_yaml::from_slice(&config_bytes)?,
-            HeaderEncryptionType::Aes256 => {
-                let config_bytes = cipher.decrypt(
-                    Nonce::from_slice(&directory.config_nonce),
-                    config_bytes.as_ref(),
-                )?;
-                serde_yaml::from_slice(&config_bytes)?
-            }
+        self.config = match self.primary_header.encryption_type {
+            HeaderEncryptionType::None => Some(config_bytes),
+            HeaderEncryptionType::Aes256 => Some(cipher.decrypt(
+                Nonce::from_slice(&directory.config_nonce),
+                config_bytes.as_ref(),
+            )?),
         };
 
         // Load the digest table
@@ -318,8 +316,6 @@ impl ImageHandle {
         self.directory = Some(directory);
         self.protected_header = Some(protected_header);
         self.digest_table = Some(digest_table);
-        self.config = Some(config);
-
         Ok(())
     }
 
@@ -357,10 +353,9 @@ impl ImageHandle {
             let directory: Directory = file.read_be()?;
 
             // Read config
-            let mut config_bytes = vec![0u8; directory.config_size as usize];
+            let mut config = vec![0u8; directory.config_size as usize];
             file.seek(SeekFrom::Start(directory.config_offset))?;
-            file.read_exact(&mut config_bytes)?;
-            let config = serde_yaml::from_slice(&config_bytes)?;
+            file.read_exact(&mut config)?;
 
             Ok(Self {
                 id,
@@ -401,10 +396,13 @@ impl ImageHandle {
     }
 
     /// Convert a qcow image into a goldboot image.
-    pub fn convert(
+    pub fn convert<F: Fn(u64, u64) -> ()>(
         source: &Qcow3,
-        config: BuildConfig,
+        name: String,
+        config: Vec<u8>,
+        password: Option<String>,
         dest: impl AsRef<Path>,
+        progress: F,
     ) -> Result<ImageHandle, Box<dyn Error>> {
         info!("Exporting storage to goldboot image");
 
@@ -412,7 +410,7 @@ impl ImageHandle {
         let mut source_file = File::open(&source.path)?;
 
         // Prepare cipher and RNG if the image header should be encrypted
-        let header_cipher = new_key(config.password.clone().unwrap_or("".to_string()));
+        let header_cipher = new_key(password.clone().unwrap_or("".to_string()));
         let mut rng = rand::thread_rng();
 
         // Prepare directory
@@ -435,7 +433,7 @@ impl ImageHandle {
             directory_offset: 0,
             directory_size: 0,
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            encryption_type: if config.password.is_some() {
+            encryption_type: if password.is_some() {
                 HeaderEncryptionType::Aes256
             } else {
                 HeaderEncryptionType::None
@@ -443,19 +441,14 @@ impl ImageHandle {
             name: [0u8; 64],
         };
 
-        primary_header.name[0..config.name.len()]
-            .copy_from_slice(&config.name.clone().as_bytes()[..]);
-
-        // Prepare config
-        let mut config = config.clone();
-        config.password = None;
+        primary_header.name[0..name.len()].copy_from_slice(&name.clone().as_bytes()[..]);
 
         // Prepare protected header
         let mut protected_header = ProtectedHeader {
             block_size: source.header.cluster_size() as u32,
             cluster_count: source.count_clusters()? as u32,
             cluster_compression: ClusterCompressionType::Zstd,
-            cluster_encryption: if config.password.is_some() {
+            cluster_encryption: if password.is_some() {
                 ClusterEncryptionType::Aes256
             } else {
                 ClusterEncryptionType::None
@@ -465,7 +458,7 @@ impl ImageHandle {
             nonce_table: vec![],
         };
 
-        if config.password.is_some() {
+        if password.is_some() {
             protected_header.nonce_count = protected_header.cluster_count;
             protected_header.nonce_table = (0..protected_header.cluster_count)
                 .map(|_| rng.gen::<[u8; 12]>())
@@ -473,17 +466,18 @@ impl ImageHandle {
         }
 
         // Load the cluster cipher we just generated
-        let cluster_cipher = Aes256Gcm::new(Key::from_slice(&protected_header.cluster_key));
+        let cluster_cipher =
+            Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
 
         // Write primary header (we'll overwrite it at the end)
         dest_file.seek(SeekFrom::Start(0))?;
-        primary_header.write_to(&mut dest_file)?;
+        primary_header.write(&mut dest_file)?;
 
         // Write protected header
         {
             debug!("Writing: {:?}", &protected_header);
             let mut protected_header_bytes = Cursor::new(Vec::new());
-            protected_header.write_to(&mut protected_header_bytes)?;
+            protected_header.write(&mut protected_header_bytes)?;
 
             let protected_header_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => protected_header_bytes.into_inner(),
@@ -499,14 +493,10 @@ impl ImageHandle {
 
         // Write config
         {
-            let config_bytes = serde_json::to_vec(&config)?;
-
             let config_bytes = match primary_header.encryption_type {
-                HeaderEncryptionType::None => config_bytes,
-                HeaderEncryptionType::Aes256 => header_cipher.encrypt(
-                    Nonce::from_slice(&directory.config_nonce),
-                    config_bytes.as_ref(),
-                )?,
+                HeaderEncryptionType::None => config.clone(),
+                HeaderEncryptionType::Aes256 => header_cipher
+                    .encrypt(Nonce::from_slice(&directory.config_nonce), config.as_ref())?,
             };
 
             directory.config_offset = dest_file.stream_position()?;
@@ -528,9 +518,6 @@ impl ImageHandle {
 
         // Track the cluster offset in the image file
         let mut cluster_offset = dest_file.stream_position()?;
-
-        // Setup progress bar
-        let increment_progress = ProgressBar::Convert.new(source.header.size);
 
         // Read from the qcow2 and write the clusters
         for l1_entry in &source.l1_table {
@@ -583,7 +570,7 @@ impl ImageHandle {
                             cluster.size,
                             cluster_offset
                         );
-                        cluster.write_to(&mut dest_file)?;
+                        cluster.write(&mut dest_file)?;
 
                         // Advance offset
                         cluster_offset += 4; // size
@@ -591,13 +578,14 @@ impl ImageHandle {
                         cluster_count += 1;
                     }
                     block_offset += source.header.cluster_size();
-                    increment_progress(source.header.cluster_size());
+                    progress(source.header.cluster_size(), source.header.size);
                 }
             } else {
                 block_offset +=
                     source.header.cluster_size() * source.header.l2_entries_per_cluster();
-                increment_progress(
+                progress(
                     source.header.cluster_size() * source.header.l2_entries_per_cluster(),
+                    source.header.size,
                 );
             }
         }
@@ -605,7 +593,7 @@ impl ImageHandle {
         // Write the completed digest table
         {
             let mut digest_table_bytes = Cursor::new(Vec::new());
-            digest_table.write_to(&mut digest_table_bytes)?;
+            digest_table.write(&mut digest_table_bytes)?;
 
             let digest_table_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => digest_table_bytes.into_inner(),
@@ -623,7 +611,7 @@ impl ImageHandle {
         // Write the completed directory
         {
             let mut directory_bytes = Cursor::new(Vec::new());
-            directory.write_to(&mut directory_bytes)?;
+            directory.write(&mut directory_bytes)?;
 
             let directory_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => directory_bytes.into_inner(),
@@ -640,7 +628,7 @@ impl ImageHandle {
 
         // Write the completed primary header
         dest_file.seek(SeekFrom::Start(0))?;
-        primary_header.write_to(&mut dest_file)?;
+        primary_header.write(&mut dest_file)?;
 
         Ok(ImageHandle {
             id: compute_id(dest.as_ref())?,
@@ -658,7 +646,11 @@ impl ImageHandle {
     /// TODO write backup GPT header
 
     /// Write the image contents out to disk.
-    pub fn write(&self, dest: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+    pub fn write<F: Fn(u64, u64) -> ()>(
+        &self,
+        dest: impl AsRef<Path>,
+        progress: F,
+    ) -> Result<(), Box<dyn Error>> {
         if self.protected_header.is_none() || self.digest_table.is_none() {
             bail!("Image not loaded");
         }
@@ -666,7 +658,8 @@ impl ImageHandle {
         let protected_header = self.protected_header.clone().unwrap();
         let digest_table = self.digest_table.clone().unwrap().digest_table;
 
-        let cluster_cipher = Aes256Gcm::new(Key::from_slice(&protected_header.cluster_key));
+        let cluster_cipher =
+            Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
 
         info!("Writing image");
 
@@ -676,16 +669,14 @@ impl ImageHandle {
             .read(true)
             .open(dest)?;
 
-        let progress = ProgressBar::Write
-            .new(protected_header.cluster_count as u64 * protected_header.block_size as u64);
-
         // Open the cluster table for reading
         let mut cluster_table = BufReader::new(File::open(&self.path)?);
 
         // Extend the file if necessary
-        if dest.stream_len()? < self.primary_header.size {
-            dest.set_len(self.primary_header.size)?;
-        }
+        // TODO nightly
+        // if dest.stream_len()? < self.primary_header.size {
+        //     dest.set_len(self.primary_header.size)?;
+        // }
 
         let mut block = vec![0u8; protected_header.block_size as usize];
 
@@ -733,7 +724,10 @@ impl ImageHandle {
                 dest.write_all(&cluster.data)?;
             }
 
-            progress(protected_header.block_size as u64);
+            progress(
+                protected_header.block_size as u64,
+                protected_header.cluster_count as u64 * protected_header.block_size as u64,
+            );
         }
 
         Ok(())
@@ -743,7 +737,6 @@ impl ImageHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Architecture;
     use sha1::Sha1;
 
     #[test_env_log::test]
@@ -753,16 +746,11 @@ mod tests {
         // Convert the test qcow2
         let image = ImageHandle::convert(
             &Qcow3::open("test/small.qcow2")?,
-            BuildConfig {
-                name: String::from("Small test"),
-                description: None,
-                arch: Architecture::amd64,
-                memory: None,
-                nvme: None,
-                password: None,
-                templates: vec![],
-            },
+            String::from("Test"),
+            vec![],
+            None,
             tmp.path().join("small.gb"),
+            |_, _| {},
         )?;
 
         // Try to open the image we just converted
@@ -776,7 +764,7 @@ mod tests {
         assert_eq!(loaded_image.digest_table.unwrap().digest_count, 2);
 
         // Check raw content
-        image.write(tmp.path().join("small.raw"))?;
+        image.write(tmp.path().join("small.raw"), |_, _| {})?;
         assert_eq!(
             hex::encode(
                 Sha1::new()
@@ -796,16 +784,11 @@ mod tests {
         // Convert the test qcow2
         let image = ImageHandle::convert(
             &Qcow3::open("test/small.qcow2")?,
-            BuildConfig {
-                name: String::from("Small test"),
-                description: None,
-                arch: Architecture::amd64,
-                memory: None,
-                nvme: None,
-                password: Some("1234".to_string()),
-                templates: vec![],
-            },
+            String::from("Test"),
+            vec![],
+            Some(String::from("1234")),
             tmp.path().join("small.gb"),
+            |_, _| {},
         )?;
 
         // Try to open the image
@@ -817,7 +800,7 @@ mod tests {
         loaded_image.load(Some("1234".to_string()))?;
 
         // Check raw content
-        image.write(tmp.path().join("small.raw"))?;
+        image.write(tmp.path().join("small.raw"), |_, _| {})?;
         assert_eq!(
             hex::encode(
                 Sha1::new()

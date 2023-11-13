@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
+checksum = "95b3f3e67048839cb0d0781f445682a35113da7121f7c949db0e2be96a4fbece"
 dependencies = [
  "humantime",
  "is-terminal",
@@ -907,44 +907,6 @@ dependencies = [
 [[package]]
 name = "goldboot-build"
 version = "0.0.1"
-dependencies = [
- "aes-gcm",
- "binrw",
- "bzip2-rs",
- "chrono",
- "clap",
- "console",
- "dialoguer",
- "env_logger",
- "flate2 1.0.28",
- "hex",
- "indicatif",
- "log 0.4.20",
- "png",
- "quick-xml",
- "rand",
- "regex",
- "reqwest",
- "rust-embed",
- "serde",
- "serde_json",
- "serde_win_unattend",
- "serde_yaml",
- "sha1",
- "sha2",
- "simple-error",
- "ssh2",
- "strum 0.25.0",
- "tempfile",
- "test-env-log",
- "toml",
- "ubyte",
- "url",
- "validator",
- "vnc",
- "whoami",
- "zstd",
-]
 
 [[package]]
 name = "goldboot-image"
@@ -952,39 +914,17 @@ version = "0.0.1"
 dependencies = [
  "aes-gcm",
  "binrw",
- "bzip2-rs",
- "chrono",
- "clap",
- "console",
- "dialoguer",
  "env_logger",
  "flate2 1.0.28",
  "hex",
- "indicatif",
  "log 0.4.20",
- "png",
- "quick-xml",
  "rand",
  "regex",
- "reqwest",
- "rust-embed",
- "serde",
- "serde_json",
- "serde_win_unattend",
- "serde_yaml",
  "sha1",
  "sha2",
  "simple-error",
- "ssh2",
- "strum 0.25.0",
  "tempfile",
  "test-env-log",
- "toml",
- "ubyte",
- "url",
- "validator",
- "vnc",
- "whoami",
  "zstd",
 ]
 
@@ -1011,7 +951,7 @@ name = "goldboot-registry"
 version = "0.0.1"
 dependencies = [
  "env_logger",
- "goldboot",
+ "goldboot-build",
  "log 0.4.20",
  "reqwest",
  "rustls",
