@@ -1,22 +1,19 @@
+use goldboot_image::{ImageHandle, qcow::Qcow3}
 use crate::{
-    image::ImageHandle,
     library::ImageLibrary,
-    qcow::Qcow3,
     templates::{BuildTemplate, Template},
-    Architecture,
 };
 use log::{debug, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{error::Error, thread, time::SystemTime};
+use std::{error::Error, thread, time::SystemTime, fmt::Display};
 use validator::Validate;
 
-// UEFI firmwares for various platforms. We include them here to avoid having
-// to depend on one provided by the system.
-const OVMF_X86_64: &[u8; 1051773] = include_bytes!("../res/OVMF_x86_64.fd.zst");
-const OVMF_I386: &[u8; 1635380] = include_bytes!("../res/OVMF_i386.fd.zst");
-const OVMF_AARCH64: &[u8; 1478920] = include_bytes!("../res/OVMF_aarch64.fd.zst");
+// pub mod library;
+pub mod templates;
+pub mod ovmf;
+
 
 /// The global configuration
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
@@ -263,5 +260,45 @@ impl BuildWorker {
 
         self.template.build(&self)?;
         Ok(())
+    }
+}
+
+/// Represents a system architecture.
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, EnumIter, Display)]
+#[serde(tag = "arch")]
+pub enum Architecture {
+    Amd64,
+    Arm64,
+    I386,
+    Mips,
+    Mips64,
+    S390x,
+}
+
+impl Default for Architecture {
+    fn default() -> Self {
+        match std::env::consts::ARCH {
+            "x86" => Architecture::I386,
+            "x86_64" => Architecture::Amd64,
+            "aarch64" => Architecture::Arm64,
+            "mips" => Architecture::Mips,
+            "mips64" => Architecture::Mips64,
+            "s390x" => Architecture::S390x,
+            _ => panic!("Unknown CPU architecture"),
+        }
+    }
+}
+
+impl TryFrom<String> for Architecture {
+    type Error = Box<dyn Error>;
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "amd64" => Ok(Architecture::amd64),
+            "x86_64" => Ok(Architecture::amd64),
+            "arm64" => Ok(Architecture::arm64),
+            "aarch64" => Ok(Architecture::arm64),
+            "i386" => Ok(Architecture::i386),
+            _ => bail!("Unknown architecture"),
+        }
     }
 }

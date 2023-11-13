@@ -907,6 +907,16 @@ dependencies = [
 [[package]]
 name = "goldboot-build"
 version = "0.0.1"
+dependencies = [
+ "goldboot-image",
+ "log 0.4.20",
+ "rand",
+ "serde",
+ "simple-error",
+ "tempfile",
+ "validator",
+ "zstd",
+]
 
 [[package]]
 name = "goldboot-image"

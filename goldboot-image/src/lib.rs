@@ -15,7 +15,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-mod qcow;
+pub mod qcow;
 
 /// Represents a goldboot image on disk.
 ///

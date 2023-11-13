@@ -9,5 +9,13 @@ homepage = "https://goldboot.fossable.org"
 repository = "https://github.com/fossable/goldboot"
 
 [dependencies]
+zstd = "0.13.0"
+tempfile = "3.8.1"
+log = { version = "0.4.20", default-features = false }
+validator = { version = "0.16.1", features = ["derive"] }
+serde = { version = "1.0.190", features = ["derive"] }
+simple-error = "0.3.0"
+rand = "0.8.5"
+goldboot-image = { path="../goldboot-image", version = "0.0.1" }
 
 [dev-dependencies]

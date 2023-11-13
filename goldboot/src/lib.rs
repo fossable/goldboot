@@ -7,20 +7,10 @@ use std::{default::Default, error::Error, net::TcpListener, process::Command};
 use strum::{Display, EnumIter};
 use validator::Validate;
 
-pub mod build;
 pub mod cmd;
-pub mod http;
-pub mod image;
 pub mod library;
 pub mod progress;
-pub mod provisioners;
-pub mod qcow;
-pub mod qemu;
 pub mod registry;
-pub mod sources;
-pub mod ssh;
-pub mod templates;
-pub mod vnc;
 
 /// Find a random open TCP port in the given range.
 pub fn find_open_port(lower: u16, upper: u16) -> u16 {
@@ -49,33 +39,6 @@ pub fn random_password() -> String {
 
 pub fn is_interactive() -> bool {
     !std::env::var("CI").is_ok()
-}
-
-/// Represents a system architecture.
-#[derive(Clone, Copy, Serialize, Deserialize, Debug, Default, PartialEq, Eq, EnumIter, Display)]
-#[serde(tag = "arch")]
-#[allow(non_camel_case_types)]
-pub enum Architecture {
-    #[default]
-    amd64,
-    arm64,
-    i386,
-    mips,
-    s390x,
-}
-
-impl TryFrom<String> for Architecture {
-    type Error = Box<dyn Error>;
-    fn try_from(s: String) -> Result<Self, Self::Error> {
-        match s.to_lowercase().as_str() {
-            "amd64" => Ok(Architecture::amd64),
-            "x86_64" => Ok(Architecture::amd64),
-            "arm64" => Ok(Architecture::arm64),
-            "aarch64" => Ok(Architecture::arm64),
-            "i386" => Ok(Architecture::i386),
-            _ => bail!("Unknown architecture"),
-        }
-    }
 }
 
 pub trait PromptMut {
