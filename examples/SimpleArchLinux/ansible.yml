@@ -1,0 +1,10 @@
+# Configure ArchLinux with Ansible.
+
+- hosts: localhost
+  tasks:
+    - name: Update package cache
+      pacman:
+        update_cache: yes
+        upgrade: yes
+
+    # ...

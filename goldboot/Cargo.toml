@@ -10,41 +10,30 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-aes-gcm = { version = "0.10.3", features = ["std"] }
-binrw = "0.13.1"
-bzip2-rs = "0.1.2"
 chrono = "0.4.31"
 clap = { version = "4.4.7", features = ["derive"] }
 console = "0.15.7"
 dialoguer = "0.11.0"
 env_logger = "0"
-flate2 = "1.0.28"
+fossable = "0.1.0"
 hex = "0.4.3"
 indicatif = "0.17.7"
 log = { version = "0.4.20", default-features = false }
-png = "0.17.10"
-quick-xml = { version = "0.31.0", features = ["serialize"] }
 rand = "0.8.5"
 regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["stream", "blocking", "json"] }
 rust-embed = "8.0.0"
 serde = { version = "1.0.190", features = ["derive"] }
-serde_json = "1.0.108"
 serde_win_unattend = "0.1.0"
-serde_yaml = "0.9.27"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
 simple-error = "0.3.0"
-ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 strum = { version = "0.25.0", features = ["derive"] }
 tempfile = "3.8.1"
-toml = "0.8.6"
 ubyte = "0.10.4"
 url = { version = "2.4.1", features = ["serde"] }
 validator = { version = "0.16.1", features = ["derive"] }
-vnc = "0.4.0"
 whoami = "1.4.1"
-zstd = "0.13.0"
 
 [dev-dependencies]
 test-env-log = "0"

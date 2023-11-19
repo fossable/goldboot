@@ -1,23 +1,19 @@
-use goldboot_image::{ImageHandle, qcow::Qcow3}
-use crate::{
-    library::ImageLibrary,
-    templates::{BuildTemplate, Template},
-};
+use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
 use log::{debug, info};
+use molds::Mold;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{error::Error, thread, time::SystemTime, fmt::Display};
+use std::{error::Error, fmt::Display, thread, time::SystemTime};
 use validator::Validate;
 
 // pub mod library;
-pub mod templates;
+pub mod molds;
 pub mod ovmf;
 
-
-/// The global configuration
+/// A `Foundry` produces a goldboot image given a configuration.
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
-pub struct BuildConfig {
+pub struct Foundry {
     /// The image name
     #[validate(length(min = 1, max = 64))]
     pub name: String,
@@ -29,7 +25,7 @@ pub struct BuildConfig {
 
     /// The system architecture
     #[serde(flatten)]
-    pub arch: Architecture,
+    pub arch: ImageArch,
 
     /// The amount of memory to allocate to the VM
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,7 +41,14 @@ pub struct BuildConfig {
     pub password: Option<String>,
 
     #[validate(length(min = 1))]
-    pub templates: Vec<Template>,
+    pub alloy: Vec<Template>,
+
+    pub source: Option<Source>,
+
+    pub mold: Option<Mold>,
+
+    #[validate(length(min = 1))]
+    pub fabricators: Option<Vec<Fabricator>>,
 }
 
 /// Represents an image build job.
@@ -102,27 +105,7 @@ impl BuildJob {
         // Unpack included firmware
         let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
 
-        match &self.config.arch {
-            Architecture::amd64 => {
-                std::fs::write(
-                    &ovmf_path,
-                    zstd::decode_all(std::io::Cursor::new(OVMF_X86_64))?,
-                )?;
-            }
-            Architecture::i386 => {
-                std::fs::write(
-                    &ovmf_path,
-                    zstd::decode_all(std::io::Cursor::new(OVMF_I386))?,
-                )?;
-            }
-            Architecture::arm64 => {
-                std::fs::write(
-                    &ovmf_path,
-                    zstd::decode_all(std::io::Cursor::new(OVMF_AARCH64))?,
-                )?;
-            }
-            _ => bail!("Unsupported architecture"),
-        }
+        crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
 
         Ok(BuildWorker {
             tmp,
@@ -260,45 +243,5 @@ impl BuildWorker {
 
         self.template.build(&self)?;
         Ok(())
-    }
-}
-
-/// Represents a system architecture.
-#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, EnumIter, Display)]
-#[serde(tag = "arch")]
-pub enum Architecture {
-    Amd64,
-    Arm64,
-    I386,
-    Mips,
-    Mips64,
-    S390x,
-}
-
-impl Default for Architecture {
-    fn default() -> Self {
-        match std::env::consts::ARCH {
-            "x86" => Architecture::I386,
-            "x86_64" => Architecture::Amd64,
-            "aarch64" => Architecture::Arm64,
-            "mips" => Architecture::Mips,
-            "mips64" => Architecture::Mips64,
-            "s390x" => Architecture::S390x,
-            _ => panic!("Unknown CPU architecture"),
-        }
-    }
-}
-
-impl TryFrom<String> for Architecture {
-    type Error = Box<dyn Error>;
-    fn try_from(s: String) -> Result<Self, Self::Error> {
-        match s.to_lowercase().as_str() {
-            "amd64" => Ok(Architecture::amd64),
-            "x86_64" => Ok(Architecture::amd64),
-            "arm64" => Ok(Architecture::arm64),
-            "aarch64" => Ok(Architecture::arm64),
-            "i386" => Ok(Architecture::i386),
-            _ => bail!("Unknown architecture"),
-        }
     }
 }

@@ -1,3 +1,5 @@
+//!
+
 use crate::qcow::Qcow3;
 use aes_gcm::KeyInit;
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, Nonce};
@@ -5,6 +7,7 @@ use binrw::{BinRead, BinReaderExt, BinWrite};
 use log::{debug, info, trace};
 use rand::Rng;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use simple_error::bail;
 use std::{
@@ -14,8 +17,52 @@ use std::{
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
+use strum::{Display, EnumIter};
 
 pub mod qcow;
+
+/// Supported system architectures for goldboot images.
+#[derive(
+    BinRead, BinWrite, Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, EnumIter, Display,
+)]
+#[serde(tag = "arch")]
+#[brw(repr(u8))]
+pub enum ImageArch {
+    Amd64,
+    Arm64,
+    I386,
+    Mips,
+    Mips64,
+    S390x,
+}
+
+impl Default for ImageArch {
+    fn default() -> Self {
+        match std::env::consts::ARCH {
+            "x86" => ImageArch::I386,
+            "x86_64" => ImageArch::Amd64,
+            "aarch64" => ImageArch::Arm64,
+            "mips" => ImageArch::Mips,
+            "mips64" => ImageArch::Mips64,
+            "s390x" => ImageArch::S390x,
+            _ => panic!("Unknown CPU architecture: {}", std::env::consts::ARCH),
+        }
+    }
+}
+
+impl TryFrom<String> for ImageArch {
+    type Error = Box<dyn Error>;
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "amd64" => Ok(ImageArch::Amd64),
+            "x86_64" => Ok(ImageArch::Amd64),
+            "arm64" => Ok(ImageArch::Arm64),
+            "aarch64" => Ok(ImageArch::Arm64),
+            "i386" => Ok(ImageArch::I386),
+            _ => bail!("Unknown architecture: {s}"),
+        }
+    }
+}
 
 /// Represents a goldboot image on disk.
 ///
@@ -115,6 +162,9 @@ pub struct PrimaryHeader {
 
     /// A copy of the name field from the config
     pub name: [u8; 64],
+
+    /// System architecture
+    pub arch: ImageArch,
 
     /// Directory nonce
     pub directory_nonce: [u8; 12],
@@ -428,6 +478,7 @@ impl ImageHandle {
         // Prepare primary header
         let mut primary_header = PrimaryHeader {
             version: 1,
+            arch: ImageArch::Amd64, // TODO
             size: source.header.size,
             directory_nonce: rng.gen::<[u8; 12]>(),
             directory_offset: 0,

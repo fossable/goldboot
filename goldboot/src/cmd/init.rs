@@ -16,13 +16,9 @@ fn print_banner() {
         let style = Style::new().yellow();
 
         println!("{}", "");
-        println!("  {}", style.apply_to("　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛　"));
-        println!("  {}", style.apply_to("　　　　　　　　⬛　　　⬛　⬛　　　　　　　　　　　⬛⬛"));
-        println!("  {}", style.apply_to("⬛⬛⬛　⬛⬛⬛　⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛　"));
-        println!("  {}", style.apply_to("⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　⬛　"));
-        println!("  {}", style.apply_to("⬛⬛⬛　⬛⬛⬛　⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛⬛　⬛⬛"));
-        println!("  {}", style.apply_to("　　⬛　　　　　　　　　　　　　　　　　　　　　　　　　"));
-        println!("  {}", style.apply_to("⬛⬛⬛　　　　　　　　　　　　　　　　　　　　　　　　　"));
+        for line in fossable::goldboot_word() {
+        println!("  {}", style.apply_to(line));
+                    }
         println!("{}", "");
     }
 }

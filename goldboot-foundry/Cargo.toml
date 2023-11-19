@@ -1,5 +1,5 @@
 [package]
-name = "goldboot-build"
+name = "goldboot-foundry"
 description = "Support for building goldboot images"
 version = "0.0.1"
 edition = "2021"
@@ -17,5 +17,9 @@ serde = { version = "1.0.190", features = ["derive"] }
 simple-error = "0.3.0"
 rand = "0.8.5"
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
+ron = "0.8.1"
+png = "0.17.10"
+vnc = "0.4.0"
+ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 
 [dev-dependencies]

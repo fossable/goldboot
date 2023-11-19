@@ -3,23 +3,24 @@
 
 use std::{error::Error, path::Path};
 
+use goldboot_image::ImageArch;
 use simple_error::bail;
 
-pub fn write_to(arch: Architecture, path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+pub fn write_to(arch: ImageArch, path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
     match &arch {
-        Architecture::amd64 => {
+        ImageArch::Amd64 => {
             std::fs::write(
                 &path,
                 zstd::decode_all(std::io::Cursor::new(include_bytes!("x86_64.fd.zst")))?,
             )?;
         }
-        Architecture::i386 => {
+        ImageArch::I386 => {
             std::fs::write(
                 &path,
                 zstd::decode_all(std::io::Cursor::new(include_bytes!("i386.fd.zst")))?,
             )?;
         }
-        Architecture::arm64 => {
+        ImageArch::Arm64 => {
             std::fs::write(
                 &path,
                 zstd::decode_all(std::io::Cursor::new(include_bytes!("aarch64.fd.zst")))?,

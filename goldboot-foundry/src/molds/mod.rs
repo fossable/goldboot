@@ -1,6 +1,5 @@
 //! Templates are the central concept that make it easy to define images.
 
-use crate::templates::arch_linux::ArchLinuxTemplate;
 use crate::{build::BuildWorker, *};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Display, path::Path};
@@ -18,7 +17,7 @@ pub struct TemplateMetadata {
     pub multiboot: bool,
 }
 
-pub trait BuildTemplate {
+pub trait Mold {
     /// Build an image from the template.
     fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
 
@@ -30,52 +29,48 @@ pub trait BuildTemplate {
 /// images.
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
 #[serde(tag = "base")]
-pub enum Template {
-    // AlpineLinux(AlpineLinuxTemplate),
-    ArchLinux(ArchLinuxTemplate),
-    Artix,
-    BedrockLinux,
-    CentOs,
-    Debian,
-    ElementaryOs,
-    Fedora,
-    FreeBsd,
-    Gentoo,
-    GoldbootLinux,
-    Haiku,
-    Kali,
-    LinuxMint,
-    MacOs,
-    Manjaro,
-    NetBsd,
-    NixOs,
-    OpenBsd,
-    OpenSuse,
-    Oracle,
-    Parrot,
-    PopOs,
-    Qubes,
-    RedHat,
-    RockyLinux,
-    Slackware,
-    SteamDeck,
-    SteamOs,
-    Tails,
-    TrueNas,
-    Ubuntu,
-    VoidLinux,
-    Windows10,
-    Windows11,
-    Windows7,
-    Zorin,
+pub enum Molds {
+    // AlpineLinux(crate::molds::alpine_linux::AlpineLinux),
+    ArchLinux(crate::molds::arch_linux::ArchLinux),
+    // Artix,
+    // BedrockLinux,
+    // CentOs,
+    // Debian,
+    // ElementaryOs,
+    // Fedora,
+    // FreeBsd,
+    // Gentoo,
+    // GoldbootLinux,
+    // Haiku,
+    // Kali,
+    // LinuxMint,
+    // MacOs,
+    // Manjaro,
+    // NetBsd,
+    // NixOs,
+    // OpenBsd,
+    // OpenSuse,
+    // Oracle,
+    // Parrot,
+    // PopOs,
+    // Qubes,
+    // RedHat,
+    // RockyLinux,
+    // Slackware,
+    // SteamDeck,
+    // SteamOs,
+    // Tails,
+    // TrueNas,
+    // Ubuntu,
+    // VoidLinux,
+    // Windows10,
+    // Windows11,
+    // Windows7,
+    // Zorin,
 }
 
-impl Display for Template {
-    #[rustfmt::skip]
+impl Display for Molds {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(
-			f,
-    	    "{}",todo!()
-		)
-	}
+        write!(f, "{}", todo!())
+    }
 }

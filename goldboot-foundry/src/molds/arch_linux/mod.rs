@@ -1,4 +1,3 @@
-use crate::{build::BuildWorker, provisioners::*, qemu::QemuArgs, templates::*};
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -8,11 +7,12 @@ use std::{
 };
 use validator::Validate;
 
+/// This `Mold` produces an Arch Linux image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ArchLinuxTemplate {
-    pub source: sources::ArchSource,
-    pub installer: installer::ArchLinuxInstaller,
-    pub provisioners: Option<Vec<provisioners::ArchProvisioner>>,
+pub struct ArchLinux {
+    pub root_password: Option<String>,
+    pub packages: Option<Vec<String>>,
+    pub mirrorlist: Option<Vec<String>>,
 }
 
 pub mod sources {
@@ -23,6 +23,14 @@ pub mod sources {
     #[derive(Clone, Serialize, Deserialize, Debug)]
     pub enum ArchSource {
         Iso(IsoSource),
+    }
+}
+
+pub mod installer {
+    pub struct ArchLinuxInstaller {}
+
+    impl Installer for ArchLinuxInstaller {
+        fn shutdown
     }
 }
 
