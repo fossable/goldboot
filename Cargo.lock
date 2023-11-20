@@ -591,9 +591,9 @@ dependencies = [
 
 [[package]]
 name = "fossable"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6006f8b647443c3125cdf03d420ae60990b35052b9740fec798ae260c4916006"
+checksum = "d3d7f5952a46ba49dbf4bb14b6633e248fa3002528e01aa1e298ca8315575b33"
 dependencies = [
  "clap",
  "quick-xml",
