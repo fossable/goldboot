@@ -1,8 +1,10 @@
 //! Templates are the central concept that make it easy to define images.
 
-use crate::{build::BuildWorker, *};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Display, path::Path};
+use strum::EnumIter;
+
+use crate::FoundryWorker;
 
 pub mod arch_linux;
 
@@ -17,9 +19,14 @@ pub struct TemplateMetadata {
     pub multiboot: bool,
 }
 
-pub trait Mold {
-    /// Build an image from the template.
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>>;
+/// "Casting" is the process of generating an immutable goldboot image from raw
+/// configuration data.
+///
+/// This term comes from metallurgy where casting means to pour molten metal into
+/// a mold, producing a solidified object in the shape of the mold.
+pub trait Cast {
+    /// Cast an image from the mold.
+    fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>>;
 
     // ///
     // fn metadata() -> TemplateMetadata;
@@ -29,7 +36,7 @@ pub trait Mold {
 /// images.
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
 #[serde(tag = "base")]
-pub enum Molds {
+pub enum Mold {
     // AlpineLinux(crate::molds::alpine_linux::AlpineLinux),
     ArchLinux(crate::molds::arch_linux::ArchLinux),
     // Artix,
@@ -69,7 +76,7 @@ pub enum Molds {
     // Zorin,
 }
 
-impl Display for Molds {
+impl Display for Mold {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", todo!())
     }

@@ -7,11 +7,16 @@ use simple_error::bail;
 use std::{error::Error, fmt::Display, thread, time::SystemTime};
 use validator::Validate;
 
-// pub mod library;
+pub mod fabricators;
 pub mod molds;
 pub mod ovmf;
+pub mod qemu;
+pub mod sources;
+pub mod ssh;
+pub mod vnc;
 
-/// A `Foundry` produces a goldboot image given a configuration.
+/// A `Foundry` produces a goldboot image given a raw configuration. This is the
+/// central concept in the machinery that creates images.
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct Foundry {
     /// The image name
@@ -41,7 +46,7 @@ pub struct Foundry {
     pub password: Option<String>,
 
     #[validate(length(min = 1))]
-    pub alloy: Vec<Template>,
+    pub alloy: Vec<Element>,
 
     pub source: Option<Source>,
 
@@ -49,6 +54,15 @@ pub struct Foundry {
 
     #[validate(length(min = 1))]
     pub fabricators: Option<Vec<Fabricator>>,
+
+    /// The path to an OVMF.fd file
+    pub ovmf_path: String,
+
+    /// Whether screenshots will be generated during the run for debugging
+    pub record: bool,
+
+    /// When set, the run will pause before each step in the boot sequence
+    pub debug: bool,
 }
 
 /// Represents an image build job.
@@ -198,7 +212,7 @@ impl BuildJob {
 
 /// Represents a template build process. Multiple workers can run in parallel
 /// to speed up multiboot configurations.
-pub struct BuildWorker {
+pub struct FoundryWorker {
     /// A general purpose temporary directory for the run
     pub tmp: tempfile::TempDir,
 
@@ -215,15 +229,6 @@ pub struct BuildWorker {
     pub config: BuildConfig,
 
     pub template: Box<dyn BuildTemplate>,
-
-    /// The path to an OVMF.fd file
-    pub ovmf_path: String,
-
-    /// Whether screenshots will be generated during the run for debugging
-    pub record: bool,
-
-    /// When set, the run will pause before each step in the boot sequence
-    pub debug: bool,
 }
 
 unsafe impl Send for BuildWorker {}

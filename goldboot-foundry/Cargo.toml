@@ -21,5 +21,8 @@ ron = "0.8.1"
 png = "0.17.10"
 vnc = "0.4.0"
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
+sha1 = "0.10.6"
+hex = "0.4.3"
+strum = { version = "0.25.0", features = ["derive"] }
 
 [dev-dependencies]

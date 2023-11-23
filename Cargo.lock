@@ -591,9 +591,9 @@ dependencies = [
 
 [[package]]
 name = "fossable"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6006f8b647443c3125cdf03d420ae60990b35052b9740fec798ae260c4916006"
+checksum = "d3d7f5952a46ba49dbf4bb14b6633e248fa3002528e01aa1e298ca8315575b33"
 dependencies = [
  "clap",
  "quick-xml",
@@ -902,13 +902,16 @@ name = "goldboot-foundry"
 version = "0.0.1"
 dependencies = [
  "goldboot-image",
+ "hex",
  "log 0.4.20",
  "png",
  "rand",
  "ron",
  "serde",
+ "sha1",
  "simple-error",
  "ssh2",
+ "strum 0.25.0",
  "tempfile",
  "validator",
  "vnc",
@@ -967,6 +970,10 @@ dependencies = [
  "rustls-pemfile",
  "simple-error",
 ]
+
+[[package]]
+name = "goldboot-repository"
+version = "0.1.0"
 
 [[package]]
 name = "graphene-rs"
@@ -2624,9 +2631,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
+checksum = "c58fe91d841bc04822c9801002db4ea904b9e4b8e6bbad25127b46eff8dc516b"
 
 [[package]]
 name = "validator"

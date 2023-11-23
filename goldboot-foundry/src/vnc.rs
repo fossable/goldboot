@@ -22,6 +22,7 @@ impl VncScreenshot {
         hex::encode(Sha1::new().chain_update(&self.data).finalize())
     }
 
+    /// Write the screenshot to a png file (probably for debugging).
     pub fn write_png(&self, output_path: &Path) -> Result<(), Box<dyn Error>> {
         std::fs::create_dir_all(output_path.parent().unwrap())?;
         let ref mut w = BufWriter::new(File::create(output_path)?);
@@ -251,21 +252,21 @@ impl VncConnection {
         }
     }
 
-    pub fn boot_command(&mut self, command: Vec<Vec<VncCmd>>) -> Result<(), Box<dyn Error>> {
-        info!("Running bootstrap sequence");
+    /// Run the given sequence of VNC commands.
+    pub fn run(&mut self, commands: Vec<Vec<VncCmd>>) -> Result<(), Box<dyn Error>> {
+        info!("Running VNC commands");
 
-        let mut step_number = 0;
-        for step in command {
-            for item in step {
-                step_number += 1;
-
+        let mut cmd_number = 0;
+        for cmd in commands {
+            cmd_number += 1;
+            for step in cmd {
                 if self.debug {
-                    match &item {
+                    match &step {
                         VncCmd::Wait(_) => {}
-                        _ => self.handle_breakpoint(&item)?,
+                        _ => self.handle_breakpoint(&step)?,
                     }
                 }
-                match item {
+                match step {
                     VncCmd::Type(ref text) => {
                         for ch in text.chars() {
                             if ch == '\n' {
@@ -356,7 +357,7 @@ impl VncConnection {
                 }
                 if self.record {
                     self.screenshot()?
-                        .write_png(&Path::new(&format!("screenshots/{step_number}.png")))?;
+                        .write_png(&Path::new(&format!("screenshots/{cmd_number}.png")))?;
                 }
             }
         }
@@ -364,7 +365,7 @@ impl VncConnection {
     }
 }
 
-pub mod bootcmds {
+pub mod cmds {
 
     #[macro_export]
     macro_rules! enter {

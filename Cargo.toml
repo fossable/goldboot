@@ -8,4 +8,5 @@ members = [
     "goldboot-image",
     "goldboot-linux",
     "goldboot-registry",
+    "goldboot-repository",
 ]

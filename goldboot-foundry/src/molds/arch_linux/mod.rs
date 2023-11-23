@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::{
@@ -7,7 +7,9 @@ use std::{
 };
 use validator::Validate;
 
-/// This `Mold` produces an Arch Linux image.
+use crate::FoundryWorker;
+
+/// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinux {
     pub root_password: Option<String>,
@@ -26,15 +28,7 @@ pub mod sources {
     }
 }
 
-pub mod installer {
-    pub struct ArchLinuxInstaller {}
-
-    impl Installer for ArchLinuxInstaller {
-        fn shutdown
-    }
-}
-
-impl Default for ArchLinuxTemplate {
+impl Default for ArchLinux {
     fn default() -> Self {
         Self {
             source: None,
@@ -43,7 +37,7 @@ impl Default for ArchLinuxTemplate {
     }
 }
 
-impl BuildTemplate for ArchLinuxTemplate {
+impl super::Cast for ArchLinux {
     fn metadata() -> TemplateMetadata {
         TemplateMetadata {
             id: TemplateId::ArchLinux,
@@ -53,9 +47,7 @@ impl BuildTemplate for ArchLinuxTemplate {
         }
     }
 
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
-        info!("Starting {} build", console::style("ArchLinux").blue());
-
+    fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
@@ -112,7 +104,7 @@ impl BuildTemplate for ArchLinuxTemplate {
     }
 }
 
-impl PromptMut for ArchLinuxTemplate {
+impl PromptMut for ArchLinux {
     fn prompt(
         &mut self,
         config: &BuildConfig,
@@ -127,7 +119,7 @@ impl PromptMut for ArchLinuxTemplate {
     }
 }
 
-pub mod provisioners {
+pub mod options {
     use std::error::Error;
 
     use serde::{Deserialize, Serialize};

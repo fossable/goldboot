@@ -1,4 +1,5 @@
-use crate::{build::BuildWorker, ssh::SshConnection, vnc::VncConnection, Architecture};
+use crate::{build::BuildWorker, ssh::SshConnection, vnc::VncConnection};
+use goldboot_image::ImageArch;
 use log::{debug, info};
 use simple_error::bail;
 use std::error::Error;
@@ -193,8 +194,8 @@ impl QemuArgs {
             vnc: vec![format!("127.0.0.1:{}", context.vnc_port % 5900)],
             vnc_port: context.vnc_port,
             exe: match &context.config.arch {
-                Architecture::amd64 => String::from("qemu-system-x86_64"),
-                Architecture::arm64 => String::from("qemu-system-aarch64"),
+                ImageArch::Amd64 => String::from("qemu-system-x86_64"),
+                ImageArch::Arm64 => String::from("qemu-system-aarch64"),
                 _ => String::from("qemu-system-x86_64"),
             },
             usbdevice: vec![],
