@@ -8,7 +8,7 @@ use std::{error::Error, fmt::Display, thread, time::SystemTime};
 use validator::Validate;
 
 pub mod fabricators;
-pub mod molds;
+pub mod mold;
 pub mod ovmf;
 pub mod qemu;
 pub mod sources;

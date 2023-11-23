@@ -15,17 +15,7 @@ pub struct ArchLinux {
     pub root_password: Option<String>,
     pub packages: Option<Vec<String>>,
     pub mirrorlist: Option<Vec<String>>,
-}
-
-pub mod sources {
-    use serde::{Deserialize, Serialize};
-
-    use crate::sources::iso::IsoSource;
-
-    #[derive(Clone, Serialize, Deserialize, Debug)]
-    pub enum ArchSource {
-        Iso(IsoSource),
-    }
+    pub hostname: Option<HostnameOption>,
 }
 
 impl Default for ArchLinux {
@@ -64,7 +54,7 @@ impl super::Cast for ArchLinux {
 
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.boot_command(vec![
+		qemu.vnc.run(vec![
 			// Initial wait
 			wait!(30),
 			// Wait for login

@@ -7,19 +7,11 @@ use validator::Validate;
 
 use crate::ssh::SshConnection;
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ShellProvisioners {
-    pub commands: Vec<ShellProvisioner>,
-}
-
 /// This provisioner runs an inline shell command.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ShellProvisioner {
     /// The inline command to run
     pub command: String,
-
-    /// Overrides the default run order
-    pub order: Option<usize>,
 }
 
 impl ShellProvisioner {
