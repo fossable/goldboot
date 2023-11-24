@@ -24,7 +24,7 @@ pub struct TemplateMetadata {
 ///
 /// This term comes from metallurgy where casting means to pour molten metal into
 /// a mold, producing a solidified object in the shape of the mold.
-pub trait Cast {
+pub trait ImageMold: Default + Serialize + PromptMut {
     /// Cast an image from the mold.
     fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>>;
 

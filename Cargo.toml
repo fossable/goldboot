@@ -4,9 +4,6 @@ strip = true
 [workspace]
 members = [
     "goldboot",
-    "goldboot-foundry",
     "goldboot-image",
-    "goldboot-linux",
     "goldboot-registry",
-    "goldboot-repository",
 ]

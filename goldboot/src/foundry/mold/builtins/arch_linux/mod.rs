@@ -27,7 +27,7 @@ impl Default for ArchLinux {
     }
 }
 
-impl super::Cast for ArchLinux {
+impl ImageMold for ArchLinux {
     fn metadata() -> TemplateMetadata {
         TemplateMetadata {
             id: TemplateId::ArchLinux,
