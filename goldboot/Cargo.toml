@@ -10,18 +10,18 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-block-utils = "0.11.1"
+block-utils = { version = "0.11.1", optional = true }
 chrono = "0.4.31"
 clap = { version = "4.4.7", features = ["derive"] }
 console = "0.15.7"
 dialoguer = "0.11.0"
 env_logger = "0"
 fossable = "0.1.0"
-gdk4 = "0.7.3"
-gdk-pixbuf = "0.18.3"
-glib-macros = "0.18.3"
+gdk4 = { version = "0.7.3", optional = true }
+gdk-pixbuf = { version = "0.18.3", optional = true }
+glib-macros = { version = "0.18.3", optional = true }
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
-gtk4 = "0.7.3"
+gtk4 = { version = "0.7.3", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
 log = { version = "0.4.20", default-features = false }

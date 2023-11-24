@@ -1,25 +1,21 @@
-use actix_web::{get, post, web, Responder};
+use axum::extract::{Json, Path, Query};
 
 /// Start a new build
-#[post("/builds")]
-pub async fn start() -> impl Responder {
+pub async fn start() {
     ""
 }
 
 /// List all builds
-#[get("/builds")]
-pub async fn list() -> impl Responder {
+pub async fn list() {
     ""
 }
 
 /// Get build info
-#[get("/builds/{id}")]
-pub async fn info(id: web::Path<String>) -> impl Responder {
+pub async fn info(Path(id): Path<String>) {
     ""
 }
 
 /// Cancel a build
-#[post("/builds/{id}/cancel")]
-pub async fn cancel(id: web::Path<String>) -> impl Responder {
+pub async fn cancel(Path(id): Path<String>) {
     ""
 }

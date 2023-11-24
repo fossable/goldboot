@@ -48,7 +48,7 @@ Proceed at your own risk!**
 ![License](https://img.shields.io/github/license/goldboot/goldboot)
 ![build](https://github.com/goldboot/goldboot/actions/workflows/build.yml/badge.svg)
 [![Discord](https://img.shields.io/discord/981695209492606986)](https://discord.gg/Vzr7gT5dsd)
-![Lines of code](https://img.shields.io/tokei/lines/github/goldboot/goldboot)
+![Lines of code](https://img.shields.io/tokei/lines/github/fossable/goldboot)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
 
 ## `goldboot`

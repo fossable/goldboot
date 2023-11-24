@@ -1,23 +1,21 @@
-use crate::{
-    build::{BuildConfig, BuildJob},
-    cmd::Commands,
-};
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use log::debug;
 use std::{error::Error, path::Path};
 use validator::Validate;
 
-pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
+use crate::foundry::Foundry;
+
+pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
     match cmd {
-        Commands::Build {
+        super::Commands::Build {
             record,
             debug,
             read_password,
             output,
-            config,
+            path,
         } => {
-            let config_path = if let Some(path) = config.to_owned() {
+            let context_path = if let Some(path) = path.to_owned() {
                 path.as_str()
             } else {
                 if Path::new("./goldboot.yaml").exists() {
@@ -30,9 +28,9 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
             };
             debug!("Loading config from {}", config_path);
 
-            // Load build config from current directory
-            let mut config: BuildConfig = serde_yaml::from_slice(&std::fs::read(config_path)?)?;
-            debug!("Loaded: {:#?}", &config);
+            // Load config from current directory
+            let mut foundry: Foundry = ron::de::from_bytes(&std::fs::read(config_path)?)?;
+            debug!("Loaded: {:#?}", &foundry);
 
             // Include the encryption password if provided
             if read_password {

@@ -1,3 +1,4 @@
+use goldboot_image::ImageArch;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
@@ -7,7 +8,9 @@ use std::{
 };
 use validator::Validate;
 
-use crate::FoundryWorker;
+use crate::foundry::{sources::Source, FoundryWorker};
+
+use super::{ImageMold, ImageMoldInfo};
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -15,7 +18,7 @@ pub struct ArchLinux {
     pub root_password: Option<String>,
     pub packages: Option<Vec<String>>,
     pub mirrorlist: Option<Vec<String>>,
-    pub hostname: Option<HostnameOption>,
+    pub hostname: Option<Hostname>,
 }
 
 impl Default for ArchLinux {
@@ -28,26 +31,16 @@ impl Default for ArchLinux {
 }
 
 impl ImageMold for ArchLinux {
-    fn metadata() -> TemplateMetadata {
-        TemplateMetadata {
-            id: TemplateId::ArchLinux,
+    fn info() -> ImageMoldInfo {
+        ImageMoldInfo {
             name: String::from("Arch Linux"),
-            architectures: vec![],
-            multiboot: true,
+            architectures: vec![ImageArch::Amd64],
+            alloys: true,
         }
     }
 
     fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&context);
-
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-            "file={},media=cdrom",
-            MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
-        ));
 
         // Start VM
         let mut qemu = qemuargs.start_process()?;
@@ -90,21 +83,6 @@ impl ImageMold for ArchLinux {
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
-        Ok(())
-    }
-}
-
-impl PromptMut for ArchLinux {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
-    ) -> Result<(), Box<dyn Error>> {
-        self.mirrorlist.prompt(config, theme)?;
-
-        // Prompt provisioners
-        self.provisioners.prompt(config, theme)?;
-
         Ok(())
     }
 }
@@ -180,19 +158,19 @@ pub mod options {
 }
 
 /// Fetch the latest installation ISO
-fn fetch_latest_iso(mirrorlist: ArchMirrorlistProvisioner) -> Result<IsoSource, Box<dyn Error>> {
-    for mirror in mirrorlist.mirrors {
-        let rs = reqwest::blocking::get(format!("{mirror}/iso/latest/sha1sums.txt"))?;
-        if rs.status().is_success() {
-            for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
-                if line.ends_with(".iso") {
-                    let split: Vec<&str> = line.split_whitespace().collect();
-                    if let [hash, filename] = split[..] {
-                        return Ok(IsoSource {
-                            url: format!("{mirror}/iso/latest/{filename}"),
-                            checksum: format!("sha1:{hash}"),
-                        });
-                    }
+fn fetch_latest_iso() -> Result<Source, Box<dyn Error>> {
+    let rs = reqwest::blocking::get(format!(
+        "http://mirror.fossable.org/archlinux/iso/latest/sha1sums.txt"
+    ))?;
+    if rs.status().is_success() {
+        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+            if line.ends_with(".iso") {
+                let split: Vec<&str> = line.split_whitespace().collect();
+                if let [hash, filename] = split[..] {
+                    return Ok(Source::Iso {
+                        url: format!("http://mirror.fossable.org/archlinux/iso/latest/{filename}"),
+                        checksum: Some(format!("sha1:{hash}")),
+                    });
                 }
             }
         }

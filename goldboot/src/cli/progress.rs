@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::{
     cmp::min,
     error::Error,
@@ -50,7 +51,7 @@ impl ProgressBar {
     }
 
     pub fn new(&self, len: u64) -> Box<dyn Fn(u64)> {
-        if !crate::is_interactive() {
+        if !show_progress() {
             // No progress bar
             return Box::new(|_| {});
         }
@@ -73,7 +74,7 @@ impl ProgressBar {
         writer: &mut dyn Write,
         len: u64,
     ) -> Result<(), Box<dyn Error>> {
-        if !crate::is_interactive() {
+        if !show_progress() {
             // No progress bar
             std::io::copy(reader, writer)?;
             return Ok(());
@@ -101,4 +102,7 @@ impl ProgressBar {
         progress.finish_and_clear();
         Ok(())
     }
+}
+fn show_progress() -> bool {
+    std::io::stdout().is_terminal() && !std::env::var("CI").is_ok()
 }

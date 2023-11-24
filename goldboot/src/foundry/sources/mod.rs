@@ -10,22 +10,29 @@ use std::{
     path::{Path, PathBuf},
 };
 
-///! Contains general-purpose sources for use in templates.
 pub mod iso;
 
 /// All builds start with a single `Source` which provides the initial image
 /// to be subjected to further customizations.
-pub trait Source {
-    fn load(&self) -> Result<String, Box<dyn Error>>;
+pub enum Source {
+    Iso {
+        url: String,
+        checksum: Option<String>,
+    },
+    Mold {
+        base: String,
+    },
+    Buildroot,
 }
 
-/// A cache for source installation media like ISOs.
+/// Simple cache for source installation media like ISOs.
 pub struct SourceCache {
+    /// Cache location on disk
     pub directory: PathBuf,
 }
 
 impl SourceCache {
-    /// Get the default source cache.
+    /// Get the default platform-dependent source cache.
     pub fn default() -> Result<Self, Box<dyn Error>> {
         let directory = if cfg!(target_os = "linux") {
             PathBuf::from(format!(
@@ -48,7 +55,6 @@ impl SourceCache {
 
         // Make sure it exists before we return
         std::fs::create_dir_all(&directory)?;
-
         Ok(Self { directory })
     }
 
@@ -58,7 +64,7 @@ impl SourceCache {
 
         // Delete file if the checksum doesn't match
         if path.is_file() {
-            if !verify_checksum(path.to_string_lossy().to_string(), checksum).is_ok() {
+            if !Self::verify_checksum(path.to_string_lossy().to_string(), checksum).is_ok() {
                 info!("Deleting corrupt cached file");
                 std::fs::remove_file(&path)?;
             }
@@ -82,7 +88,7 @@ impl SourceCache {
                 bail!("Failed to download");
             }
 
-            verify_checksum(path.to_string_lossy().to_string(), checksum)?;
+            Self::verify_checksum(path.to_string_lossy().to_string(), checksum)?;
         }
 
         Ok(path.to_string_lossy().to_string())

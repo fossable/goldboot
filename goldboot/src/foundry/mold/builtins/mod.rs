@@ -1,22 +1,23 @@
 //! Templates are the central concept that make it easy to define images.
 
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Display, path::Path};
 use strum::EnumIter;
 
-use crate::FoundryWorker;
+use crate::{foundry::FoundryWorker, PromptMut};
 
 pub mod arch_linux;
 
-pub struct TemplateMetadata {
+pub struct ImageMoldInfo {
     /// The image full name
     pub name: String,
 
     /// Supported system architectures
-    pub architectures: Vec<Architecture>,
+    pub architectures: Vec<ImageArch>,
 
     /// Whether the template can be combined with others in the same image
-    pub multiboot: bool,
+    pub alloys: bool,
 }
 
 /// "Casting" is the process of generating an immutable goldboot image from raw
@@ -28,8 +29,8 @@ pub trait ImageMold: Default + Serialize + PromptMut {
     /// Cast an image from the mold.
     fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>>;
 
-    // ///
-    // fn metadata() -> TemplateMetadata;
+    ///
+    fn info() -> ImageMoldInfo;
 }
 
 /// Represents a "base configuration" that users can modify and use to build
@@ -38,7 +39,7 @@ pub trait ImageMold: Default + Serialize + PromptMut {
 #[serde(tag = "base")]
 pub enum Mold {
     // AlpineLinux(crate::molds::alpine_linux::AlpineLinux),
-    ArchLinux(crate::molds::arch_linux::ArchLinux),
+    ArchLinux(arch_linux::ArchLinux),
     // Artix,
     // BedrockLinux,
     // CentOs,

@@ -1,4 +1,3 @@
-use crate::build::BuildConfig;
 use log::{debug, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -7,9 +6,10 @@ use std::{default::Default, error::Error, net::TcpListener, process::Command};
 use strum::{Display, EnumIter};
 use validator::Validate;
 
-pub mod cmd;
-pub mod library;
-pub mod progress;
+pub mod cli;
+pub mod foundry;
+#[cfg(feature = "gui")]
+pub mod gui;
 pub mod registry;
 
 /// Find a random open TCP port in the given range.

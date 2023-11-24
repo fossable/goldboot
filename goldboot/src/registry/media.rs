@@ -1,4 +1,3 @@
-use crate::Architecture;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::error::Error;

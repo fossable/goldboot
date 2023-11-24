@@ -210,7 +210,7 @@ impl BuildJob {
     }
 }
 
-/// Represents a template build process. Multiple workers can run in parallel
+/// Manages the image casting process. Multiple workers can run in parallel
 /// to speed up multiboot configurations.
 pub struct FoundryWorker {
     /// A general purpose temporary directory for the run
@@ -225,15 +225,10 @@ pub struct FoundryWorker {
     /// The VM port for VNC
     pub vnc_port: u16,
 
-    /// The build config
-    pub config: BuildConfig,
-
-    pub template: Box<dyn BuildTemplate>,
+    pub element: Element,
 }
 
-unsafe impl Send for BuildWorker {}
-
-impl BuildWorker {
+impl FoundryWorker {
     /// Run the template build.
     pub fn run(&self) -> Result<(), Box<dyn Error>> {
         debug!(
@@ -245,6 +240,15 @@ impl BuildWorker {
             &self.image_path,
             self.template.general().storage_size_bytes(),
         )?;
+
+        qemuargs.drive.push(format!(
+            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path
+        ));
+        qemuargs.drive.push(format!(
+            "file={},media=cdrom",
+            SourceCache::default()?.get(self.iso.url.clone(), &self.iso.checksum)?
+        ));
 
         self.template.build(&self)?;
         Ok(())

@@ -8,12 +8,12 @@ use crate::{build::BuildConfig, PromptMut};
 
 /// This provisioner changes the network hostname.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct HostnameProvisioner {
+pub struct Hostname {
     // TODO validate
     pub hostname: String,
 }
 
-impl Default for HostnameProvisioner {
+impl Default for Hostname {
     fn default() -> Self {
         Self {
             hostname: String::from("goldboot"),
@@ -21,7 +21,7 @@ impl Default for HostnameProvisioner {
     }
 }
 
-impl PromptMut for HostnameProvisioner {
+impl PromptMut for Hostname {
     fn prompt(
         &mut self,
         config: &BuildConfig,
@@ -36,3 +36,5 @@ impl PromptMut for HostnameProvisioner {
         Ok(())
     }
 }
+
+impl MoldOption for Hostname;
