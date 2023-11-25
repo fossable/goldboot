@@ -6,9 +6,9 @@ use validator::Validate;
 
 use crate::{build::BuildConfig, PromptMut};
 
-/// This provisioner configures a LUKS encrypted root filesystem
+/// Configures a LUKS encrypted root filesystem
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct LuksProvisoner {
+pub struct Luks {
     /// The LUKS passphrase
     pub passphrase: String,
 
@@ -16,7 +16,7 @@ pub struct LuksProvisoner {
     pub tpm: bool,
 }
 
-impl PromptMut for LuksProvisoner {
+impl PromptMut for Luks {
     fn prompt(
         &mut self,
         config: &BuildConfig,

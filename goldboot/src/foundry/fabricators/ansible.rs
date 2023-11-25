@@ -6,27 +6,19 @@ use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use validator::Validate;
 
-use crate::{build::BuildConfig, ssh::SshConnection, PromptMut};
+use crate::{foundry::ssh::SshConnection, PromptMut};
 
+/// Runs an Ansible playbook on the image remotely.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AnsibleProvisioners {
-    pub ansible: Vec<AnsibleProvisioner>,
-}
-
-/// This provisioner runs an Ansible playbook on the image remotely.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AnsibleProvisioner {
+pub struct AnsibleFabricator {
     /// The playbook file
     pub playbook: String,
 
     /// The inventory file
     pub inventory: Option<String>,
-
-    /// Overrides the default run order
-    pub order: Option<usize>,
 }
 
-impl AnsibleProvisioner {
+impl AnsibleFabricator {
     pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
         info!("Running ansible provisioner");
 
@@ -55,7 +47,7 @@ impl AnsibleProvisioner {
     }
 }
 
-impl PromptMut for AnsibleProvisioner {
+impl PromptMut for AnsibleFabricator {
     fn prompt(
         &mut self,
         config: &BuildConfig,

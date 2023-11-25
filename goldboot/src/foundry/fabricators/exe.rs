@@ -8,33 +8,27 @@ use validator::Validate;
 
 use crate::{build::BuildConfig, ssh::SshConnection, PromptMut};
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ExecutableProvisioners {
-    pub executables: Vec<ExecutableProvisioner>,
-}
+use super::Fabricator;
 
-/// This provisioner runs an executable file on the image.
+/// Runs an executable file.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ExecutableProvisioner {
+pub struct ExecutableFabricator {
     /// The path to the executable
     pub path: String,
-
-    /// Overrides the default run order
-    pub order: Option<usize>,
 }
 
-impl ExecutableProvisioner {
+impl ExecutableFabricator {
     pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
-        info!("Running executable provisioner");
+        info!("Running executable");
 
         if ssh.upload_exec(&std::fs::read(self.path.clone())?, vec![])? != 0 {
-            bail!("Provisioner failed");
+            bail!("Executable failed");
         }
         Ok(())
     }
 }
 
-impl PromptMut for ExecutableProvisioner {
+impl PromptMut for ExecutableFabricator {
     fn prompt(
         &mut self,
         config: &BuildConfig,
@@ -57,3 +51,5 @@ impl PromptMut for ExecutableProvisioner {
         Ok(())
     }
 }
+
+impl Fabricator for ExecutableFabricator;

@@ -92,7 +92,7 @@ impl SshConnection {
             match stdout.read_line(&mut line) {
                 Ok(0) => break,
                 Ok(_) => debug!(
-                    "(provisioner) {}",
+                    "(fabricator) {}",
                     line.strip_suffix("\r\n")
                         .or(line.strip_suffix("\n"))
                         .unwrap_or(&line)

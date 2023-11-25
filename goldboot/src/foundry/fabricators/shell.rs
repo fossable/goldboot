@@ -5,29 +5,28 @@ use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use validator::Validate;
 
-use crate::ssh::SshConnection;
+use crate::foundry::ssh::SshConnection;
 
-/// This provisioner runs an inline shell command.
+/// Runs an inline shell command.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ShellProvisioner {
+pub struct ShellFabricator {
     /// The inline command to run
     pub command: String,
 }
 
-impl ShellProvisioner {
-    /// Create a new shell provisioner with inline command
+impl ShellFabricator {
+    /// Create a new shell fabricator with inline command
     pub fn new(command: &str) -> Self {
         Self {
             command: command.to_string(),
-            order: None,
         }
     }
 
     pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
-        info!("Running shell provisioner");
+        info!("Running shell commands");
 
         if ssh.exec(&self.command)? != 0 {
-            bail!("Provisioner failed");
+            bail!("Shell commands failed");
         }
         Ok(())
     }

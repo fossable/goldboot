@@ -4,9 +4,9 @@ use dialoguer::theme::ColorfulTheme;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::{build::BuildConfig, PromptMut};
+use crate::{PromptMut};
 
-/// This provisioner changes the network hostname.
+/// Sets the network hostname.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Hostname {
     // TODO validate
