@@ -111,16 +111,16 @@ iface eth0 inet dhcp
     }
 }
 
-impl PromptMut for AlpineTemplate {
+impl Prompt for AlpineLinux {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
         // Prompt edition
         {
             let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
-            let edition_index = dialoguer::Select::with_theme(theme)
+            let edition_index = dialoguer::Select::with_theme(&theme)
                 .with_prompt("Choose an edition")
                 .default(0)
                 .items(&editions)

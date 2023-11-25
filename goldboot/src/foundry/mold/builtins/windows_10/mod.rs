@@ -113,15 +113,15 @@ impl Template for Windows10Template {
     }
 }
 
-impl PromptMut for Windows10Template {
+impl Prompt for Windows10 {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
         // Prompt for installation media
         {
-            let iso_url: String = dialoguer::Input::with_theme(theme)
+            let iso_url: String = dialoguer::Input::with_theme(&theme)
                 .with_prompt("Enter the installation ISO URL")
                 .interact()?;
         }

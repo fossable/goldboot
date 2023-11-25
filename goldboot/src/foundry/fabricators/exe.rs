@@ -1,13 +1,8 @@
 use std::{error::Error, path::Path};
-
-use dialoguer::theme::ColorfulTheme;
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use validator::Validate;
-
-use crate::{build::BuildConfig, ssh::SshConnection, PromptMut};
-
 use super::Fabricator;
 
 /// Runs an executable file.
@@ -28,18 +23,18 @@ impl ExecutableFabricator {
     }
 }
 
-impl PromptMut for ExecutableFabricator {
+impl Prompt for ExecutableFabricator {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
-        self.path = dialoguer::Input::with_theme(theme)
+        self.path = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the script path relative to the current directory")
             .interact()?;
 
         if !Path::new(&self.path).exists() {
-            if !dialoguer::Confirm::with_theme(theme)
+            if !dialoguer::Confirm::with_theme(&theme)
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
             {

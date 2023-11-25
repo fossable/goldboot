@@ -1,12 +1,9 @@
-use std::{error::Error, path::Path, process::Command};
-
-use dialoguer::theme::ColorfulTheme;
+use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
+use std::{error::Error, path::Path, process::Command};
 use validator::Validate;
-
-use crate::{foundry::ssh::SshConnection, PromptMut};
 
 /// Runs an Ansible playbook on the image remotely.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -47,18 +44,18 @@ impl AnsibleFabricator {
     }
 }
 
-impl PromptMut for AnsibleFabricator {
+impl Prompt for AnsibleFabricator {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
-        self.playbook = dialoguer::Input::with_theme(theme)
+        self.playbook = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;
 
         if !Path::new(&self.playbook).exists() {
-            if !dialoguer::Confirm::with_theme(theme)
+            if !dialoguer::Confirm::with_theme(&theme)
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
             {

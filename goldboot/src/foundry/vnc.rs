@@ -365,33 +365,42 @@ impl VncConnection {
     }
 }
 
-pub mod cmds {
+pub mod macros {
 
     #[macro_export]
     macro_rules! enter {
         ($text:expr) => {
             vec![
-                crate::vnc::VncCmd::Type($text.to_string()),
-                crate::vnc::VncCmd::Enter,
-                crate::vnc::VncCmd::Wait(2),
+                crate::foundry::vnc::VncCmd::Type($text.to_string()),
+                crate::foundry::vnc::VncCmd::Enter,
+                crate::foundry::vnc::VncCmd::Wait(2),
             ]
         };
         () => {
-            vec![crate::vnc::VncCmd::Enter, crate::vnc::VncCmd::Wait(2)]
+            vec![
+                crate::foundry::vnc::VncCmd::Enter,
+                crate::foundry::vnc::VncCmd::Wait(2),
+            ]
         };
     }
 
     #[macro_export]
     macro_rules! spacebar {
         () => {
-            vec![crate::vnc::VncCmd::Spacebar, crate::vnc::VncCmd::Wait(2)]
+            vec![
+                crate::foundry::vnc::VncCmd::Spacebar,
+                crate::foundry::vnc::VncCmd::Wait(2),
+            ]
         };
     }
 
     #[macro_export]
     macro_rules! escape {
         () => {
-            vec![crate::vnc::VncCmd::Escape, crate::vnc::VncCmd::Wait(2)]
+            vec![
+                crate::foundry::vnc::VncCmd::Escape,
+                crate::foundry::vnc::VncCmd::Wait(2),
+            ]
         };
     }
 
@@ -399,34 +408,37 @@ pub mod cmds {
     macro_rules! tab {
         ($text:expr) => {
             vec![
-                crate::vnc::VncCmd::Type($text.to_string()),
-                crate::vnc::VncCmd::Tab,
-                crate::vnc::VncCmd::Wait(2),
+                crate::foundry::vnc::VncCmd::Type($text.to_string()),
+                crate::foundry::vnc::VncCmd::Tab,
+                crate::foundry::vnc::VncCmd::Wait(2),
             ]
         };
         () => {
-            vec![crate::vnc::VncCmd::Tab, crate::vnc::VncCmd::Wait(2)]
+            vec![
+                crate::foundry::vnc::VncCmd::Tab,
+                crate::foundry::vnc::VncCmd::Wait(2),
+            ]
         };
     }
 
     #[macro_export]
     macro_rules! wait {
         ($duration:expr) => {
-            vec![crate::vnc::VncCmd::Wait($duration)]
+            vec![crate::foundry::vnc::VncCmd::Wait($duration)]
         };
     }
 
     #[macro_export]
     macro_rules! wait_screen {
         ($hash:expr) => {
-            vec![crate::vnc::VncCmd::WaitScreen($hash.to_string())]
+            vec![crate::foundry::vnc::VncCmd::WaitScreen($hash.to_string())]
         };
     }
 
     #[macro_export]
     macro_rules! wait_screen_rect {
         ($hash:expr, $top:expr, $left:expr, $width:expr, $height:expr) => {
-            vec![crate::vnc::VncCmd::WaitScreenRect(
+            vec![crate::foundry::vnc::VncCmd::WaitScreenRect(
                 $hash.to_string(),
                 $top,
                 $left,
@@ -440,8 +452,8 @@ pub mod cmds {
     macro_rules! input {
         ($text:expr) => {
             vec![
-                crate::vnc::VncCmd::Type($text.to_string()),
-                crate::vnc::VncCmd::Wait(1),
+                crate::foundry::vnc::VncCmd::Type($text.to_string()),
+                crate::foundry::vnc::VncCmd::Wait(1),
             ]
         };
     }
@@ -449,7 +461,10 @@ pub mod cmds {
     #[macro_export]
     macro_rules! leftSuper {
         () => {
-            vec![crate::vnc::VncCmd::LeftSuper, crate::vnc::VncCmd::Wait(2)]
+            vec![
+                crate::foundry::vnc::VncCmd::LeftSuper,
+                crate::foundry::vnc::VncCmd::Wait(2),
+            ]
         };
     }
 }

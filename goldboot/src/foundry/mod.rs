@@ -7,6 +7,8 @@ use simple_error::bail;
 use std::{error::Error, fmt::Display, thread, time::SystemTime};
 use validator::Validate;
 
+use self::sources::Source;
+
 pub mod fabricators;
 pub mod mold;
 pub mod ovmf;

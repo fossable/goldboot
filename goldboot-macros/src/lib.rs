@@ -36,3 +36,5 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
     };
     gen.into()
 }
+
+// TODO probably need a macro for ImageMold and Fabricator

@@ -103,21 +103,6 @@ impl BuildTemplate for ArchTemplate {
     }
 }
 
-impl PromptMut for ArchTemplate {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
-    ) -> Result<(), Box<dyn Error>> {
-        self.mirrorlist.prompt(config, theme)?;
-
-        // Prompt provisioners
-        self.provisioners.prompt(config, theme)?;
-
-        Ok(())
-    }
-}
-
 /// This provisioner configures the Archlinux mirror list.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchMirrorlistProvisioner {
@@ -133,27 +118,6 @@ impl Default for ArchMirrorlistProvisioner {
                 String::from("https://mirrors.edge.kernel.org/archlinux/"),
             ],
         }
-    }
-}
-
-impl PromptMut for ArchMirrorlistProvisioner {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
-    ) -> Result<(), Box<dyn Error>> {
-        // Prompt mirror list
-        {
-            let mirror_index = dialoguer::Select::with_theme(theme)
-                .with_prompt("Choose a mirror site")
-                .default(0)
-                .items(&MIRRORLIST)
-                .interact()?;
-
-            self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
-        }
-
-        Ok(())
     }
 }
 

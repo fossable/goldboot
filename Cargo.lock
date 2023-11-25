@@ -546,6 +546,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum_dispatch"
+version = "0.3.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f33313078bb8d4d05a2733a94ac4c2d8a0df9a2b84424ebf4f33bfc224a890e"
+dependencies = [
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.39",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -935,6 +947,7 @@ dependencies = [
  "clap",
  "console",
  "dialoguer",
+ "enum_dispatch",
  "env_logger",
  "fossable",
  "gdk-pixbuf",
@@ -1003,6 +1016,7 @@ version = "0.0.1"
 dependencies = [
  "axum",
  "env_logger",
+ "goldboot",
  "log 0.4.20",
  "reqwest",
  "rustls",

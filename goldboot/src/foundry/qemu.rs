@@ -1,4 +1,4 @@
-use crate::{build::BuildWorker, ssh::SshConnection, vnc::VncConnection};
+use crate::foundry::{ssh::SshConnection, vnc::VncConnection, FoundryWorker};
 use goldboot_image::ImageArch;
 use log::{debug, info};
 use simple_error::bail;

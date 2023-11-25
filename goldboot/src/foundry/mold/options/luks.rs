@@ -1,10 +1,8 @@
-use std::error::Error;
-
-use dialoguer::{theme::ColorfulTheme, Confirm, Password};
+use crate::cli::prompt::Prompt;
+use dialoguer::{Confirm, Password};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use validator::Validate;
-
-use crate::{build::BuildConfig, PromptMut};
 
 /// Configures a LUKS encrypted root filesystem
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -16,17 +14,17 @@ pub struct Luks {
     pub tpm: bool,
 }
 
-impl PromptMut for Luks {
+impl Prompt for Luks {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
-        if Confirm::with_theme(theme)
+        if Confirm::with_theme(&theme)
             .with_prompt("Do you want to encrypt the root partition with LUKS?")
             .interact()?
         {
-            self.passphrase = Password::with_theme(theme)
+            self.passphrase = Password::with_theme(&theme)
                 .with_prompt("LUKS passphrase")
                 .interact()?;
         }

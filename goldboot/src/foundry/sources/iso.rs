@@ -1,6 +1,6 @@
-use super::Source;
-use crate::{build::BuildConfig, PromptMut};
-use dialoguer::theme::ColorfulTheme;
+use super::LoadSource;
+use crate::cli::prompt::Prompt;
+use dialoguer::theme::Theme;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use url::Url;
@@ -16,20 +16,20 @@ pub struct IsoSource {
     pub checksum: Option<String>,
 }
 
-impl Source for IsoSource {
+impl LoadSource for IsoSource {
     /// Load the ISO into the cache and return its path
     fn load(&self) -> Result<String, Box<dyn Error>> {
         todo!()
     }
 }
 
-impl PromptMut for IsoSource {
+impl Prompt for IsoSource {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn Theme>,
     ) -> Result<(), Box<dyn Error>> {
-        self.url = dialoguer::Input::with_theme(theme)
+        self.url = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the ISO URL")
             .interact()?;
 

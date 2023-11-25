@@ -46,7 +46,7 @@ pub enum UbuntuEdition {
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct UbuntuTemplate {
+pub struct Ubuntu {
     pub edition: UbuntuEdition,
     pub release: UbuntuRelease,
 
@@ -111,16 +111,16 @@ impl Template for UbuntuTemplate {
     }
 }
 
-impl PromptMut for UbuntuTemplate {
+impl Prompt for Ubuntu {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
         // Prompt edition
         {
             let editions: Vec<UbuntuEdition> = UbuntuEdition::iter().collect();
-            let edition_index = dialoguer::Select::with_theme(theme)
+            let edition_index = dialoguer::Select::with_theme(&theme)
                 .with_prompt("Choose Ubuntu edition")
                 .default(0)
                 .items(&editions)
@@ -132,7 +132,7 @@ impl PromptMut for UbuntuTemplate {
         // Prompt release
         {
             let releases: Vec<UbuntuRelease> = UbuntuRelease::iter().collect();
-            let release_index = dialoguer::Select::with_theme(theme)
+            let release_index = dialoguer::Select::with_theme(&theme)
                 .with_prompt("Choose Ubuntu release")
                 .default(0)
                 .items(&releases)

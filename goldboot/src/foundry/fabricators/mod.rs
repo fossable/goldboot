@@ -2,7 +2,7 @@
 //! image templates. Templates may also specify their own specialized
 //! provisioners for specific tasks.
 
-use crate::ssh::SshConnection;
+use crate::foundry::ssh::SshConnection;
 use std::error::Error;
 
 pub mod ansible;

@@ -1,10 +1,7 @@
 use std::error::Error;
-
-use dialoguer::theme::ColorfulTheme;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
-
-use crate::{PromptMut};
+use crate::cli::prompt::Prompt;
 
 /// Sets the network hostname.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -21,13 +18,13 @@ impl Default for Hostname {
     }
 }
 
-impl PromptMut for Hostname {
+impl Prompt for Hostname {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
-        self.hostname = dialoguer::Input::with_theme(theme)
+        self.hostname = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter network hostname")
             .default(config.name.clone())
             .interact()?;

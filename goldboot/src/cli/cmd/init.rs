@@ -1,31 +1,25 @@
-use crate::{
-    build::BuildConfig,
-    cmd::Commands,
-    templates::{Template, TemplateMetadata},
-    Architecture,
-};
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use goldboot_image::ImageArch;
 use simple_error::bail;
 use std::{error::Error, path::Path};
 use strum::IntoEnumIterator;
 
-#[rustfmt::skip]
 fn print_banner() {
     if console::colors_enabled() {
         let style = Style::new().yellow();
 
         println!("{}", "");
         for line in fossable::goldboot_word() {
-        println!("  {}", style.apply_to(line));
-                    }
+            println!("  {}", style.apply_to(line));
+        }
         println!("{}", "");
     }
 }
 
-pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
     match cmd {
-        Commands::Init {
+        super::Commands::Init {
             name,
             template,
             mimic_hardware,
@@ -91,7 +85,7 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
 
                 // Prompt image architecture
                 {
-                    let architectures: Vec<Architecture> = Architecture::iter().collect();
+                    let architectures: Vec<ImageArch> = ImageArch::iter().collect();
                     let arch_index = Select::with_theme(&theme)
                         .with_prompt("Choose image architecture")
                         .default(0)
@@ -128,7 +122,7 @@ pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
             }
 
             // Finally write out the config
-            std::fs::write(config_path, serde_yaml::to_string(&config)?)?;
+            std::fs::write(config_path, ron::to_string(&config)?)?;
             Ok(())
         }
         _ => panic!(),

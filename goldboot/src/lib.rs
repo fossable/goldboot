@@ -37,27 +37,6 @@ pub fn random_password() -> String {
         .collect()
 }
 
-pub fn is_interactive() -> bool {
-    !std::env::var("CI").is_ok()
-}
-
-pub trait PromptMut {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
-    ) -> Result<(), Box<dyn Error>>;
-}
-
-pub trait Prompt {
-    fn prompt(
-        config: &BuildConfig,
-        theme: &dialoguer::theme::ColorfulTheme,
-    ) -> Result<Self, Box<dyn Error>>
-    where
-        Self: Sized;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

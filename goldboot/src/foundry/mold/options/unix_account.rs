@@ -1,10 +1,8 @@
-use std::error::Error;
-
-use dialoguer::theme::ColorfulTheme;
+use crate::cli::prompt::Prompt;
+use dialoguer::Password;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use validator::Validate;
-
-use crate::{build::BuildConfig, PromptMut};
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct UnixAccountProvisioners {
@@ -32,13 +30,13 @@ pub struct UnixAccountProvisioner {
     pub password: String,
 }
 
-impl PromptMut for UnixAccountProvisioner {
+impl Prompt for UnixAccountProvisioner {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
-        self.password = dialoguer::Password::with_theme(theme)
+        self.password = Password::with_theme(&theme)
             .with_prompt("Root password")
             .interact()?;
 

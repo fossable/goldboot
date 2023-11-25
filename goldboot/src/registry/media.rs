@@ -1,3 +1,4 @@
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
 use std::error::Error;
@@ -11,7 +12,7 @@ pub struct GetMediaResponse {
 pub fn get_media(
     template: String,
     edition: String,
-    arch: Architecture,
+    arch: ImageArch,
 ) -> Result<GetMediaResponse, Box<dyn Error>> {
     let rs = reqwest::blocking::get(format!(
         "https://public.goldboot.org/v1/media/{template}/{edition}/{}",

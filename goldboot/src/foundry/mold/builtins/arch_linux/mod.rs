@@ -8,16 +8,21 @@ use std::{
 };
 use validator::Validate;
 
-use crate::foundry::{sources::Source, FoundryWorker};
+use crate::wait;
+use crate::{
+    enter,
+    foundry::{sources::Source, FoundryWorker},
+    wait_screen_rect,
+};
 
-use super::{ImageMold, ImageMoldInfo};
+use super::{CastImage, ImageMold, ImageMoldInfo};
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinux {
-    pub root_password: Option<String>,
-    pub packages: Option<Vec<String>>,
-    pub mirrorlist: Option<Vec<String>>,
+    pub root_password: Option<RootPassword>,
+    pub packages: Option<Packages>,
+    pub mirrorlist: Option<Mirrorlist>,
     pub hostname: Option<Hostname>,
 }
 
@@ -30,7 +35,7 @@ impl Default for ArchLinux {
     }
 }
 
-impl ImageMold for ArchLinux {
+impl CastImage for ArchLinux {
     fn info() -> ImageMoldInfo {
         ImageMoldInfo {
             name: String::from("Arch Linux"),
@@ -93,12 +98,6 @@ pub mod options {
     use serde::{Deserialize, Serialize};
     use validator::Validate;
 
-    use crate::{
-        build::BuildConfig,
-        provisioners::{ansible::AnsibleProvisioner, hostname::HostnameProvisioner},
-        PromptMut,
-    };
-
     #[derive(Clone, Serialize, Deserialize, Debug)]
     #[serde(tag = "type", rename_all = "snake_case")]
     pub enum ArchProvisioner {
@@ -125,15 +124,15 @@ pub mod options {
         }
     }
 
-    impl PromptMut for ArchMirrorlistProvisioner {
+    impl Prompt for ArchMirrorlist {
         fn prompt(
             &mut self,
             config: &BuildConfig,
-            theme: &dialoguer::theme::ColorfulTheme,
+            theme: Box<dyn dialoguer::theme::Theme>,
         ) -> Result<(), Box<dyn Error>> {
             // Prompt mirror list
             {
-                let mirror_index = dialoguer::Select::with_theme(theme)
+                let mirror_index = dialoguer::Select::with_theme(&theme)
                     .with_prompt("Choose a mirror site")
                     .default(0)
                     .items(&MIRRORLIST)

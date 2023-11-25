@@ -1,11 +1,10 @@
-use crate::{cmd::Commands, library::ImageLibrary};
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use std::{error::Error, path::Path};
 
-pub fn run(cmd: crate::cmd::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
     match cmd {
-        Commands::Write {
+        super::Commands::Write {
             image,
             output,
             confirm,

@@ -1,4 +1,4 @@
-use crate::progress::ProgressBar;
+use crate::cli::progress::ProgressBar;
 use log::{debug, info};
 use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};
@@ -11,6 +11,8 @@ use std::{
 };
 
 pub mod iso;
+
+pub trait LoadSource {}
 
 /// All builds start with a single `Source` which provides the initial image
 /// to be subjected to further customizations.

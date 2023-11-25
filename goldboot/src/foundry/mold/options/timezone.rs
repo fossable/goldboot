@@ -1,21 +1,18 @@
-use std::error::Error;
-
-use dialoguer::theme::ColorfulTheme;
+use crate::cli::prompt::Prompt;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use validator::Validate;
 
-use crate::{build::BuildConfig, PromptMut};
-
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct TimezoneProvisioner {
+pub struct Timezone {
     // TODO
 }
 
-impl PromptMut for TimezoneProvisioner {
+impl Prompt for Timezone {
     fn prompt(
         &mut self,
         config: &BuildConfig,
-        theme: &ColorfulTheme,
+        theme: Box<dyn dialoguer::theme::Theme>,
     ) -> Result<(), Box<dyn Error>> {
         todo!()
     }
