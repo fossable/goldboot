@@ -30,7 +30,7 @@ rand = "0.8.5"
 regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["stream", "blocking", "json"] }
 ron = "0.8.1"
-serde = { version = "1.0.190", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 serde_win_unattend = "0.1.0"
 sha1 = "0.10.6"
 sha2 = "0.10.8"

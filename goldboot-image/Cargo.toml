@@ -17,7 +17,7 @@ hex = "0.4.3"
 log = { version = "0.4.20", default-features = false }
 rand = "0.8.5"
 regex = "1.10.2"
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 sha2 = "0.10.8"
 simple-error = "0.3.0"
 strum = { version = "0.25.0", features = ["derive"] }
