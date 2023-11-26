@@ -1,3 +1,11 @@
+use super::CastImage;
+use crate::foundry::mold::options::hostname::Hostname;
+use crate::wait;
+use crate::{
+    enter,
+    foundry::{sources::Source, FoundryWorker},
+    wait_screen_rect,
+};
 use goldboot_image::ImageArch;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -7,15 +15,6 @@ use std::{
     io::{BufRead, BufReader},
 };
 use validator::Validate;
-
-use crate::wait;
-use crate::{
-    enter,
-    foundry::{sources::Source, FoundryWorker},
-    wait_screen_rect,
-};
-
-use super::{CastImage, ImageMold, ImageMoldInfo};
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -29,21 +28,17 @@ pub struct ArchLinux {
 impl Default for ArchLinux {
     fn default() -> Self {
         Self {
-            source: None,
-            provisioners: None,
+            root_password: RootPassword { plaintext: "root" },
+            packages: None,
+            mirrorlist: None,
+            hostname: Some(Hostname {
+                hostname: "ArchLinux".to_string(),
+            }),
         }
     }
 }
 
 impl CastImage for ArchLinux {
-    fn info() -> ImageMoldInfo {
-        ImageMoldInfo {
-            name: String::from("Arch Linux"),
-            architectures: vec![ImageArch::Amd64],
-            alloys: true,
-        }
-    }
-
     fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>> {
         let mut qemuargs = QemuArgs::new(&context);
 
@@ -92,67 +87,54 @@ impl CastImage for ArchLinux {
     }
 }
 
-pub mod options {
-    use std::error::Error;
+/// This provisioner configures the Archlinux mirror list.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+pub struct Mirrorlist {
+    pub mirrors: Vec<String>,
+}
 
-    use serde::{Deserialize, Serialize};
-    use validator::Validate;
+//https://archlinux.org/mirrorlist/?country=US&protocol=http&protocol=https&ip_version=4
 
-    #[derive(Clone, Serialize, Deserialize, Debug)]
-    #[serde(tag = "type", rename_all = "snake_case")]
-    pub enum ArchProvisioner {
-        Ansible(AnsibleProvisioner),
-        Mirrorlist(ArchMirrorlistProvisioner),
-        Hostname(HostnameProvisioner),
-    }
-
-    /// This provisioner configures the Archlinux mirror list.
-    #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-    pub struct ArchMirrorlistProvisioner {
-        pub mirrors: Vec<String>,
-    }
-
-    impl Default for ArchMirrorlistProvisioner {
-        fn default() -> Self {
-            Self {
-                mirrors: vec![
-                    String::from("https://geo.mirror.pkgbuild.com/"),
-                    String::from("https://mirror.rackspace.com/archlinux/"),
-                    String::from("https://mirrors.edge.kernel.org/archlinux/"),
-                ],
-            }
+impl Default for Mirrorlist {
+    fn default() -> Self {
+        Self {
+            mirrors: vec![
+                String::from("https://geo.mirror.pkgbuild.com/"),
+                String::from("https://mirror.rackspace.com/archlinux/"),
+                String::from("https://mirrors.edge.kernel.org/archlinux/"),
+            ],
         }
     }
+}
 
-    impl Prompt for ArchMirrorlist {
-        fn prompt(
-            &mut self,
-            config: &BuildConfig,
-            theme: Box<dyn dialoguer::theme::Theme>,
-        ) -> Result<(), Box<dyn Error>> {
-            // Prompt mirror list
-            {
-                let mirror_index = dialoguer::Select::with_theme(&theme)
-                    .with_prompt("Choose a mirror site")
-                    .default(0)
-                    .items(&MIRRORLIST)
-                    .interact()?;
+impl Prompt for Mirrorlist {
+    fn prompt(
+        &mut self,
+        config: &BuildConfig,
+        theme: Box<dyn dialoguer::theme::Theme>,
+    ) -> Result<(), Box<dyn Error>> {
+        // Prompt mirror list
+        {
+            let mirror_index = dialoguer::Select::with_theme(&theme)
+                .with_prompt("Choose a mirror site")
+                .default(0)
+                .items(&MIRRORLIST)
+                .interact()?;
 
-                self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
-            }
-
-            Ok(())
+            self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
         }
+
+        Ok(())
     }
+}
 
-    impl ArchMirrorlistProvisioner {
-        pub fn format_mirrorlist(&self) -> String {
-            self.mirrors
-                .iter()
-                .map(|s| format!("Server = {}", s))
-                .collect::<Vec<String>>()
-                .join("\n")
-        }
+impl Mirrorlist {
+    pub fn format_mirrorlist(&self) -> String {
+        self.mirrors
+            .iter()
+            .map(|s| format!("Server = {}", s))
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
 
@@ -183,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_fetch_latest_iso() -> Result<(), Box<dyn Error>> {
-        fetch_latest_iso(ArchMirrorlistProvisioner::default())?;
+        fetch_latest_iso()?;
         Ok(())
     }
 }

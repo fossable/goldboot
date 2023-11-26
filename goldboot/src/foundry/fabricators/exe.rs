@@ -1,29 +1,30 @@
-use std::{error::Error, path::Path};
+use super::Fabricate;
+use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
 use log::info;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
+use std::{error::Error, path::Path};
 use validator::Validate;
-use super::Fabricator;
 
 /// Runs an executable file.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct ExecutableFabricator {
+pub struct HostExecutable {
     /// The path to the executable
     pub path: String,
 }
 
-impl ExecutableFabricator {
-    pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+impl Fabricate for HostExecutable {
+    fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
         info!("Running executable");
 
-        if ssh.upload_exec(&std::fs::read(self.path.clone())?, vec![])? != 0 {
+        if ssh.upload_exec(&std::fs::read(&self.path)?, vec![])? != 0 {
             bail!("Executable failed");
         }
         Ok(())
     }
 }
 
-impl Prompt for ExecutableFabricator {
+impl Prompt for HostExecutable {
     fn prompt(
         &mut self,
         config: &BuildConfig,
@@ -46,5 +47,3 @@ impl Prompt for ExecutableFabricator {
         Ok(())
     }
 }
-
-impl Fabricator for ExecutableFabricator;

@@ -10,6 +10,7 @@ pub mod cli;
 pub mod foundry;
 #[cfg(feature = "gui")]
 pub mod gui;
+pub mod library;
 pub mod registry;
 
 /// Find a random open TCP port in the given range.

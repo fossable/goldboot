@@ -1,13 +1,21 @@
 use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
 use log::{debug, info};
-use molds::Mold;
 use rand::Rng;
+use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use simple_error::bail;
-use std::{error::Error, fmt::Display, thread, time::SystemTime};
+use std::{
+    error::Error,
+    fmt::Display,
+    path::{Path, PathBuf},
+    thread,
+    time::SystemTime,
+};
 use validator::Validate;
 
-use self::sources::Source;
+use crate::{foundry::sources::SourceCache, library::ImageLibrary};
+
+use self::{fabricators::Fabricator, mold::builtins::ImageMold, sources::Source};
 
 pub mod fabricators;
 pub mod mold;
@@ -52,7 +60,7 @@ pub struct Foundry {
 
     pub source: Option<Source>,
 
-    pub mold: Option<Mold>,
+    pub mold: Option<ImageMold>,
 
     #[validate(length(min = 1))]
     pub fabricators: Option<Vec<Fabricator>>,
@@ -65,6 +73,59 @@ pub struct Foundry {
 
     /// When set, the run will pause before each step in the boot sequence
     pub debug: bool,
+}
+
+/// Represents a foundry configuration file. This mainly helps sort out the various
+/// supported config formats.
+pub enum FoundryConfig {
+    Json(PathBuf),
+    Ron(PathBuf),
+    Toml(PathBuf),
+    Yaml(PathBuf),
+}
+
+impl FoundryConfig {
+    /// Check for a foundry configuration file in the given directory.
+    pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfig> {
+        path = path.as_ref();
+
+        if path.join("goldboot.json").exists() {
+            Some(FoundryConfig::Json(path.join("goldboot.json")))
+        } else if path.join("goldboot.ron").exists() {
+            Some(FoundryConfig::Ron(path.join("goldboot.ron")))
+        } else if path.join("goldboot.toml").exists() {
+            Some(FoundryConfig::Toml(path.join("goldboot.toml")))
+        } else if path.join("goldboot.yaml").exists() {
+            Some(FoundryConfig::Yaml(path.join("goldboot.yaml")))
+        } else if path.join("goldboot.yml").exists() {
+            Some(FoundryConfig::Yaml(path.join("goldboot.yml")))
+        } else {
+            None
+        }
+    }
+
+    /// Read the configuration file into a new [`Foundry`].
+    pub fn load(&self) -> Result<Foundry, Box<dyn Error>> {
+        match &self {
+            Self::Json(path) => serde_json::from_slice(std::fs::read(path)),
+            Self::Ron(path) => ron::de::from_bytes(std::fs::read(path)),
+            Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path))?.as_str()),
+            Self::Yaml(path) => serde_yaml::from_slice(std::fs::read(path)),
+        }
+    }
+
+    /// Write a [`Foundry`] to a configuration file.
+    pub fn write(&self, foundry: &Foundry) -> Result<(), Box<dyn Error>> {
+        match &self {
+            Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(foundry)?),
+            Self::Ron(path) => std::fs::write(
+                path,
+                ron::ser::to_string_pretty(foundry, PrettyConfig::new())?.into_bytes(),
+            ),
+            Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(foundry)?.into_bytes()),
+            Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(foundry)?.into_bytes()),
+        }
+    }
 }
 
 /// Represents an image build job.
@@ -243,14 +304,14 @@ impl FoundryWorker {
             self.template.general().storage_size_bytes(),
         )?;
 
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-            "file={},media=cdrom",
-            SourceCache::default()?.get(self.iso.url.clone(), &self.iso.checksum)?
-        ));
+        // qemuargs.drive.push(format!(
+        //     "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+        //     context.image_path
+        // ));
+        // qemuargs.drive.push(format!(
+        //     "file={},media=cdrom",
+        //     SourceCache::default()?.get(self.iso.url.clone(), &self.iso.checksum)?
+        // ));
 
         self.template.build(&self)?;
         Ok(())

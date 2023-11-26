@@ -1,4 +1,5 @@
-use crate::{image::ImageHandle, progress::ProgressBar};
+use crate::cli::progress::ProgressBar;
+use goldboot_image::ImageHandle;
 use log::{debug, info};
 use sha1::Digest;
 use sha2::Sha256;
@@ -16,7 +17,9 @@ use std::{
 ///
 /// Images are named according to their SHA256 hash (ID) and have a file
 /// extension of ".gb".
-pub struct ImageLibrary;
+pub struct ImageLibrary {
+    pub directory: PathBuf,
+}
 
 /// Return the image library path for the current platform.
 fn library_path() -> PathBuf {
@@ -50,6 +53,23 @@ impl ImageLibrary {
         Ok(())
     }
 
+    /// Remove an image from the library by ID.
+    pub fn delete(image_id: &str) -> Result<(), Box<dyn Error>> {
+        for p in library_path().read_dir()? {
+            let path = p?.path();
+            let filename = path.file_name().unwrap().to_str().unwrap();
+
+            if filename == format!("{image_id}.gb")
+                || filename == format!("{}.gb", &image_id[0..12])
+            {
+                std::fs::remove_file(path)?;
+                return Ok(());
+            }
+        }
+
+        Ok(())
+    }
+
     /// Download a goldboot image over HTTP.
     pub fn download(url: String) -> Result<ImageHandle, Box<dyn Error>> {
         let path = library_path().join("goldboot-linux.gb");
@@ -66,6 +86,22 @@ impl ImageLibrary {
         } else {
             bail!("Failed to download");
         }
+    }
+
+    /// Find images in the library by ID.
+    pub fn find_by_id(image_id: &str) -> Result<ImageHandle, Box<dyn Error>> {
+        Ok(ImageLibrary::load()?
+            .into_iter()
+            .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
+            .ok_or("Image not found")?)
+    }
+
+    /// Find images in the library by name.
+    pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>, Box<dyn Error>> {
+        Ok(ImageLibrary::load()?
+            .into_iter()
+            .filter(|image| image.primary_header.name() == image_name)
+            .collect())
     }
 
     /// Load images present in the local image library.
@@ -86,38 +122,5 @@ impl ImageLibrary {
         }
 
         Ok(images)
-    }
-
-    /// Find images in the library by name.
-    pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>, Box<dyn Error>> {
-        Ok(ImageLibrary::load()?
-            .into_iter()
-            .filter(|image| image.primary_header.name() == image_name)
-            .collect())
-    }
-
-    /// Find images in the library by ID.
-    pub fn find_by_id(image_id: &str) -> Result<ImageHandle, Box<dyn Error>> {
-        Ok(ImageLibrary::load()?
-            .into_iter()
-            .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
-            .ok_or("Image not found")?)
-    }
-
-    /// Remove an image from the library by ID.
-    pub fn delete(image_id: &str) -> Result<(), Box<dyn Error>> {
-        for p in library_path().read_dir()? {
-            let path = p?.path();
-            let filename = path.file_name().unwrap().to_str().unwrap();
-
-            if filename == format!("{image_id}.gb")
-                || filename == format!("{}.gb", &image_id[0..12])
-            {
-                std::fs::remove_file(path)?;
-                return Ok(());
-            }
-        }
-
-        Ok(())
     }
 }

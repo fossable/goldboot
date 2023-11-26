@@ -663,9 +663,9 @@ dependencies = [
 
 [[package]]
 name = "fossable"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3d7f5952a46ba49dbf4bb14b6633e248fa3002528e01aa1e298ca8315575b33"
+checksum = "07718bad4c1b1b26742e8559eda14f76603316fa7fc401236108037c90cee978"
 dependencies = [
  "clap",
  "quick-xml",
@@ -964,7 +964,9 @@ dependencies = [
  "reqwest",
  "ron",
  "serde",
+ "serde_json",
  "serde_win_unattend",
+ "serde_yaml",
  "sha1",
  "sha2",
  "simple-error",
@@ -972,6 +974,7 @@ dependencies = [
  "strum 0.25.0",
  "tempfile",
  "test-env-log",
+ "toml",
  "ubyte",
  "url",
  "validator",
@@ -2201,6 +2204,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cc7a1570e38322cfe4154732e5110f887ea57e22b76f4bfd32b5bdd3368666c"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2722,6 +2738,12 @@ dependencies = [
  "crypto-common",
  "subtle",
 ]
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f28467d3e1d3c6586d8f25fa243f544f5800fec42d97032474e17222c2b75cfa"
 
 [[package]]
 name = "untrusted"

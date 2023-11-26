@@ -1,7 +1,7 @@
-use std::error::Error;
-use serde::{Deserialize, Serialize};
-use validator::Validate;
 use crate::cli::prompt::Prompt;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use validator::Validate;
 
 /// Sets the network hostname.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -33,5 +33,3 @@ impl Prompt for Hostname {
         Ok(())
     }
 }
-
-impl MoldOption for Hostname;

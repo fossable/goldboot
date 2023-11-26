@@ -5,6 +5,8 @@ use simple_error::bail;
 use std::{error::Error, path::Path};
 use strum::IntoEnumIterator;
 
+use crate::foundry::{mold::builtins::ImageMold, Foundry, FoundryConfig};
+
 fn print_banner() {
     if console::colors_enabled() {
         let style = Style::new().yellow();
@@ -24,14 +26,11 @@ pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
             template,
             mimic_hardware,
         } => {
-            let config_path = Path::new("goldboot.yml");
-
-            if config_path.exists() {
-                bail!("This directory has already been initialized. Delete goldboot.yml to reinitialize.");
-            }
+            let config_path =
+                FoundryConfig::from_dir(".").unwrap_or(FoundryConfig::Ron("./goldboot.ron"));
 
             // Build a new default config that we'll override
-            let mut config = BuildConfig::default();
+            let mut config = Foundry::default();
 
             if template.len() > 0 {
                 if let Some(name) = name {
@@ -44,19 +43,19 @@ pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
                 }
 
                 // Add default templates
-                for template_id in template {
-                    if let Some(id) = Template::iter()
-                        .filter(|id| id.to_string() == template_id)
-                        .next()
-                    {
-                        config.templates.push(id.default());
-                    } else {
-                        bail!("Template not found");
-                    }
-                }
+                // for template_id in template {
+                //     if let Some(id) = Template::iter()
+                //         .filter(|id| id.to_string() == template_id)
+                //         .next()
+                //     {
+                //         config.templates.push(id.default());
+                //     } else {
+                //         bail!("Template not found");
+                //     }
+                // }
 
-            // Generate QEMU flags for this hardware
-            //config.qemuargs = generate_qemuargs()?;
+                // Generate QEMU flags for this hardware
+                //config.qemuargs = generate_qemuargs()?;
             } else {
                 // Begin interactive config
                 print_banner();
@@ -86,32 +85,31 @@ pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
                 // Prompt image architecture
                 {
                     let architectures: Vec<ImageArch> = ImageArch::iter().collect();
-                    let arch_index = Select::with_theme(&theme)
+                    let choice_index = Select::with_theme(&theme)
                         .with_prompt("Choose image architecture")
                         .default(0)
                         .items(&architectures)
                         .interact()?;
 
-                    config.arch = architectures[arch_index];
+                    config.arch = architectures[choice_index];
                 }
 
                 loop {
-                    // Find templates suitable for the architecture
-                    let templates: Vec<TemplateMetadata> = TemplateMetadata::all()
-                        .into_iter()
-                        .filter(|metadata| metadata.architectures.contains(&config.arch))
-                        .filter(|metadata| config.templates.len() == 0 || metadata.multiboot)
+                    // Find molds suitable for the architecture
+                    let molds: Vec<ImageMold> = ImageMold::iter()
+                        .filter(|mold| mold.architectures().contains(&config.arch))
+                        .filter(|mold| config.templates.len() == 0 || mold.alloy())
                         .collect();
 
-                    let template_index = Select::with_theme(&theme)
-                        .with_prompt("Choose image template")
-                        .items(&templates)
+                    let choice_index = Select::with_theme(&theme)
+                        .with_prompt("Choose image mold")
+                        .items(&molds)
                         .interact()?;
 
-                    let template_metadata = &templates[template_index];
-                    config.templates.push(template_metadata.default());
+                    let mold = &molds[choice_index];
+                    config.templates.push(mold);
 
-                    if !template_metadata.multiboot
+                    if !mold.alloy()
                         || !Confirm::with_theme(&theme)
                             .with_prompt("Do you want to add another OS for multibooting?")
                             .interact()?
@@ -122,7 +120,7 @@ pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
             }
 
             // Finally write out the config
-            std::fs::write(config_path, ron::to_string(&config)?)?;
+            config_path.write(&config)?;
             Ok(())
         }
         _ => panic!(),

@@ -1,7 +1,3 @@
-use crate::{
-    cmd::{Commands, ImageCommands},
-    library::ImageLibrary,
-};
 use chrono::TimeZone;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -11,7 +7,7 @@ use ubyte::ToByteUnit;
 pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
     match cmd {
         super::Commands::Image { command } => match &command {
-            ImageCommands::List {} => {
+            super::ImageCommands::List {} => {
                 let images = ImageLibrary::load()?;
 
                 println!("Image Name      Image Size   Build Date                      Image ID     Description");
@@ -29,7 +25,7 @@ pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
                 }
                 Ok(())
             }
-            ImageCommands::Info { image } => {
+            super::ImageCommands::Info { image } => {
                 if let Some(image) = image {
                     let image = ImageLibrary::find_by_id(image)?;
                     // TODO

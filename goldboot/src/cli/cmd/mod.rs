@@ -6,8 +6,8 @@ pub mod write;
 
 #[derive(clap::Subcommand, Debug)]
 pub enum Commands {
-    /// Build a new image
-    Build {
+    /// Cast (build) a new image
+    Cast {
         /// Save a screenshot to ./screenshots after each boot command for
         /// debugging
         #[clap(long, num_args = 0)]
@@ -25,9 +25,9 @@ pub enum Commands {
         #[clap(long)]
         output: Option<String>,
 
-        /// The config file path (default: ./goldboot.json)
+        /// The context directory (containing a goldboot config file)
         #[clap(long)]
-        config: Option<String>,
+        path: Option<String>,
     },
 
     /// Manage local images
@@ -59,7 +59,7 @@ pub enum Commands {
 
         /// A base template (which can be found with --list-templates)
         #[clap(long)]
-        template: Vec<String>,
+        template: Vec<String>, // TODO set to ImageMold?
 
         /// Attempt to copy the configuration of the current hardware as closely
         /// as possible

@@ -7,7 +7,7 @@ use validator::Validate;
 
 /// Runs an Ansible playbook on the image remotely.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AnsibleFabricator {
+pub struct Ansible {
     /// The playbook file
     pub playbook: String,
 
@@ -15,7 +15,7 @@ pub struct AnsibleFabricator {
     pub inventory: Option<String>,
 }
 
-impl AnsibleFabricator {
+impl Ansible {
     pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
         info!("Running ansible provisioner");
 
@@ -44,7 +44,7 @@ impl AnsibleFabricator {
     }
 }
 
-impl Prompt for AnsibleFabricator {
+impl Prompt for Ansible {
     fn prompt(
         &mut self,
         config: &BuildConfig,
