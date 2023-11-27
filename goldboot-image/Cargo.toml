@@ -10,7 +10,7 @@ repository = "https://github.com/fossable/goldboot"
 
 [dependencies]
 aes-gcm = { version = "0.10.3", features = ["std"] }
-binrw = "0.13.1"
+binrw = "0.13.2"
 env_logger = "0.10.1"
 flate2 = "1.0.28"
 hex = "0.4.3"
