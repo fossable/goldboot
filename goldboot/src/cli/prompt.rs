@@ -1,18 +1,15 @@
-use std::error::Error;
+use anyhow::Result;
 
 pub trait Prompt {
     fn prompt(
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<()>;
 }
 
 pub trait PromptNew {
-    fn prompt(
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<Self, Box<dyn Error>>
+    fn prompt(config: &BuildConfig, theme: Box<dyn dialoguer::theme::Theme>) -> Result<Self>
     where
         Self: Sized;
 }

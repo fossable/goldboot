@@ -2,10 +2,11 @@
 //! we compare the state of the screen with specifications from templates in order
 //! to act on timing events.
 
+use anyhow::bail;
+use anyhow::Result;
 use log::{debug, info, trace};
 use rand::Rng;
 use sha1::{Digest, Sha1};
-use simple_error::bail;
 use std::{error::Error, fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
 use vnc::client::Event;
 
@@ -23,7 +24,7 @@ impl VncScreenshot {
     }
 
     /// Write the screenshot to a png file (probably for debugging).
-    pub fn write_png(&self, output_path: &Path) -> Result<(), Box<dyn Error>> {
+    pub fn write_png(&self, output_path: &Path) -> Result<()> {
         std::fs::create_dir_all(output_path.parent().unwrap())?;
         let ref mut w = BufWriter::new(File::create(output_path)?);
 
@@ -46,7 +47,7 @@ impl VncScreenshot {
     }
 
     /// Create a trimmed screenshot according to the given dimensions
-    pub fn trim(&self, rect: vnc::Rect) -> Result<VncScreenshot, Box<dyn Error>> {
+    pub fn trim(&self, rect: vnc::Rect) -> Result<VncScreenshot> {
         // Validate request
         if rect.left + rect.width > self.width || rect.top + rect.height > self.height {
             bail!(
@@ -123,12 +124,7 @@ pub struct VncConnection {
 }
 
 impl VncConnection {
-    pub fn new(
-        host: &str,
-        port: u16,
-        record: bool,
-        debug: bool,
-    ) -> Result<VncConnection, Box<dyn Error>> {
+    pub fn new(host: &str, port: u16, record: bool, debug: bool) -> Result<VncConnection> {
         debug!("Attempting VNC connection to: {}:{}", host, port);
 
         let mut vnc =
@@ -163,7 +159,7 @@ impl VncConnection {
         })
     }
 
-    pub fn screenshot(&mut self) -> Result<VncScreenshot, Box<dyn Error>> {
+    pub fn screenshot(&mut self) -> Result<VncScreenshot> {
         // Attempt to clear the framebuffer, but don't discard any resize events
         for event in self.vnc.poll_iter() {
             match event {
@@ -208,7 +204,7 @@ impl VncConnection {
         }
     }
 
-    fn handle_breakpoint(&mut self, cmd: &VncCmd) -> Result<(), Box<dyn Error>> {
+    fn handle_breakpoint(&mut self, cmd: &VncCmd) -> Result<()> {
         loop {
             info!(
                 "(breakpoint)['c' to continue, 's' to screenshot, 'q' to quit debugging] Next command: {:?}",
@@ -253,7 +249,7 @@ impl VncConnection {
     }
 
     /// Run the given sequence of VNC commands.
-    pub fn run(&mut self, commands: Vec<Vec<VncCmd>>) -> Result<(), Box<dyn Error>> {
+    pub fn run(&mut self, commands: Vec<Vec<VncCmd>>) -> Result<()> {
         info!("Running VNC commands");
 
         let mut cmd_number = 0;

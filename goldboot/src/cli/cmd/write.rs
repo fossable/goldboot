@@ -1,10 +1,11 @@
+use anyhow::Result;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use std::{error::Error, path::Path};
 
 use crate::library::ImageLibrary;
 
-pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<()> {
     match cmd {
         super::Commands::Write {
             image,

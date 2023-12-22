@@ -1,9 +1,10 @@
+use anyhow::bail;
+use anyhow::Result;
 use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
 use log::{debug, info};
 use rand::Rng;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
 use std::{
     error::Error,
     fmt::Display,
@@ -28,6 +29,7 @@ pub mod vnc;
 /// A `Foundry` produces a goldboot image given a raw configuration. This is the
 /// central concept in the machinery that creates images.
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
+#[validate(schema(function = "crate::foundry::custom_foundry_validator"))]
 pub struct Foundry {
     /// The image name
     #[validate(length(min = 1, max = 64))]
@@ -55,9 +57,8 @@ pub struct Foundry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
 
-    #[validate(length(min = 1))]
-    pub alloy: Vec<Element>,
-
+    // #[validate(length(min = 2))]
+    // pub alloy: Vec<Element>,
     pub source: Option<Source>,
 
     pub mold: Option<ImageMold>,
@@ -75,92 +76,29 @@ pub struct Foundry {
     pub debug: bool,
 }
 
-/// Represents a foundry configuration file. This mainly helps sort out the various
-/// supported config formats.
-pub enum FoundryConfig {
-    Json(PathBuf),
-    Ron(PathBuf),
-    Toml(PathBuf),
-    Yaml(PathBuf),
+/// Handles more sophisticated validation of a [`Foundry`].
+pub fn custom_foundry_validator(f: &Foundry) -> Result<(), validator::ValidationError> {
+    // If there's more than one mold, they must all support alloy
+    // if f.alloy.len() > 1 {
+    //     for template in &self.config.templates {
+    //         //if !template.is_multiboot() {
+    //         //	bail!("Template does not support multiboot");
+    //         //}
+    //     }
+    // }
+
+    Ok(())
 }
 
-impl FoundryConfig {
-    /// Check for a foundry configuration file in the given directory.
-    pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfig> {
-        path = path.as_ref();
-
-        if path.join("goldboot.json").exists() {
-            Some(FoundryConfig::Json(path.join("goldboot.json")))
-        } else if path.join("goldboot.ron").exists() {
-            Some(FoundryConfig::Ron(path.join("goldboot.ron")))
-        } else if path.join("goldboot.toml").exists() {
-            Some(FoundryConfig::Toml(path.join("goldboot.toml")))
-        } else if path.join("goldboot.yaml").exists() {
-            Some(FoundryConfig::Yaml(path.join("goldboot.yaml")))
-        } else if path.join("goldboot.yml").exists() {
-            Some(FoundryConfig::Yaml(path.join("goldboot.yml")))
-        } else {
-            None
-        }
-    }
-
-    /// Read the configuration file into a new [`Foundry`].
-    pub fn load(&self) -> Result<Foundry, Box<dyn Error>> {
-        match &self {
-            Self::Json(path) => serde_json::from_slice(std::fs::read(path)),
-            Self::Ron(path) => ron::de::from_bytes(std::fs::read(path)),
-            Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path))?.as_str()),
-            Self::Yaml(path) => serde_yaml::from_slice(std::fs::read(path)),
-        }
-    }
-
-    /// Write a [`Foundry`] to a configuration file.
-    pub fn write(&self, foundry: &Foundry) -> Result<(), Box<dyn Error>> {
-        match &self {
-            Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(foundry)?),
-            Self::Ron(path) => std::fs::write(
-                path,
-                ron::ser::to_string_pretty(foundry, PrettyConfig::new())?.into_bytes(),
-            ),
-            Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(foundry)?.into_bytes()),
-            Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(foundry)?.into_bytes()),
-        }
-    }
-}
-
-/// Represents an image build job.
-pub struct BuildJob {
-    /// A general purpose temporary directory for the run
-    pub tmp: tempfile::TempDir,
-
-    /// The start time of the run
-    pub start_time: Option<SystemTime>,
-
-    /// The end time of the run
-    pub end_time: Option<SystemTime>,
-
-    /// The build config
-    pub config: BuildConfig,
-
-    /// Whether screenshots will be generated during the run for debugging
-    pub record: bool,
-
-    /// When set, the run will pause before each step in the boot sequence
-    pub debug: bool,
-
-    /// The path to the final image artifact
-    pub image_path: String,
-}
-
-impl BuildJob {
-    pub fn new(config: BuildConfig, record: bool, debug: bool) -> Self {
-        // Obtain a temporary directory
+impl Foundry {
+    fn new_worker(&self) -> FoundryWorker {
+        // Obtain a temporary directory for the worker
         let tmp = tempfile::tempdir().unwrap();
 
         // Determine image path
         let image_path = tmp.path().join("image.gb").to_string_lossy().to_string();
 
-        Self {
+        FoundryWorker {
             tmp,
             start_time: None,
             end_time: None,
@@ -171,49 +109,10 @@ impl BuildJob {
         }
     }
 
-    /// Create a new generic build context.
-    fn new_worker(&self, template: Box<dyn BuildTemplate>) -> Result<BuildWorker, Box<dyn Error>> {
-        // Obtain a temporary directory
-        let tmp = tempfile::tempdir().unwrap();
-
-        // Determine image path
-        let image_path = tmp.path().join("image.qcow2").to_string_lossy().to_string();
-
-        // Unpack included firmware
-        let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
-
-        crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
-
-        Ok(BuildWorker {
-            tmp,
-            image_path,
-            ovmf_path,
-            template,
-            ssh_port: rand::thread_rng().gen_range(10000..11000),
-            vnc_port: if self.debug {
-                5900
-            } else {
-                rand::thread_rng().gen_range(5900..5999)
-            },
-            config: self.config.clone(),
-            record: self.record,
-            debug: self.debug,
-        })
-    }
-
     /// Run the entire build process. If no output file is given, the image is
     /// moved into the image library.
-    pub fn run(&mut self, output: Option<String>) -> Result<(), Box<dyn Error>> {
+    pub fn run(&mut self, output: Option<String>) -> Result<()> {
         self.start_time = Some(SystemTime::now());
-
-        // If there's more than one template, they must all support multiboot
-        if self.config.templates.len() > 1 {
-            for template in &self.config.templates {
-                //if !template.is_multiboot() {
-                //	bail!("Template does not support multiboot");
-                //}
-            }
-        }
 
         // Track the workers
         let mut workers = Vec::new();
@@ -273,6 +172,38 @@ impl BuildJob {
     }
 }
 
+impl BuildJob {
+    /// Create a new generic build context.
+    fn new_worker(&self, template: Box<dyn BuildTemplate>) -> Result<BuildWorker> {
+        // Obtain a temporary directory
+        let tmp = tempfile::tempdir().unwrap();
+
+        // Determine image path
+        let image_path = tmp.path().join("image.qcow2").to_string_lossy().to_string();
+
+        // Unpack included firmware
+        let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
+
+        crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
+
+        Ok(BuildWorker {
+            tmp,
+            image_path,
+            ovmf_path,
+            template,
+            ssh_port: rand::thread_rng().gen_range(10000..11000),
+            vnc_port: if self.debug {
+                5900
+            } else {
+                rand::thread_rng().gen_range(5900..5999)
+            },
+            config: self.config.clone(),
+            record: self.record,
+            debug: self.debug,
+        })
+    }
+}
+
 /// Manages the image casting process. Multiple workers can run in parallel
 /// to speed up multiboot configurations.
 pub struct FoundryWorker {
@@ -288,12 +219,16 @@ pub struct FoundryWorker {
     /// The VM port for VNC
     pub vnc_port: u16,
 
-    pub element: Element,
+    /// The start time of the run
+    pub start_time: Option<SystemTime>,
+
+    /// The end time of the run
+    pub end_time: Option<SystemTime>,
 }
 
 impl FoundryWorker {
     /// Run the template build.
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
+    pub fn run(&self) -> Result<()> {
         debug!(
             "Allocating new {} image: {}",
             self.template.general().storage_size,
@@ -315,5 +250,58 @@ impl FoundryWorker {
 
         self.template.build(&self)?;
         Ok(())
+    }
+}
+
+/// Represents a foundry configuration file. This mainly helps sort out the various
+/// supported config formats.
+pub enum FoundryConfig {
+    Json(PathBuf),
+    Ron(PathBuf),
+    Toml(PathBuf),
+    Yaml(PathBuf),
+}
+
+impl FoundryConfig {
+    /// Check for a foundry configuration file in the given directory.
+    pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfig> {
+        path = path.as_ref();
+
+        if path.join("goldboot.json").exists() {
+            Some(FoundryConfig::Json(path.join("goldboot.json")))
+        } else if path.join("goldboot.ron").exists() {
+            Some(FoundryConfig::Ron(path.join("goldboot.ron")))
+        } else if path.join("goldboot.toml").exists() {
+            Some(FoundryConfig::Toml(path.join("goldboot.toml")))
+        } else if path.join("goldboot.yaml").exists() {
+            Some(FoundryConfig::Yaml(path.join("goldboot.yaml")))
+        } else if path.join("goldboot.yml").exists() {
+            Some(FoundryConfig::Yaml(path.join("goldboot.yml")))
+        } else {
+            None
+        }
+    }
+
+    /// Read the configuration file into a new [`Foundry`].
+    pub fn load(&self) -> Result<Foundry> {
+        match &self {
+            Self::Json(path) => serde_json::from_slice(std::fs::read(path)),
+            Self::Ron(path) => ron::de::from_bytes(std::fs::read(path)),
+            Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path))?.as_str()),
+            Self::Yaml(path) => serde_yaml::from_slice(std::fs::read(path)),
+        }
+    }
+
+    /// Write a [`Foundry`] to a configuration file.
+    pub fn write(&self, foundry: &Foundry) -> Result<()> {
+        match &self {
+            Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(foundry)?),
+            Self::Ron(path) => std::fs::write(
+                path,
+                ron::ser::to_string_pretty(foundry, PrettyConfig::new())?.into_bytes(),
+            ),
+            Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(foundry)?.into_bytes()),
+            Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(foundry)?.into_bytes()),
+        }
     }
 }

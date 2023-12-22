@@ -1,7 +1,7 @@
 use crate::cli::prompt::Prompt;
+use anyhow::Result;
 use dialoguer::{Confirm, Password};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use validator::Validate;
 
 /// Configures a LUKS encrypted root filesystem
@@ -19,7 +19,7 @@ impl Prompt for Luks {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         if Confirm::with_theme(&theme)
             .with_prompt("Do you want to encrypt the root partition with LUKS?")
             .interact()?

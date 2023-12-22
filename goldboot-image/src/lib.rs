@@ -3,15 +3,15 @@
 use crate::qcow::Qcow3;
 use aes_gcm::KeyInit;
 use aes_gcm::{aead::Aead, Aes256Gcm, Key, Nonce};
+use anyhow::bail;
+use anyhow::Result;
 use binrw::{BinRead, BinReaderExt, BinWrite};
 use log::{debug, info, trace};
 use rand::Rng;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use simple_error::bail;
 use std::{
-    error::Error,
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     path::Path,
@@ -51,8 +51,8 @@ impl Default for ImageArch {
 }
 
 impl TryFrom<String> for ImageArch {
-    type Error = Box<dyn Error>;
-    fn try_from(s: String) -> Result<Self, Self::Error> {
+    type Error = anyhow::Error;
+    fn try_from(s: String) -> Result<Self> {
         match s.to_lowercase().as_str() {
             "amd64" => Ok(ImageArch::Amd64),
             "x86_64" => Ok(ImageArch::Amd64),
@@ -282,7 +282,7 @@ fn new_key(password: String) -> Aes256Gcm {
 }
 
 /// Hash the entire image file to produce the image ID.
-pub fn compute_id(path: impl AsRef<Path>) -> Result<String, Box<dyn Error>> {
+pub fn compute_id(path: impl AsRef<Path>) -> Result<String> {
     let mut file = File::open(&path)?;
     let mut hasher = Sha256::new();
 
@@ -293,7 +293,7 @@ pub fn compute_id(path: impl AsRef<Path>) -> Result<String, Box<dyn Error>> {
 impl ImageHandle {
     /// Load all sections into memory except the cluster table. If the image is
     /// encrypted, the sections will be decrypted.
-    pub fn load(&mut self, password: Option<String>) -> Result<(), Box<dyn Error>> {
+    pub fn load(&mut self, password: Option<String>) -> Result<()> {
         let mut file = File::open(&self.path)?;
 
         let cipher = new_key(password.unwrap_or("".to_string()));
@@ -370,7 +370,7 @@ impl ImageHandle {
     }
 
     /// Open a new handle on the given file.
-    pub fn open(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let mut file = File::open(path)?;
 
@@ -433,14 +433,10 @@ impl ImageHandle {
 
     /// Modify the password and re-encrypt all encrypted sections. This doesn't
     /// re-encrypt the clusters because they are encrypted with the cluster key.
-    pub fn change_password(
-        &self,
-        old_password: String,
-        new_password: String,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn change_password(&self, _old_password: String, new_password: String) -> Result<()> {
         // Create the cipher and a RNG for the nonces
-        let cipher = new_key(new_password);
-        let mut rng = rand::thread_rng();
+        let _cipher = new_key(new_password);
+        let _rng = rand::thread_rng();
 
         todo!()
     }
@@ -453,7 +449,7 @@ impl ImageHandle {
         password: Option<String>,
         dest: impl AsRef<Path>,
         progress: F,
-    ) -> Result<ImageHandle, Box<dyn Error>> {
+    ) -> Result<ImageHandle> {
         info!("Exporting storage to goldboot image");
 
         let mut dest_file = File::create(&dest)?;
@@ -697,11 +693,7 @@ impl ImageHandle {
     /// TODO write backup GPT header
 
     /// Write the image contents out to disk.
-    pub fn write<F: Fn(u64, u64) -> ()>(
-        &self,
-        dest: impl AsRef<Path>,
-        progress: F,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn write<F: Fn(u64, u64) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
         if self.protected_header.is_none() || self.digest_table.is_none() {
             bail!("Image not loaded");
         }
@@ -791,7 +783,7 @@ mod tests {
     use sha1::Sha1;
 
     #[test_env_log::test]
-    fn convert_small_qcow2_to_unencrypted_image() -> Result<(), Box<dyn Error>> {
+    fn convert_small_qcow2_to_unencrypted_image() -> Result<()> {
         let tmp = tempfile::tempdir()?;
 
         // Convert the test qcow2
@@ -829,7 +821,7 @@ mod tests {
     }
 
     #[test_env_log::test]
-    fn convert_small_qcow2_to_encrypted_image() -> Result<(), Box<dyn Error>> {
+    fn convert_small_qcow2_to_encrypted_image() -> Result<()> {
         let tmp = tempfile::tempdir()?;
 
         // Convert the test qcow2

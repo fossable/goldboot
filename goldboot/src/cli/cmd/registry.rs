@@ -1,10 +1,10 @@
+use anyhow::Result;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use std::error::Error;
 
 use super::RegistryCommands;
 
-pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<()> {
     let theme = ColorfulTheme {
         values_style: Style::new().yellow().dim(),
         ..ColorfulTheme::default()

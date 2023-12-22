@@ -1,7 +1,8 @@
+use anyhow::bail;
+use anyhow::Result;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use goldboot_image::ImageArch;
-use simple_error::bail;
 use std::{error::Error, path::Path};
 use strum::IntoEnumIterator;
 
@@ -19,7 +20,7 @@ fn print_banner() {
     }
 }
 
-pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<()> {
     match cmd {
         super::Commands::Init {
             name,

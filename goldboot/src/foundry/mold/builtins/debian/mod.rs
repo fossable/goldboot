@@ -27,10 +27,7 @@ pub enum DebianEdition {
 }
 
 /// Fetch the latest ISO
-pub fn fetch_debian_iso(
-    edition: DebianEdition,
-    arch: Architecture,
-) -> Result<IsoContainer, Box<dyn Error>> {
+pub fn fetch_debian_iso(edition: DebianEdition, arch: Architecture) -> Result<IsoContainer> {
     let arch = match arch {
         Architecture::amd64 => "amd64",
         Architecture::arm64 => "arm64",
@@ -88,7 +85,7 @@ impl Default for DebianTemplate {
 }
 
 impl Template for DebianTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+    fn build(&self, context: &BuildWorker) -> Result<()> {
         let mut qemuargs = QemuArgs::new(&context);
 
         // Start HTTP

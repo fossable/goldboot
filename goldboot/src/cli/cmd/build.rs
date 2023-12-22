@@ -1,9 +1,9 @@
 use crate::foundry::{Foundry, FoundryConfig};
+use anyhow::Result;
 use log::debug;
-use std::error::Error;
 use validator::Validate;
 
-pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<()> {
     match cmd {
         super::Commands::Cast {
             record,
@@ -36,7 +36,7 @@ pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
             foundry.validate()?;
 
             // Run the build finally
-            let mut job = BuildJob::new(config, record, debug);
+            let mut job = foundry.run(record, debug);
             job.run(output.to_owned())
         }
         _ => panic!(),

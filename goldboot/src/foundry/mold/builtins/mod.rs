@@ -1,6 +1,7 @@
 //! Templates are the central concept that make it easy to define images.
 
 use crate::{cli::prompt::Prompt, foundry::FoundryWorker};
+use anyhow::Result;
 use arch_linux::ArchLinux;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
@@ -18,7 +19,7 @@ pub mod arch_linux;
 #[enum_dispatch(ImageMold)]
 pub trait CastImage: Default + Serialize + Prompt {
     /// Cast an image from the mold.
-    fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>>;
+    fn cast(&self, context: &FoundryWorker) -> Result<()>;
 }
 
 /// Represents a "base configuration" that users can modify and use to build

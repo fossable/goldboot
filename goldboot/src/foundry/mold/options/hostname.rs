@@ -1,6 +1,6 @@
 use crate::cli::prompt::Prompt;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use validator::Validate;
 
 /// Sets the network hostname.
@@ -23,7 +23,7 @@ impl Prompt for Hostname {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.hostname = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter network hostname")
             .default(config.name.clone())

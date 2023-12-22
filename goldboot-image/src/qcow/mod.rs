@@ -1,8 +1,8 @@
+use anyhow::bail;
+use anyhow::Result;
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
 use log::debug;
-use simple_error::bail;
 use std::{
-    error::Error,
     fs::File,
     io::BufReader,
     path::Path,
@@ -33,7 +33,7 @@ pub struct Qcow3 {
 
 impl Qcow3 {
     /// Open a qcow3 file from the given path.
-    pub fn open(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let mut file = BufReader::new(File::open(&path)?);
 
         let mut qcow: Qcow3 = file.read_be()?;
@@ -44,7 +44,7 @@ impl Qcow3 {
     }
 
     /// Allocate a new qcow3 file.
-    pub fn create(path: &str, size: u64) -> Result<Self, Box<dyn Error>> {
+    pub fn create(path: &str, size: u64) -> Result<Self> {
         let status = Command::new("qemu-img")
             .args([
                 "create",
@@ -68,7 +68,7 @@ impl Qcow3 {
     }
 
     /// Count the number of allocated clusters.
-    pub fn count_clusters(&self) -> Result<u64, Box<dyn Error>> {
+    pub fn count_clusters(&self) -> Result<u64> {
         let mut count = 0;
 
         for l1_entry in &self.l1_table {
@@ -91,7 +91,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_open() -> Result<(), Box<dyn Error>> {
+    fn test_open() -> Result<()> {
         let qcow = Qcow3::open("test/empty.qcow2")?;
         assert_eq!(qcow.header.cluster_bits, 16);
         assert_eq!(qcow.header.cluster_size(), 65536);

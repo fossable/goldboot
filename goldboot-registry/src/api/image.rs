@@ -9,7 +9,7 @@ pub async fn list() {}
 
 // Push an image
 /*
-pub async fn push(id: web::Path<String>, rq: actix_web::HttpRequest) -> Result<HttpResponse, Box<dyn Error>> {
+pub async fn push(id: web::Path<String>, rq: actix_web::HttpRequest) -> Result<HttpResponse> {
     let path = match ImageLibrary::find_by_id(&id) {
         Ok(image) => {
             // Delete if the image already exists

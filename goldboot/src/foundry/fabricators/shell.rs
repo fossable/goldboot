@@ -1,8 +1,7 @@
-use std::error::Error;
-
+use anyhow::bail;
+use anyhow::Result;
 use log::info;
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
 use validator::Validate;
 
 use crate::foundry::ssh::SshConnection;
@@ -22,7 +21,7 @@ impl ShellFabricator {
         }
     }
 
-    pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+    pub fn run(&self, ssh: &mut SshConnection) -> Result<()> {
         info!("Running shell commands");
 
         if ssh.exec(&self.command)? != 0 {

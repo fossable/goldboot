@@ -1,7 +1,8 @@
 use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
+use anyhow::bail;
+use anyhow::Result;
 use log::info;
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
 use std::{error::Error, path::Path, process::Command};
 use validator::Validate;
 
@@ -16,7 +17,7 @@ pub struct Ansible {
 }
 
 impl Ansible {
-    pub fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+    pub fn run(&self, ssh: &mut SshConnection) -> Result<()> {
         info!("Running ansible provisioner");
 
         if let Some(code) = Command::new("ansible-playbook")
@@ -49,7 +50,7 @@ impl Prompt for Ansible {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.playbook = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;

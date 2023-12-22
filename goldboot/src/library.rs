@@ -1,11 +1,11 @@
 use crate::cli::progress::ProgressBar;
+use anyhow::bail;
+use anyhow::Result;
 use goldboot_image::ImageHandle;
 use log::{debug, info};
 use sha1::Digest;
 use sha2::Sha256;
-use simple_error::bail;
 use std::{
-    error::Error,
     fs::File,
     path::{Path, PathBuf},
 };
@@ -38,7 +38,7 @@ fn library_path() -> PathBuf {
 impl ImageLibrary {
     /// Add an image to the library. The image will be hashed and copied to the
     /// library with the appropriate name.
-    pub fn add(image_path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+    pub fn add(image_path: impl AsRef<Path>) -> Result<()> {
         info!("Saving image to library");
 
         let mut hasher = Sha256::new();
@@ -54,7 +54,7 @@ impl ImageLibrary {
     }
 
     /// Remove an image from the library by ID.
-    pub fn delete(image_id: &str) -> Result<(), Box<dyn Error>> {
+    pub fn delete(image_id: &str) -> Result<()> {
         for p in library_path().read_dir()? {
             let path = p?.path();
             let filename = path.file_name().unwrap().to_str().unwrap();
@@ -71,7 +71,7 @@ impl ImageLibrary {
     }
 
     /// Download a goldboot image over HTTP.
-    pub fn download(url: String) -> Result<ImageHandle, Box<dyn Error>> {
+    pub fn download(url: String) -> Result<ImageHandle> {
         let path = library_path().join("goldboot-linux.gb");
 
         let mut rs = reqwest::blocking::get(&url)?;
@@ -89,7 +89,7 @@ impl ImageLibrary {
     }
 
     /// Find images in the library by ID.
-    pub fn find_by_id(image_id: &str) -> Result<ImageHandle, Box<dyn Error>> {
+    pub fn find_by_id(image_id: &str) -> Result<ImageHandle> {
         Ok(ImageLibrary::load()?
             .into_iter()
             .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
@@ -97,7 +97,7 @@ impl ImageLibrary {
     }
 
     /// Find images in the library by name.
-    pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>, Box<dyn Error>> {
+    pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>> {
         Ok(ImageLibrary::load()?
             .into_iter()
             .filter(|image| image.primary_header.name() == image_name)
@@ -105,7 +105,7 @@ impl ImageLibrary {
     }
 
     /// Load images present in the local image library.
-    pub fn load() -> Result<Vec<ImageHandle>, Box<dyn Error>> {
+    pub fn load() -> Result<Vec<ImageHandle>> {
         let mut images = Vec::new();
 
         for p in library_path().read_dir()? {

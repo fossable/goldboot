@@ -7,9 +7,9 @@ use crate::{
     qemu::QemuArgs,
     templates::*,
 };
+use anyhow::bail;
 use log::info;
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
 use std::error::Error;
 use validator::Validate;
 
@@ -39,7 +39,7 @@ impl Default for GoldbootTemplate {
 }
 
 impl Template for GoldbootTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+    fn build(&self, context: &BuildWorker) -> Result<()> {
         info!("Starting {} build", console::style("goldboot Linux").blue());
 
         let mut qemuargs = QemuArgs::new(&context);

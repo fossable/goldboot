@@ -7,7 +7,7 @@ use crate::{
 };
 use log::info;
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
+use anyhow::bail;
 use std::{
     error::Error,
     io::{BufRead, BufReader},
@@ -42,7 +42,7 @@ impl Default for ArchTemplate {
 }
 
 impl BuildTemplate for ArchTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+    fn build(&self, context: &BuildWorker) -> Result<()> {
         info!("Starting {} build", console::style("ArchLinux").blue());
 
         let mut qemuargs = QemuArgs::new(&context);
@@ -132,7 +132,7 @@ impl ArchMirrorlistProvisioner {
 }
 
 /// Fetch the latest installation ISO
-fn fetch_latest_iso(mirrorlist: ArchMirrorlistProvisioner) -> Result<IsoSource, Box<dyn Error>> {
+fn fetch_latest_iso(mirrorlist: ArchMirrorlistProvisioner) -> Result<IsoSource> {
     for mirror in mirrorlist.mirrors {
         let rs = reqwest::blocking::get(format!("{mirror}/iso/latest/sha1sums.txt"))?;
         if rs.status().is_success() {
@@ -157,7 +157,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fetch_latest_iso() -> Result<(), Box<dyn Error>> {
+    fn test_fetch_latest_iso() -> Result<()> {
         fetch_latest_iso(ArchMirrorlistProvisioner::default())?;
         Ok(())
     }

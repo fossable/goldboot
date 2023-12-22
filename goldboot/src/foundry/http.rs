@@ -1,5 +1,6 @@
+use anyhow::Result;
 use log::info;
-use std::{error::Error, io::Write, net::TcpListener};
+use std::{io::Write, net::TcpListener};
 
 /// Minimal HTTP server for serving files to virtual machines
 pub struct HttpServer {
@@ -8,7 +9,7 @@ pub struct HttpServer {
 
 impl HttpServer {
     /// Server a file to all requests.
-    pub fn serve_file(data: Vec<u8>) -> Result<Self, Box<dyn Error>> {
+    pub fn serve_file(data: Vec<u8>) -> Result<Self> {
         let port = crate::find_open_port(8000, 9000);
         info!("Starting static HTTP server on port: {}", port);
 

@@ -1,10 +1,10 @@
+use anyhow::Result;
 use chrono::TimeZone;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use std::error::Error;
 use ubyte::ToByteUnit;
 
-pub fn run(cmd: super::Commands) -> Result<(), Box<dyn Error>> {
+pub fn run(cmd: super::Commands) -> Result<()> {
     match cmd {
         super::Commands::Image { command } => match &command {
             super::ImageCommands::List {} => {

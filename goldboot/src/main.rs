@@ -1,4 +1,6 @@
 use crate::cmd::Commands;
+use anyhow::bail;
+use anyhow::Result;
 use chrono::TimeZone;
 use clap::{Parser, Subcommand};
 use goldboot::{
@@ -7,7 +9,6 @@ use goldboot::{
     *,
 };
 use log::debug;
-use simple_error::bail;
 use std::{collections::HashMap, env, error::Error, fs::File, path::Path};
 use ubyte::ToByteUnit;
 use validator::Validate;
@@ -30,7 +31,7 @@ pub fn build_headless_debug() -> bool {
     return true;
 }
 
-pub fn main() -> Result<(), Box<dyn Error>> {
+pub fn main() -> Result<()> {
     // Parse command line options before we configure logging so we can set the
     // default level
     let command_line = CommandLine::parse();

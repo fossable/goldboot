@@ -1,7 +1,8 @@
 use crate::foundry::{ssh::SshConnection, vnc::VncConnection, FoundryWorker};
+use anyhow::bail;
+use anyhow::Result;
 use goldboot_image::ImageArch;
 use log::{debug, info};
-use simple_error::bail;
 use std::error::Error;
 
 use std::{
@@ -68,7 +69,7 @@ impl Drop for QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn new(args: &QemuArgs) -> Result<QemuProcess, Box<dyn Error>> {
+    pub fn new(args: &QemuArgs) -> Result<QemuProcess> {
         info!("Spawning new build worker");
 
         let cmdline = args.to_cmdline();
@@ -103,12 +104,7 @@ impl QemuProcess {
         Ok(Self { process, vnc })
     }
 
-    pub fn ssh_wait(
-        &mut self,
-        port: u16,
-        username: &str,
-        password: &str,
-    ) -> Result<SshConnection, Box<dyn Error>> {
+    pub fn ssh_wait(&mut self, port: u16, username: &str, password: &str) -> Result<SshConnection> {
         info!("Waiting for SSH connection");
 
         let mut i = 0;
@@ -128,7 +124,7 @@ impl QemuProcess {
         })
     }
 
-    pub fn shutdown_wait(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn shutdown_wait(&mut self) -> Result<()> {
         info!("Waiting for shutdown");
 
         // Wait for QEMU to exit
@@ -267,7 +263,7 @@ impl QemuArgs {
         cmdline
     }
 
-    pub fn start_process(&self) -> Result<QemuProcess, Box<dyn Error>> {
+    pub fn start_process(&self) -> Result<QemuProcess> {
         QemuProcess::new(self)
     }
 }

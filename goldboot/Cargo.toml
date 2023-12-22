@@ -34,7 +34,6 @@ serde = { version = "1.0.190", features = ["derive"] }
 serde_win_unattend = "0.1.0"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
-simple-error = "0.3.0"
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 strum = { version = "0.25.0", features = ["derive"] }
 tempfile = "3.8.1"
@@ -48,10 +47,17 @@ enum_dispatch = "0.3.12"
 serde_json = "1.0.108"
 toml = "0.8.8"
 serde_yaml = "0.9.27"
+anyhow = "1.0.76"
 
 [dev-dependencies]
 test-env-log = "0"
 env_logger = "0"
 
 [features]
+default = ["cast"]
+
+# Support for the graphical UI
 gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils"]
+
+# Support for casting images
+cast = []

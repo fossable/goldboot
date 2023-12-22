@@ -1,6 +1,6 @@
 use crate::cli::prompt::Prompt;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -13,7 +13,7 @@ impl Prompt for Timezone {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         todo!()
     }
 }

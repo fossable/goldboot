@@ -44,7 +44,7 @@ impl Default for AlpineTemplate {
 }
 
 impl BuildTemplate for AlpineTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+    fn build(&self, context: &BuildWorker) -> Result<()> {
         let mut qemuargs = QemuArgs::new(&context);
 
         let iso = self.iso.unwrap_or_else(|| {
@@ -116,7 +116,7 @@ impl Prompt for AlpineLinux {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         // Prompt edition
         {
             let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
@@ -177,7 +177,7 @@ fn fetch_latest_iso(
     edition: AlpineEdition,
     release: AlpineRelease,
     arch: Architecture,
-) -> Result<IsoSource, Box<dyn Error>> {
+) -> Result<IsoSource> {
     let arch = match arch {
         Architecture::amd64 => "x86_64",
         Architecture::arm64 => "aarch64",

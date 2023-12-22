@@ -70,7 +70,7 @@ impl Windows10Template {
 }
 
 impl Template for Windows10Template {
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+    fn build(&self, context: &BuildWorker) -> Result<()> {
         let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(
@@ -118,7 +118,7 @@ impl Prompt for Windows10 {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         // Prompt for installation media
         {
             let iso_url: String = dialoguer::Input::with_theme(&theme)

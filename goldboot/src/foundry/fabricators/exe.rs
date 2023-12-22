@@ -1,8 +1,9 @@
 use super::Fabricate;
 use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
+use anyhow::bail;
+use anyhow::Result;
 use log::info;
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
 use std::{error::Error, path::Path};
 use validator::Validate;
 
@@ -14,7 +15,7 @@ pub struct HostExecutable {
 }
 
 impl Fabricate for HostExecutable {
-    fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>> {
+    fn run(&self, ssh: &mut SshConnection) -> Result<()> {
         info!("Running executable");
 
         if ssh.upload_exec(&std::fs::read(&self.path)?, vec![])? != 0 {
@@ -29,7 +30,7 @@ impl Prompt for HostExecutable {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.path = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the script path relative to the current directory")
             .interact()?;

@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::io::IsTerminal;
 use std::{
     cmp::min,
@@ -68,12 +69,7 @@ impl ProgressBar {
 
     /// Fully copy the given reader to the given writer and display a
     /// progressbar if running in interactive mode.
-    pub fn copy(
-        &self,
-        reader: &mut dyn Read,
-        writer: &mut dyn Write,
-        len: u64,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn copy(&self, reader: &mut dyn Read, writer: &mut dyn Write, len: u64) -> Result<()> {
         if !show_progress() {
             // No progress bar
             std::io::copy(reader, writer)?;

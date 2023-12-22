@@ -6,10 +6,11 @@ use crate::{
     foundry::{sources::Source, FoundryWorker},
     wait_screen_rect,
 };
+use anyhow::bail;
+use anyhow::Result;
 use goldboot_image::ImageArch;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use simple_error::bail;
 use std::{
     error::Error,
     io::{BufRead, BufReader},
@@ -39,7 +40,7 @@ impl Default for ArchLinux {
 }
 
 impl CastImage for ArchLinux {
-    fn cast(&self, context: &FoundryWorker) -> Result<(), Box<dyn Error>> {
+    fn cast(&self, context: &FoundryWorker) -> Result<()> {
         let mut qemuargs = QemuArgs::new(&context);
 
         // Start VM
@@ -112,7 +113,7 @@ impl Prompt for Mirrorlist {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         // Prompt mirror list
         {
             let mirror_index = dialoguer::Select::with_theme(&theme)
@@ -139,7 +140,7 @@ impl Mirrorlist {
 }
 
 /// Fetch the latest installation ISO
-fn fetch_latest_iso() -> Result<Source, Box<dyn Error>> {
+fn fetch_latest_iso() -> Result<Source> {
     let rs = reqwest::blocking::get(format!(
         "http://mirror.fossable.org/archlinux/iso/latest/sha1sums.txt"
     ))?;
@@ -164,7 +165,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fetch_latest_iso() -> Result<(), Box<dyn Error>> {
+    fn test_fetch_latest_iso() -> Result<()> {
         fetch_latest_iso()?;
         Ok(())
     }

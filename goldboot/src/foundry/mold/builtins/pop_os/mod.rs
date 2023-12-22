@@ -68,7 +68,7 @@ impl Default for PopOsTemplate {
 }
 
 impl Template for PopOsTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
+    fn build(&self, context: &BuildWorker) -> Result<()> {
         let mut qemuargs = QemuArgs::new(&context);
 
         qemuargs.drive.push(format!(

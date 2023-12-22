@@ -1,4 +1,5 @@
 use crate::cli::prompt::Prompt;
+use anyhow::Result;
 use dialoguer::Password;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -35,7 +36,7 @@ impl Prompt for UnixAccountProvisioner {
         &mut self,
         config: &BuildConfig,
         theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.password = Password::with_theme(&theme)
             .with_prompt("Root password")
             .interact()?;

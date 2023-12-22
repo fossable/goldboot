@@ -126,9 +126,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.75"
+version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+checksum = "59d2a3357dde987206219e78ecfbbb6e8dad06cbb65292758d3270e6254f7355"
 
 [[package]]
 name = "array-init"
@@ -942,6 +942,7 @@ dependencies = [
 name = "goldboot"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "block-utils",
  "chrono",
  "clap",
@@ -969,7 +970,6 @@ dependencies = [
  "serde_yaml",
  "sha1",
  "sha2",
- "simple-error",
  "ssh2",
  "strum 0.25.0",
  "tempfile",
@@ -988,6 +988,7 @@ name = "goldboot-image"
 version = "0.0.1"
 dependencies = [
  "aes-gcm",
+ "anyhow",
  "binrw",
  "env_logger",
  "flate2 1.0.28",
@@ -998,7 +999,6 @@ dependencies = [
  "serde",
  "sha1",
  "sha2",
- "simple-error",
  "strum 0.25.0",
  "tempfile",
  "test-env-log",
@@ -1017,6 +1017,7 @@ dependencies = [
 name = "goldboot-registry"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "axum",
  "env_logger",
  "goldboot",
@@ -1024,7 +1025,6 @@ dependencies = [
  "reqwest",
  "rustls",
  "rustls-pemfile",
- "simple-error",
  "tokio",
 ]
 
@@ -2264,12 +2264,6 @@ name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
-
-[[package]]
-name = "simple-error"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8542b68b8800c3cda649d2c72d688b6907b30f1580043135d61669d4aad1c175"
 
 [[package]]
 name = "slab"

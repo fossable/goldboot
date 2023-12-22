@@ -1,10 +1,10 @@
 use crate::cli::progress::ProgressBar;
+use anyhow::bail;
+use anyhow::Result;
 use log::{debug, info};
 use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};
-use simple_error::bail;
 use std::{
-    error::Error,
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -35,7 +35,7 @@ pub struct SourceCache {
 
 impl SourceCache {
     /// Get the default platform-dependent source cache.
-    pub fn default() -> Result<Self, Box<dyn Error>> {
+    pub fn default() -> Result<Self> {
         let directory = if cfg!(target_os = "linux") {
             PathBuf::from(format!(
                 "/home/{}/.cache/goldboot/sources",
@@ -60,7 +60,7 @@ impl SourceCache {
         Ok(Self { directory })
     }
 
-    pub fn get(&self, url: String, checksum: &str) -> Result<String, Box<dyn Error>> {
+    pub fn get(&self, url: String, checksum: &str) -> Result<String> {
         let id = hex::encode(Sha1::new().chain_update(&url).finalize());
         let path = self.directory.join(id);
 
@@ -96,7 +96,7 @@ impl SourceCache {
         Ok(path.to_string_lossy().to_string())
     }
 
-    fn verify_checksum(path: String, checksum: &str) -> Result<(), Box<dyn Error>> {
+    fn verify_checksum(path: String, checksum: &str) -> Result<()> {
         // "None" shortcut
         if checksum == "none" {
             return Ok(());

@@ -1,8 +1,8 @@
 use super::LoadSource;
 use crate::cli::prompt::Prompt;
+use anyhow::Result;
 use dialoguer::theme::Theme;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use url::Url;
 use validator::Validate;
 
@@ -18,17 +18,13 @@ pub struct IsoSource {
 
 impl LoadSource for IsoSource {
     /// Load the ISO into the cache and return its path
-    fn load(&self) -> Result<String, Box<dyn Error>> {
+    fn load(&self) -> Result<String> {
         todo!()
     }
 }
 
 impl Prompt for IsoSource {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn Theme>,
-    ) -> Result<(), Box<dyn Error>> {
+    fn prompt(&mut self, config: &BuildConfig, theme: Box<dyn Theme>) -> Result<()> {
         self.url = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the ISO URL")
             .interact()?;

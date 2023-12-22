@@ -29,7 +29,7 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
                 &mut self,
                 config: &BuildConfig,
                 theme: impl dialoguer::theme::Theme,
-            ) -> Result<(), Box<dyn Error>> {
+            ) -> anyhow::Result<()> {
                 todo!()
             }
         }

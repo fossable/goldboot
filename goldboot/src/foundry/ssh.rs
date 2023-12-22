@@ -1,5 +1,6 @@
+use anyhow::bail;
+use anyhow::Result;
 use log::{debug, info};
-use simple_error::bail;
 use std::{
     error::Error,
     io::{BufRead, BufReader, Cursor},
@@ -17,7 +18,7 @@ pub struct SshConnection {
 }
 
 impl SshConnection {
-    pub fn new(port: u16, username: &str, password: &str) -> Result<SshConnection, Box<dyn Error>> {
+    pub fn new(port: u16, username: &str, password: &str) -> Result<SshConnection> {
         debug!("Trying SSH: {}@localhost:{}", username, port);
 
         let mut session = ssh2::Session::new()?;
@@ -36,25 +37,21 @@ impl SshConnection {
     }
 
     /// Send the shutdown command to the VM.
-    pub fn shutdown(&self, command: &str) -> Result<(), Box<dyn Error>> {
+    pub fn shutdown(&self, command: &str) -> Result<()> {
         info!("Sending shutdown command");
         let mut channel = self.session.channel_session()?;
         channel.exec(command)?;
         Ok(())
     }
 
-    pub fn upload_exec(
-        &mut self,
-        source: &[u8],
-        env: Vec<(&str, &str)>,
-    ) -> Result<i32, Box<dyn Error>> {
+    pub fn upload_exec(&mut self, source: &[u8], env: Vec<(&str, &str)>) -> Result<i32> {
         self.upload(source, "/tmp/tmp.script")?;
         let exit = self.exec_env("/tmp/tmp.script", env)?;
         self.exec("rm -f /tmp/tmp.script")?;
         Ok(exit)
     }
 
-    pub fn upload(&self, source: &[u8], dest: &str) -> Result<(), Box<dyn Error>> {
+    pub fn upload(&self, source: &[u8], dest: &str) -> Result<()> {
         let mut channel =
             self.session
                 .scp_send(Path::new(dest), 0o700, source.len().try_into()?, None)?;
@@ -69,11 +66,7 @@ impl SshConnection {
     }
 
     /// Run a command on the VM with the given environment.
-    pub fn exec_env(
-        &mut self,
-        cmdline: &str,
-        env: Vec<(&str, &str)>,
-    ) -> Result<i32, Box<dyn Error>> {
+    pub fn exec_env(&mut self, cmdline: &str, env: Vec<(&str, &str)>) -> Result<i32> {
         debug!("Executing command: '{}'", cmdline);
 
         let mut channel = self.session.channel_session()?;
@@ -123,7 +116,7 @@ impl SshConnection {
     }
 
     /// Run a command on the VM.
-    pub fn exec(&mut self, cmdline: &str) -> Result<i32, Box<dyn Error>> {
+    pub fn exec(&mut self, cmdline: &str) -> Result<i32> {
         self.exec_env(cmdline, Vec::new())
     }
 }

@@ -1,12 +1,12 @@
 // UEFI firmwares for various platforms. We include them here to avoid having
 // to depend on one provided by the system.
 
-use std::{error::Error, path::Path};
-
+use anyhow::bail;
+use anyhow::Result;
 use goldboot_image::ImageArch;
-use simple_error::bail;
+use std::path::Path;
 
-pub fn write_to(arch: ImageArch, path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+pub fn write_to(arch: ImageArch, path: impl AsRef<Path>) -> Result<()> {
     match &arch {
         ImageArch::Amd64 => {
             std::fs::write(

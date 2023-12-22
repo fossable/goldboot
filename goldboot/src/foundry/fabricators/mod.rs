@@ -4,8 +4,8 @@
 
 use crate::foundry::ssh::SshConnection;
 use ansible::Ansible;
+use anyhow::Result;
 use enum_dispatch::enum_dispatch;
-use std::error::Error;
 
 pub mod ansible;
 pub mod exe;
@@ -16,7 +16,7 @@ pub mod shell;
 /// fabricators can be used to compensate.
 #[enum_dispatch(Fabricator)]
 pub trait Fabricate {
-    fn run(&self, ssh: &mut SshConnection) -> Result<(), Box<dyn Error>>;
+    fn run(&self, ssh: &mut SshConnection) -> Result<()>;
 }
 
 #[enum_dispatch]

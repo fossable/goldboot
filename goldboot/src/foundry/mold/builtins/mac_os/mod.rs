@@ -9,23 +9,23 @@ use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum MacOsRelease {
-	Catalina,
-	BigSur,
-	Monterey,
+    Catalina,
+    BigSur,
+    Monterey,
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct MacOsTemplate {
-	pub id: TemplateId,
-	pub release: MacOsRelease,
+    pub id: TemplateId,
+    pub release: MacOsRelease,
 
-	pub iso: IsoSource,
-	pub ansible: Option<Vec<AnsibleProvisioner>>,
+    pub iso: IsoSource,
+    pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
 impl Default for MacOsTemplate {
-	fn default() -> Self {
-		Self {
+    fn default() -> Self {
+        Self {
 			id: TemplateId::MacOs,
 			release: MacOsRelease::Monterey,
 			provisioners: ProvisionersContainer {
@@ -40,67 +40,67 @@ impl Default for MacOsTemplate {
 				.. Default::default()
 			},
 		}
-	}
+    }
 }
 
 impl Template for MacOsTemplate {
-	fn build(&self, context: &BuildWorker) -> Result<(), Box<dyn Error>> {
-		let mut qemuargs = QemuArgs::new(&context);
+    fn build(&self, context: &BuildWorker) -> Result<()> {
+        let mut qemuargs = QemuArgs::new(&context);
 
-		// Copy OpenCore partition
-		//if let Some(resource) = Resources::get("OpenCore.qcow2") {
-		//	std::fs::write(context.tmp.path().join("OpenCore.qcow2"), resource.data)?;
-		//}
+        // Copy OpenCore partition
+        //if let Some(resource) = Resources::get("OpenCore.qcow2") {
+        //	std::fs::write(context.tmp.path().join("OpenCore.qcow2"), resource.data)?;
+        //}
 
-		// Convert dmg to img
-		//qemu-img convert BaseSystem.dmg -O raw BaseSystem.img
+        // Convert dmg to img
+        //qemu-img convert BaseSystem.dmg -O raw BaseSystem.img
 
-		qemuargs.cpu = Some(format!("Penryn,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check"));
-		qemuargs.machine = format!("q35,accel=kvm");
-		qemuargs.smbios = Some(format!("type=2"));
-		qemuargs.device.push(format!("ich9-ahci,id=sata"));
-		qemuargs.device.push(format!("usb-ehci,id=ehci"));
-		qemuargs.device.push(format!("nec-usb-xhci,id=xhci"));
-		qemuargs.device.push(format!(
-			"isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
-		));
-		qemuargs.usbdevice.push(format!("keyboard"));
-		qemuargs.usbdevice.push(format!("tablet"));
-		qemuargs.global.push(format!("nec-usb-xhci.msi=off"));
+        qemuargs.cpu = Some(format!("Penryn,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check"));
+        qemuargs.machine = format!("q35,accel=kvm");
+        qemuargs.smbios = Some(format!("type=2"));
+        qemuargs.device.push(format!("ich9-ahci,id=sata"));
+        qemuargs.device.push(format!("usb-ehci,id=ehci"));
+        qemuargs.device.push(format!("nec-usb-xhci,id=xhci"));
+        qemuargs.device.push(format!(
+            "isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
+        ));
+        qemuargs.usbdevice.push(format!("keyboard"));
+        qemuargs.usbdevice.push(format!("tablet"));
+        qemuargs.global.push(format!("nec-usb-xhci.msi=off"));
 
-		// Add boot partition
-		qemuargs.drive.push(format!(
-			"file={}/OpenCore.qcow2,id=OpenCore,if=none,format=qcow2",
-			context.tmp.path().to_string_lossy()
-		));
-		qemuargs
-			.device
-			.push(format!("ide-hd,bus=sata.2,drive=OpenCore"));
+        // Add boot partition
+        qemuargs.drive.push(format!(
+            "file={}/OpenCore.qcow2,id=OpenCore,if=none,format=qcow2",
+            context.tmp.path().to_string_lossy()
+        ));
+        qemuargs
+            .device
+            .push(format!("ide-hd,bus=sata.2,drive=OpenCore"));
 
-		// Add install media
-		qemuargs.drive.push(format!(
-			"file=/home/cilki/OSX-KVM/BaseSystem.img,id=InstallMedia,if=none,format=raw"
-		));
-		qemuargs
-			.device
-			.push(format!("ide-hd,bus=sata.3,drive=InstallMedia"));
+        // Add install media
+        qemuargs.drive.push(format!(
+            "file=/home/cilki/OSX-KVM/BaseSystem.img,id=InstallMedia,if=none,format=raw"
+        ));
+        qemuargs
+            .device
+            .push(format!("ide-hd,bus=sata.3,drive=InstallMedia"));
 
-		// Add system drive
-		qemuargs.drive.push(format!(
-			"file={},id=System,if=none,cache=writeback,discard=ignore,format=qcow2",
-			context.image_path,
-		));
-		qemuargs
-			.device
-			.push(format!("ide-hd,bus=sata.4,drive=System"));
+        // Add system drive
+        qemuargs.drive.push(format!(
+            "file={},id=System,if=none,cache=writeback,discard=ignore,format=qcow2",
+            context.image_path,
+        ));
+        qemuargs
+            .device
+            .push(format!("ide-hd,bus=sata.4,drive=System"));
 
-		// Start VM
-		let mut qemu = qemuargs.start_process()?;
+        // Start VM
+        let mut qemu = qemuargs.start_process()?;
 
-		// Send boot command
-		match self.release {
-			MacOsRelease::Monterey => {
-				#[rustfmt::skip]
+        // Send boot command
+        match self.release {
+            MacOsRelease::Monterey => {
+                #[rustfmt::skip]
 				qemu.vnc.boot_command(vec![
 					enter!(),
 					enter!("diskutil eraseDisk APFS System disk0"),
@@ -114,19 +114,19 @@ impl Template for MacOsTemplate {
 					// Start sshd
 					enter!("launchctl load -w /System/Library/LaunchDaemons/ssh.plist"),
 				])?;
-			}
-			_ => {}
-		}
+            }
+            _ => {}
+        }
 
-		// Wait for SSH
-		let mut ssh = qemu.ssh_wait(context.ssh_port, "root", "root")?;
+        // Wait for SSH
+        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", "root")?;
 
-		// Run provisioners
-		self.provisioners.run(&mut ssh)?;
+        // Run provisioners
+        self.provisioners.run(&mut ssh)?;
 
-		// Shutdown
-		ssh.shutdown("shutdown -h now")?;
-		qemu.shutdown_wait()?;
-		Ok(())
-	}
+        // Shutdown
+        ssh.shutdown("shutdown -h now")?;
+        qemu.shutdown_wait()?;
+        Ok(())
+    }
 }
