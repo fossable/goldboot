@@ -1,3 +1,4 @@
+use crate::library::ImageLibrary;
 use anyhow::Result;
 use chrono::TimeZone;
 use console::Style;

@@ -6,7 +6,7 @@ use goldboot_image::ImageArch;
 use std::{error::Error, path::Path};
 use strum::IntoEnumIterator;
 
-use crate::foundry::{mold::builtins::ImageMold, Foundry, FoundryConfig};
+use crate::foundry::{molds::ImageMold, Foundry, FoundryConfig};
 
 fn print_banner() {
     if console::colors_enabled() {

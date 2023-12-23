@@ -1,5 +1,6 @@
-use crate::cli::prompt::Prompt;
+use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
+use dialoguer::theme::Theme;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -19,14 +20,10 @@ impl Default for Hostname {
 }
 
 impl Prompt for Hostname {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, foundry: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         self.hostname = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter network hostname")
-            .default(config.name.clone())
+            .default(foundry.name.clone())
             .interact()?;
 
         self.validate()?;

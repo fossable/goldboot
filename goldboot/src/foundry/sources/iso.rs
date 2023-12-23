@@ -1,5 +1,5 @@
 use super::LoadSource;
-use crate::cli::prompt::Prompt;
+use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
 use dialoguer::theme::Theme;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ impl LoadSource for IsoSource {
 }
 
 impl Prompt for IsoSource {
-    fn prompt(&mut self, config: &BuildConfig, theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         self.url = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the ISO URL")
             .interact()?;

@@ -2,9 +2,8 @@ use crate::foundry::{ssh::SshConnection, vnc::VncConnection, FoundryWorker};
 use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
-use log::{debug, info};
-use std::error::Error;
-
+use log::{debug, info, trace};
+use std::path::PathBuf;
 use std::{
     process::{Child, Command},
     time::Duration,
@@ -57,6 +56,7 @@ pub fn detect_accel() -> String {
 
 pub fn mimic_hardware() {}
 
+/// Wraps a qemu process and provides easy access to VNC and SSH.
 pub struct QemuProcess {
     pub process: Child,
     pub vnc: VncConnection,
@@ -69,42 +69,7 @@ impl Drop for QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn new(args: &QemuArgs) -> Result<QemuProcess> {
-        info!("Spawning new build worker");
-
-        let cmdline = args.to_cmdline();
-        debug!("QEMU arguments: {:?}", &cmdline);
-
-        // Start the VM
-        let mut process = Command::new(&args.exe)
-            .args(cmdline.iter())
-            .spawn()
-            .unwrap();
-
-        // Connect to VNC
-        let vnc = loop {
-            match VncConnection::new("localhost", args.vnc_port, args.record, args.debug) {
-                Ok(vnc) => break Ok(vnc),
-                Err(_) => {
-                    // Check process
-                    match process.try_wait() {
-                        Ok(Some(_)) => {
-                            bail!("Qemu exited early")
-                        }
-                        Ok(None) => {
-                            // Wait before trying again
-                            std::thread::sleep(Duration::from_secs(5));
-                        }
-                        Err(e) => break Err(e),
-                    }
-                }
-            }
-        }?;
-
-        Ok(Self { process, vnc })
-    }
-
-    pub fn ssh_wait(&mut self, port: u16, username: &str, password: &str) -> Result<SshConnection> {
+    pub fn ssh(&mut self, port: u16, username: &str, password: &str) -> Result<SshConnection> {
         info!("Waiting for SSH connection");
 
         let mut i = 0;
@@ -139,68 +104,21 @@ pub struct QemuArgs {
     pub boot: String,
     pub cpu: Option<String>,
     pub device: Vec<String>,
-    pub drive: Vec<String>,
     pub display: String,
+    pub drive: Vec<String>,
     pub global: Vec<String>,
     pub machine: String,
     pub memory: String,
     pub name: String,
     pub netdev: Vec<String>,
-    pub vnc: Vec<String>,
-    pub smp: String,
     pub smbios: Option<String>,
+    pub smp: String,
     pub usbdevice: Vec<String>,
-
-    pub exe: String,
-    pub vnc_port: u16,
-    pub record: bool,
-    pub debug: bool,
+    pub vnc: Vec<String>,
 }
 
-impl QemuArgs {
-    pub fn new(context: &BuildWorker) -> Self {
-        // Choose an appropriate amount of memory or use the configured amount
-        let memory = match &context.config.memory {
-            Some(memory) => memory.clone(),
-            None => String::from("4G"),
-        };
-
-        Self {
-            bios: context.ovmf_path.clone(),
-            boot: String::from("once=d"),
-            cpu: None,
-            smbios: None,
-            device: vec![String::from("virtio-net,netdev=user.0")],
-            drive: vec![],
-            // This seems to be necessary for the EFI variables to persist
-            global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
-            machine: format!("type=pc,accel={}", detect_accel()),
-            display: if context.debug && cfg!(target_os = "linux") {
-                String::from("gtk")
-            } else {
-                String::from("none")
-            },
-            memory,
-            name: context.config.name.clone(),
-            smp: String::from("4,sockets=1,cores=4,threads=1"),
-            netdev: vec![format!(
-                "user,id=user.0,hostfwd=tcp::{}-:22",
-                context.ssh_port
-            )],
-            vnc: vec![format!("127.0.0.1:{}", context.vnc_port % 5900)],
-            vnc_port: context.vnc_port,
-            exe: match &context.config.arch {
-                ImageArch::Amd64 => String::from("qemu-system-x86_64"),
-                ImageArch::Arm64 => String::from("qemu-system-aarch64"),
-                _ => String::from("qemu-system-x86_64"),
-            },
-            usbdevice: vec![],
-            record: context.record,
-            debug: context.debug,
-        }
-    }
-
-    pub fn to_cmdline(&self) -> Vec<String> {
+impl Into<Vec<String>> for QemuArgs {
+    fn into(self) -> Vec<String> {
         let mut cmdline = vec![
             String::from("-name"),
             self.name.clone(),
@@ -260,10 +178,104 @@ impl QemuArgs {
             cmdline.push(device.to_string());
         }
 
+        trace!("QEMU cmdline: {:?}", &cmdline);
         cmdline
     }
+}
 
-    pub fn start_process(&self) -> Result<QemuProcess> {
-        QemuProcess::new(self)
+pub struct QemuBuilder {
+    args: QemuArgs,
+
+    exe: PathBuf,
+    vnc_port: u16,
+    ssh_port: u16,
+    debug: bool,
+    record: bool,
+}
+
+impl QemuBuilder {
+    pub fn new(worker: &FoundryWorker) -> Self {
+        Self {
+            args: QemuArgs {
+                bios: worker.ovmf_path.clone(),
+                boot: String::from("once=d"),
+                cpu: None,
+                device: vec![String::from("virtio-net,netdev=user.0")],
+
+                // Bring up a graphical console in debug mode (linux only)
+                display: if worker.debug && cfg!(target_os = "linux") {
+                    String::from("gtk")
+                } else {
+                    String::from("none")
+                },
+                drive: vec![],
+
+                // This seems to be necessary for the EFI variables to persist
+                global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
+                machine: format!("type=pc,accel={}", detect_accel()),
+
+                // Use the recommended memory amount from the config or use a default
+                memory: match &worker.config.memory {
+                    Some(memory) => memory.clone(),
+                    None => String::from("4G"),
+                },
+                name: worker.config.name.clone(),
+                netdev: vec![format!(
+                    "user,id=user.0,hostfwd=tcp::{}-:22",
+                    worker.ssh_port
+                )],
+                smbios: None,
+                smp: String::from("4,sockets=1,cores=4,threads=1"),
+                usbdevice: vec![],
+                vnc: vec![format!("127.0.0.1:{}", worker.vnc_port % 5900)],
+            },
+            vnc_port: worker.vnc_port,
+            ssh_port: worker.ssh_port,
+            exe: match &worker.config.arch {
+                ImageArch::Amd64 => "qemu-system-x86_64",
+                ImageArch::Arm64 => "qemu-system-aarch64",
+                _ => "qemu-system-x86_64",
+            }
+            .to_string(),
+            debug: todo!(),
+            record: todo!(),
+        }
+    }
+
+    /// Append a "-drive" argument to the invocation.
+    pub fn drive(mut self, arg: &str) -> Self {
+        // TODO validate
+        // arg.split(',')
+        self.args.drive.push(arg.to_string());
+        self
+    }
+
+    pub fn start(self) -> Result<QemuProcess> {
+        info!("Spawning new qemu process");
+
+        // Start the VM
+        let cmdline: Vec<String> = self.args.into();
+        let mut process = Command::new(&self.exe).args(cmdline.iter()).spawn()?;
+
+        // Connect to VNC immediately
+        let vnc = loop {
+            match VncConnection::new("localhost", self.vnc_port, self.record, self.debug) {
+                Ok(vnc) => break Ok(vnc),
+                Err(_) => {
+                    // Check process
+                    match process.try_wait() {
+                        Ok(Some(_)) => {
+                            bail!("Qemu exited early")
+                        }
+                        Ok(None) => {
+                            // Wait before trying again
+                            std::thread::sleep(Duration::from_secs(5));
+                        }
+                        Err(e) => break Err(e),
+                    }
+                }
+            }
+        }?;
+        Ok(QemuProcess { process, vnc })
     }
 }

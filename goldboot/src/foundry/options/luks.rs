@@ -1,6 +1,6 @@
-use crate::cli::prompt::Prompt;
+use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
-use dialoguer::{Confirm, Password};
+use dialoguer::{theme::Theme, Confirm, Password};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -15,11 +15,7 @@ pub struct Luks {
 }
 
 impl Prompt for Luks {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         if Confirm::with_theme(&theme)
             .with_prompt("Do you want to encrypt the root partition with LUKS?")
             .interact()?

@@ -1,5 +1,9 @@
 use super::CastImage;
-use crate::foundry::mold::options::hostname::Hostname;
+use crate::cli::prompt::Prompt;
+use crate::foundry::options::hostname::Hostname;
+use crate::foundry::options::unix_account::RootPassword;
+use crate::foundry::qemu::QemuBuilder;
+use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
     enter,
@@ -8,28 +12,27 @@ use crate::{
 };
 use anyhow::bail;
 use anyhow::Result;
-use goldboot_image::ImageArch;
+use dialoguer::theme::Theme;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use std::{
-    error::Error,
-    io::{BufRead, BufReader},
-};
+use std::io::{BufRead, BufReader};
 use validator::Validate;
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinux {
-    pub root_password: Option<RootPassword>,
-    pub packages: Option<Packages>,
-    pub mirrorlist: Option<Mirrorlist>,
     pub hostname: Option<Hostname>,
+    pub mirrorlist: Option<ArchLinuxMirrorlist>,
+    pub packages: Option<ArchLinuxPackages>,
+    pub root_password: Option<RootPassword>,
 }
 
 impl Default for ArchLinux {
     fn default() -> Self {
         Self {
-            root_password: RootPassword { plaintext: "root" },
+            root_password: Some(RootPassword {
+                plaintext: "root".to_string(),
+            }),
             packages: None,
             mirrorlist: None,
             hostname: Some(Hostname {
@@ -40,11 +43,8 @@ impl Default for ArchLinux {
 }
 
 impl CastImage for ArchLinux {
-    fn cast(&self, context: &FoundryWorker) -> Result<()> {
-        let mut qemuargs = QemuArgs::new(&context);
-
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
+    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+        let mut qemu = QemuBuilder::new(&worker).start()?;
 
         // Send boot command
         #[rustfmt::skip]
@@ -63,7 +63,7 @@ impl CastImage for ArchLinux {
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
+        let mut ssh = qemu.ssh("root", &self.root_password)?;
 
         // Run install script
         info!("Running base installation");
@@ -90,13 +90,13 @@ impl CastImage for ArchLinux {
 
 /// This provisioner configures the Archlinux mirror list.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct Mirrorlist {
+pub struct ArchLinuxMirrorlist {
     pub mirrors: Vec<String>,
 }
 
 //https://archlinux.org/mirrorlist/?country=US&protocol=http&protocol=https&ip_version=4
 
-impl Default for Mirrorlist {
+impl Default for ArchLinuxMirrorlist {
     fn default() -> Self {
         Self {
             mirrors: vec![
@@ -108,12 +108,8 @@ impl Default for Mirrorlist {
     }
 }
 
-impl Prompt for Mirrorlist {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+impl Prompt for ArchLinuxMirrorlist {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         // Prompt mirror list
         {
             let mirror_index = dialoguer::Select::with_theme(&theme)
@@ -129,7 +125,7 @@ impl Prompt for Mirrorlist {
     }
 }
 
-impl Mirrorlist {
+impl ArchLinuxMirrorlist {
     pub fn format_mirrorlist(&self) -> String {
         self.mirrors
             .iter()
@@ -158,6 +154,10 @@ fn fetch_latest_iso() -> Result<Source> {
         }
     }
     bail!("Failed to request latest ISO");
+}
+
+pub struct ArchLinuxPackages {
+    packages: Vec<String>,
 }
 
 #[cfg(test)]

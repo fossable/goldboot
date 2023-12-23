@@ -1,5 +1,6 @@
-use crate::cli::prompt::Prompt;
+use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
+use dialoguer::theme::Theme;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -9,11 +10,7 @@ pub struct Timezone {
 }
 
 impl Prompt for Timezone {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         todo!()
     }
 }

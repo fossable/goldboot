@@ -1,14 +1,9 @@
-use crate::cli::prompt::Prompt;
+use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
-use dialoguer::Password;
+use dialoguer::{theme::Theme, Password};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use validator::Validate;
-
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct UnixAccountProvisioners {
-    pub users: Vec<UnixAccountProvisioner>,
-}
 
 impl UnixAccountProvisioners {
     /// Get the root user's password
@@ -32,11 +27,7 @@ pub struct UnixAccountProvisioner {
 }
 
 impl Prompt for UnixAccountProvisioner {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         self.password = Password::with_theme(&theme)
             .with_prompt("Root password")
             .interact()?;
@@ -53,4 +44,8 @@ impl Default for UnixAccountProvisioner {
             password: crate::random_password(),
         }
     }
+}
+
+pub struct RootPassword {
+    pub plaintext: String,
 }

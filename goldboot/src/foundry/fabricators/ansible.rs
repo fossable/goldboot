@@ -1,6 +1,8 @@
+use crate::foundry::Foundry;
 use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
 use anyhow::bail;
 use anyhow::Result;
+use dialoguer::theme::Theme;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path, process::Command};
@@ -46,11 +48,7 @@ impl Ansible {
 }
 
 impl Prompt for Ansible {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         self.playbook = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;

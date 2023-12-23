@@ -27,7 +27,7 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
         impl Prompt for #name {
             fn prompt(
                 &mut self,
-                config: &BuildConfig,
+                _: &Foundry,
                 theme: impl dialoguer::theme::Theme,
             ) -> anyhow::Result<()> {
                 todo!()

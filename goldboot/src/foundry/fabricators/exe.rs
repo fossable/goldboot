@@ -1,7 +1,9 @@
 use super::Fabricate;
+use crate::foundry::Foundry;
 use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
 use anyhow::bail;
 use anyhow::Result;
+use dialoguer::theme::Theme;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path};
@@ -26,11 +28,7 @@ impl Fabricate for HostExecutable {
 }
 
 impl Prompt for HostExecutable {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         self.path = dialoguer::Input::with_theme(&theme)
             .with_prompt("Enter the script path relative to the current directory")
             .interact()?;

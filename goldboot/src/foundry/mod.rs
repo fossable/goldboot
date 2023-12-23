@@ -16,10 +16,11 @@ use validator::Validate;
 
 use crate::{foundry::sources::SourceCache, library::ImageLibrary};
 
-use self::{fabricators::Fabricator, mold::builtins::ImageMold, sources::Source};
+use self::{fabricators::Fabricator, molds::ImageMold, sources::Source};
 
 pub mod fabricators;
-pub mod mold;
+pub mod molds;
+pub mod options;
 pub mod ovmf;
 pub mod qemu;
 pub mod sources;
@@ -31,25 +32,36 @@ pub mod vnc;
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 #[validate(schema(function = "crate::foundry::custom_foundry_validator"))]
 pub struct Foundry {
-    /// The image name
-    #[validate(length(min = 1, max = 64))]
-    pub name: String,
+    /// The system architecture
+    #[serde(flatten)]
+    pub arch: ImageArch,
+
+    /// When set, the run will pause before each step in the boot sequence
+    pub debug: bool,
 
     /// An image description
     #[validate(length(max = 4096))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    /// The system architecture
-    #[serde(flatten)]
-    pub arch: ImageArch,
+    #[validate(length(min = 1))]
+    pub fabricators: Option<Vec<Fabricator>>,
 
     /// The amount of memory to allocate to the VM
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<String>,
 
+    pub mold: Option<ImageMold>,
+
+    /// The image name
+    #[validate(length(min = 1, max = 64))]
+    pub name: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nvme: Option<bool>,
+
+    /// The path to an OVMF.fd file
+    pub ovmf_path: String,
 
     /// The encryption password. This value can alternatively be specified on
     /// the command line and will be cleared before the config is included in
@@ -57,23 +69,12 @@ pub struct Foundry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
 
-    // #[validate(length(min = 2))]
-    // pub alloy: Vec<Element>,
-    pub source: Option<Source>,
-
-    pub mold: Option<ImageMold>,
-
-    #[validate(length(min = 1))]
-    pub fabricators: Option<Vec<Fabricator>>,
-
-    /// The path to an OVMF.fd file
-    pub ovmf_path: String,
-
     /// Whether screenshots will be generated during the run for debugging
     pub record: bool,
 
-    /// When set, the run will pause before each step in the boot sequence
-    pub debug: bool,
+    // #[validate(length(min = 2))]
+    // pub alloy: Vec<Element>,
+    pub source: Option<Source>,
 }
 
 /// Handles more sophisticated validation of a [`Foundry`].
@@ -98,13 +99,21 @@ impl Foundry {
         // Determine image path
         let image_path = tmp.path().join("image.gb").to_string_lossy().to_string();
 
+        // Unpack included firmware
+        let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
+
+        crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
+
         FoundryWorker {
             tmp,
             start_time: None,
             end_time: None,
-            config,
-            record,
-            debug,
+            ssh_port: rand::thread_rng().gen_range(10000..11000),
+            vnc_port: if self.debug {
+                5900
+            } else {
+                rand::thread_rng().gen_range(5900..5999)
+            },
             image_path,
         }
     }
@@ -169,38 +178,6 @@ impl Foundry {
         self.end_time = Some(SystemTime::now());
 
         Ok(())
-    }
-}
-
-impl BuildJob {
-    /// Create a new generic build context.
-    fn new_worker(&self, template: Box<dyn BuildTemplate>) -> Result<BuildWorker> {
-        // Obtain a temporary directory
-        let tmp = tempfile::tempdir().unwrap();
-
-        // Determine image path
-        let image_path = tmp.path().join("image.qcow2").to_string_lossy().to_string();
-
-        // Unpack included firmware
-        let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
-
-        crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
-
-        Ok(BuildWorker {
-            tmp,
-            image_path,
-            ovmf_path,
-            template,
-            ssh_port: rand::thread_rng().gen_range(10000..11000),
-            vnc_port: if self.debug {
-                5900
-            } else {
-                rand::thread_rng().gen_range(5900..5999)
-            },
-            config: self.config.clone(),
-            record: self.record,
-            debug: self.debug,
-        })
     }
 }
 
