@@ -236,7 +236,7 @@ impl QemuBuilder {
                 ImageArch::Arm64 => "qemu-system-aarch64",
                 _ => "qemu-system-x86_64",
             }
-            .to_string(),
+            .into(),
             debug: todo!(),
             record: todo!(),
         }

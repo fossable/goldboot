@@ -29,12 +29,12 @@ impl Fabricate for HostExecutable {
 
 impl Prompt for HostExecutable {
     fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.path = dialoguer::Input::with_theme(&theme)
+        self.path = dialoguer::Input::with_theme(&*theme)
             .with_prompt("Enter the script path relative to the current directory")
             .interact()?;
 
         if !Path::new(&self.path).exists() {
-            if !dialoguer::Confirm::with_theme(&theme)
+            if !dialoguer::Confirm::with_theme(&*theme)
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
             {

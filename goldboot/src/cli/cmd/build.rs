@@ -1,4 +1,5 @@
 use crate::foundry::{Foundry, FoundryConfig};
+use anyhow::anyhow;
 use anyhow::Result;
 use log::debug;
 use validator::Validate;
@@ -12,12 +13,14 @@ pub fn run(cmd: super::Commands) -> Result<()> {
             output,
             path,
         } => {
-            let config_path =
-                FoundryConfig::from_dir(path).ok_or(Err("No goldboot config found"))?;
+            let config_path = FoundryConfig::from_dir(path.unwrap_or(".".to_string()))
+                .ok_or_else(|| anyhow!("No config found"))?;
             debug!("Loading config from {}", config_path);
 
             // Load config from current directory
             let mut foundry: Foundry = config_path.load()?;
+            foundry.debug = debug;
+            foundry.record = record;
             debug!("Loaded: {:#?}", &foundry);
 
             // Include the encryption password if provided
@@ -36,8 +39,8 @@ pub fn run(cmd: super::Commands) -> Result<()> {
             foundry.validate()?;
 
             // Run the build finally
-            let mut job = foundry.run(record, debug);
-            job.run(output.to_owned())
+            foundry.run(output)?;
+            Ok(())
         }
         _ => panic!(),
     }

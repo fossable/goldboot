@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::{error::Error, path::Path, process::Command};
 use validator::Validate;
 
+use super::Fabricate;
+
 /// Runs an Ansible playbook on the image remotely.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Ansible {
@@ -47,14 +49,20 @@ impl Ansible {
     }
 }
 
+impl Fabricate for Ansible {
+    fn run(&self, ssh: &mut SshConnection) -> Result<()> {
+        todo!()
+    }
+}
+
 impl Prompt for Ansible {
     fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.playbook = dialoguer::Input::with_theme(&theme)
+        self.playbook = dialoguer::Input::with_theme(&*theme)
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;
 
         if !Path::new(&self.playbook).exists() {
-            if !dialoguer::Confirm::with_theme(&theme)
+            if !dialoguer::Confirm::with_theme(&*theme)
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
             {

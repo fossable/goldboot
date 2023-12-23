@@ -112,15 +112,11 @@ impl Template for UbuntuTemplate {
 }
 
 impl Prompt for Ubuntu {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
+    fn prompt(&mut self, config: &BuildConfig, theme: Box<dyn Theme>) -> Result<()> {
         // Prompt edition
         {
             let editions: Vec<UbuntuEdition> = UbuntuEdition::iter().collect();
-            let edition_index = dialoguer::Select::with_theme(&theme)
+            let edition_index = dialoguer::Select::with_theme(&*theme)
                 .with_prompt("Choose Ubuntu edition")
                 .default(0)
                 .items(&editions)
@@ -132,7 +128,7 @@ impl Prompt for Ubuntu {
         // Prompt release
         {
             let releases: Vec<UbuntuRelease> = UbuntuRelease::iter().collect();
-            let release_index = dialoguer::Select::with_theme(&theme)
+            let release_index = dialoguer::Select::with_theme(&*theme)
                 .with_prompt("Choose Ubuntu release")
                 .default(0)
                 .items(&releases)

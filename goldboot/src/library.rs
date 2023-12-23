@@ -1,4 +1,5 @@
 use crate::cli::progress::ProgressBar;
+use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageHandle;
@@ -76,7 +77,9 @@ impl ImageLibrary {
 
         let mut rs = reqwest::blocking::get(&url)?;
         if rs.status().is_success() {
-            let length = rs.content_length().ok_or("Failed to get content length")?;
+            let length = rs
+                .content_length()
+                .ok_or_else(|| anyhow!("Failed to get content length"))?;
 
             let mut file = File::create(&path)?;
 
@@ -93,7 +96,7 @@ impl ImageLibrary {
         Ok(ImageLibrary::load()?
             .into_iter()
             .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
-            .ok_or("Image not found")?)
+            .ok_or_else(|| anyhow!("Image not found"))?)
     }
 
     /// Find images in the library by name.

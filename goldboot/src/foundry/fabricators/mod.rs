@@ -6,6 +6,7 @@ use crate::foundry::ssh::SshConnection;
 use ansible::Ansible;
 use anyhow::Result;
 use enum_dispatch::enum_dispatch;
+use serde::{Deserialize, Serialize};
 
 pub mod ansible;
 pub mod exe;
@@ -20,6 +21,7 @@ pub trait Fabricate {
 }
 
 #[enum_dispatch]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Fabricator {
     Ansible,
 }

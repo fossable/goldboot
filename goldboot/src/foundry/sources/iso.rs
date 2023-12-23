@@ -16,16 +16,16 @@ pub struct IsoSource {
     pub checksum: Option<String>,
 }
 
-impl LoadSource for IsoSource {
-    /// Load the ISO into the cache and return its path
-    fn load(&self) -> Result<String> {
-        todo!()
-    }
-}
+// impl LoadSource for IsoSource {
+//     /// Load the ISO into the cache and return its path
+//     fn load(&self) -> Result<String> {
+//         todo!()
+//     }
+// }
 
 impl Prompt for IsoSource {
     fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.url = dialoguer::Input::with_theme(&theme)
+        self.url = dialoguer::Input::with_theme(&*theme)
             .with_prompt("Enter the ISO URL")
             .interact()?;
 

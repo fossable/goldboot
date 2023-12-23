@@ -24,22 +24,23 @@ pub fn run(cmd: super::Commands) -> Result<()> {
     match cmd {
         super::Commands::Init {
             name,
-            template,
+            mold,
             mimic_hardware,
         } => {
             let config_path =
-                FoundryConfig::from_dir(".").unwrap_or(FoundryConfig::Ron("./goldboot.ron"));
+                FoundryConfig::from_dir(".").unwrap_or(FoundryConfig::Ron("./goldboot.ron".into()));
 
             // Build a new default config that we'll override
-            let mut config = Foundry::default();
+            let mut foundry = Foundry::default();
 
-            if template.len() > 0 {
+            if mold.len() > 0 {
+                // If a mold name was given, use the default
                 if let Some(name) = name {
-                    config.name = name;
+                    foundry.name = name;
                 } else {
                     // Set name equal to directory name
                     if let Some(name) = std::env::current_dir()?.file_name() {
-                        config.name = name.to_str().unwrap().to_string();
+                        foundry.name = name.to_str().unwrap().to_string();
                     }
                 }
 
@@ -58,7 +59,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                 // Generate QEMU flags for this hardware
                 //config.qemuargs = generate_qemuargs()?;
             } else {
-                // Begin interactive config
+                // If no mold was given, begin interactive config
                 print_banner();
 
                 let theme = ColorfulTheme {
@@ -66,12 +67,12 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                     ..ColorfulTheme::default()
                 };
 
-                println!("Get ready to build a new image configuration!");
+                println!("Get ready to create a new image configuration!");
                 println!("(it can be further edited later)");
                 println!();
 
                 // Prompt image name
-                config.name = Input::with_theme(&theme)
+                foundry.name = Input::with_theme(&theme)
                     .with_prompt("Enter image name")
                     .default(
                         std::env::current_dir()?
@@ -92,14 +93,14 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                         .items(&architectures)
                         .interact()?;
 
-                    config.arch = architectures[choice_index];
+                    foundry.arch = architectures[choice_index];
                 }
 
                 loop {
                     // Find molds suitable for the architecture
                     let molds: Vec<ImageMold> = ImageMold::iter()
-                        .filter(|mold| mold.architectures().contains(&config.arch))
-                        .filter(|mold| config.templates.len() == 0 || mold.alloy())
+                        .filter(|mold| mold.architectures().contains(&foundry.arch))
+                        .filter(|mold| foundry.molds().len() == 0 || mold.alloy())
                         .collect();
 
                     let choice_index = Select::with_theme(&theme)
@@ -108,7 +109,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                         .interact()?;
 
                     let mold = &molds[choice_index];
-                    config.templates.push(mold);
+                    // foundry.templates.push(mold);
 
                     if !mold.alloy()
                         || !Confirm::with_theme(&theme)
@@ -121,7 +122,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
             }
 
             // Finally write out the config
-            config_path.write(&config)?;
+            config_path.write(&foundry)?;
             Ok(())
         }
         _ => panic!(),

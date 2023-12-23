@@ -6,7 +6,6 @@ use rand::Rng;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::{
-    error::Error,
     fmt::Display,
     path::{Path, PathBuf},
     thread,
@@ -102,7 +101,7 @@ impl Foundry {
         // Unpack included firmware
         let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
 
-        crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
+        // crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
 
         FoundryWorker {
             tmp,
@@ -118,17 +117,23 @@ impl Foundry {
         }
     }
 
+    pub fn molds(&self) -> Vec<&ImageMold> {
+        if let Some(mold) = &self.mold {
+            vec![mold]
+        } else {
+            todo!()
+        }
+    }
+
     /// Run the entire build process. If no output file is given, the image is
     /// moved into the image library.
     pub fn run(&mut self, output: Option<String>) -> Result<()> {
-        self.start_time = Some(SystemTime::now());
-
         // Track the workers
         let mut workers = Vec::new();
 
         // If we're in debug mode, run workers sequentially
         if self.debug {
-            for template in self.config.templates.into_iter() {
+            for mold in self.molds() {
                 let worker = self.new_worker(template)?;
                 worker.run()?;
                 workers.push(worker);
@@ -138,7 +143,7 @@ impl Foundry {
         else {
             let mut handles = Vec::new();
 
-            for template in self.config.templates.into_iter() {
+            for mold in self.molds() {
                 let worker = self.new_worker(template)?;
                 handles.push(thread::spawn(move || {
                     worker.run().unwrap();
@@ -171,12 +176,6 @@ impl Foundry {
             ImageLibrary::add(&self.image_path)?;
         }
 
-        info!(
-            "Build completed in: {:?}",
-            self.start_time.unwrap().elapsed()?
-        );
-        self.end_time = Some(SystemTime::now());
-
         Ok(())
     }
 }
@@ -206,6 +205,7 @@ pub struct FoundryWorker {
 impl FoundryWorker {
     /// Run the template build.
     pub fn run(&self) -> Result<()> {
+        self.start_time = Some(SystemTime::now());
         debug!(
             "Allocating new {} image: {}",
             self.template.general().storage_size,
@@ -226,6 +226,12 @@ impl FoundryWorker {
         // ));
 
         self.template.build(&self)?;
+        info!(
+            "Build completed in: {:?}",
+            self.start_time.unwrap().elapsed()?
+        );
+        self.end_time = Some(SystemTime::now());
+
         Ok(())
     }
 }
@@ -242,7 +248,7 @@ pub enum FoundryConfig {
 impl FoundryConfig {
     /// Check for a foundry configuration file in the given directory.
     pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfig> {
-        path = path.as_ref();
+        let path = path.as_ref();
 
         if path.join("goldboot.json").exists() {
             Some(FoundryConfig::Json(path.join("goldboot.json")))
@@ -261,12 +267,12 @@ impl FoundryConfig {
 
     /// Read the configuration file into a new [`Foundry`].
     pub fn load(&self) -> Result<Foundry> {
-        match &self {
-            Self::Json(path) => serde_json::from_slice(std::fs::read(path)),
-            Self::Ron(path) => ron::de::from_bytes(std::fs::read(path)),
-            Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path))?.as_str()),
-            Self::Yaml(path) => serde_yaml::from_slice(std::fs::read(path)),
-        }
+        Ok(match &self {
+            Self::Json(path) => serde_json::from_slice(&std::fs::read(path)?)?,
+            Self::Ron(path) => ron::de::from_bytes(&std::fs::read(path)?)?,
+            Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path)?)?.as_str())?,
+            Self::Yaml(path) => serde_yaml::from_slice(&std::fs::read(path)?)?,
+        })
     }
 
     /// Write a [`Foundry`] to a configuration file.
@@ -279,6 +285,18 @@ impl FoundryConfig {
             ),
             Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(foundry)?.into_bytes()),
             Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(foundry)?.into_bytes()),
-        }
+        }?;
+        Ok(())
+    }
+}
+
+impl Display for FoundryConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            FoundryConfig::Json(path) => &path.to_string_lossy(),
+            FoundryConfig::Ron(path) => &path.to_string_lossy(),
+            FoundryConfig::Toml(path) => &path.to_string_lossy(),
+            FoundryConfig::Yaml(path) => &path.to_string_lossy(),
+        })
     }
 }

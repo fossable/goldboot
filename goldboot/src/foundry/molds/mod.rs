@@ -1,12 +1,13 @@
 //! Templates are the central concept that make it easy to define images.
 
-use crate::{cli::prompt::Prompt, foundry::FoundryWorker};
+use std::fmt::Display;
+
+use crate::foundry::FoundryWorker;
 use anyhow::Result;
 use arch_linux::ArchLinux;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, fmt::Display, path::Path};
 use strum::EnumIter;
 
 pub mod arch_linux;
@@ -17,7 +18,7 @@ pub mod arch_linux;
 /// This term comes from metallurgy where casting means to pour molten metal into
 /// a mold, producing a solidified object in the shape of the mold.
 #[enum_dispatch(ImageMold)]
-pub trait CastImage: Default + Serialize + Prompt {
+pub trait CastImage {
     /// Cast an image from the mold.
     fn cast(&self, context: &FoundryWorker) -> Result<()>;
 }
@@ -78,14 +79,14 @@ impl ImageMold {
     }
 }
 
-// impl Display for ImageMold {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(
-//             f,
-//             "{}",
-//             match self {
-//                 ImageMold::ArchLinux(_) => "Arch Linux",
-//             }
-//         )
-//     }
-// }
+impl Display for ImageMold {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ImageMold::ArchLinux(_) => "Arch Linux",
+            }
+        )
+    }
+}

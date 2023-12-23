@@ -955,6 +955,7 @@ dependencies = [
  "gdk4",
  "glib-macros",
  "goldboot-image",
+ "goldboot-macros",
  "gtk4",
  "hex",
  "indicatif",
@@ -1007,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-macros"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "quote",
  "syn 2.0.39",

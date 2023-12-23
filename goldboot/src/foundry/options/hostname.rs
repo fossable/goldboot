@@ -21,7 +21,7 @@ impl Default for Hostname {
 
 impl Prompt for Hostname {
     fn prompt(&mut self, foundry: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.hostname = dialoguer::Input::with_theme(&theme)
+        self.hostname = dialoguer::Input::with_theme(&*theme)
             .with_prompt("Enter network hostname")
             .default(foundry.name.clone())
             .interact()?;

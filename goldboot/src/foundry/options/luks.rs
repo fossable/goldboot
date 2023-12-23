@@ -16,11 +16,11 @@ pub struct Luks {
 
 impl Prompt for Luks {
     fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        if Confirm::with_theme(&theme)
+        if Confirm::with_theme(&*theme)
             .with_prompt("Do you want to encrypt the root partition with LUKS?")
             .interact()?
         {
-            self.passphrase = Password::with_theme(&theme)
+            self.passphrase = Password::with_theme(&*theme)
                 .with_prompt("LUKS passphrase")
                 .interact()?;
         }

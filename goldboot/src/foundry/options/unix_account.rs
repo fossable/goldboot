@@ -2,19 +2,18 @@ use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
 use dialoguer::{theme::Theme, Password};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use validator::Validate;
 
-impl UnixAccountProvisioners {
-    /// Get the root user's password
-    pub fn get_root_password(&self) -> Option<String> {
-        self.users
-            .iter()
-            .filter(|u| u.username == "root")
-            .map(|u| u.password)
-            .next()
-    }
-}
+// impl UnixAccountProvisioners {
+//     /// Get the root user's password
+//     pub fn get_root_password(&self) -> Option<String> {
+//         self.users
+//             .iter()
+//             .filter(|u| u.username == "root")
+//             .map(|u| u.password)
+//             .next()
+//     }
+// }
 
 /// This provisioner configures a UNIX-like user account.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -28,7 +27,7 @@ pub struct UnixAccountProvisioner {
 
 impl Prompt for UnixAccountProvisioner {
     fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.password = Password::with_theme(&theme)
+        self.password = Password::with_theme(&*theme)
             .with_prompt("Root password")
             .interact()?;
 
@@ -46,6 +45,7 @@ impl Default for UnixAccountProvisioner {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct RootPassword {
     pub plaintext: String,
 }

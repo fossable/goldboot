@@ -19,7 +19,7 @@ use std::io::{BufRead, BufReader};
 use validator::Validate;
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct ArchLinux {
     pub hostname: Option<Hostname>,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
@@ -70,8 +70,8 @@ impl CastImage for ArchLinux {
         match ssh.upload_exec(
             include_bytes!("install.sh"),
             vec![
-                ("GB_MIRRORLIST", &self.format_mirrorlist()),
-                ("GB_ROOT_PASSWORD", &self.root_password),
+                // ("GB_MIRRORLIST", &self.format_mirrorlist()),
+                // ("GB_ROOT_PASSWORD", &self.root_password),
             ],
         ) {
             Ok(0) => debug!("Installation completed successfully"),
@@ -79,7 +79,7 @@ impl CastImage for ArchLinux {
         }
 
         // Run provisioners
-        self.provisioners.run(&mut ssh)?;
+        // self.provisioners.run(&mut ssh)?;
 
         // Shutdown
         ssh.shutdown("poweroff")?;
@@ -111,15 +111,15 @@ impl Default for ArchLinuxMirrorlist {
 impl Prompt for ArchLinuxMirrorlist {
     fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
         // Prompt mirror list
-        {
-            let mirror_index = dialoguer::Select::with_theme(&theme)
-                .with_prompt("Choose a mirror site")
-                .default(0)
-                .items(&MIRRORLIST)
-                .interact()?;
+        // {
+        //     let mirror_index = dialoguer::Select::with_theme(&theme)
+        //         .with_prompt("Choose a mirror site")
+        //         .default(0)
+        //         .items(&MIRRORLIST)
+        //         .interact()?;
 
-            self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
-        }
+        //     self.mirrors = vec![MIRRORLIST[mirror_index].to_string()];
+        // }
 
         Ok(())
     }
@@ -156,6 +156,7 @@ fn fetch_latest_iso() -> Result<Source> {
     bail!("Failed to request latest ISO");
 }
 
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ArchLinuxPackages {
     packages: Vec<String>,
 }

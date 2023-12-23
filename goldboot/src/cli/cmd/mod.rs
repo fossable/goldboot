@@ -57,10 +57,12 @@ pub enum Commands {
         #[clap(long)]
         name: Option<String>,
 
-        /// A base template (which can be found with --list-templates)
+        /// A base mold that can be customized further
         #[clap(long)]
-        template: Vec<String>, // TODO set to ImageMold?
+        mold: Vec<String>,
 
+        // #[clap(long, num_args = 0)]
+        // list: bool,
         /// Attempt to copy the configuration of the current hardware as closely
         /// as possible
         #[clap(long, num_args = 0)]

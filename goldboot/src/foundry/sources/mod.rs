@@ -1,7 +1,10 @@
 use crate::cli::progress::ProgressBar;
+use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use log::{debug, info};
+use serde::Deserialize;
+use serde::Serialize;
 use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};
 use std::{
@@ -16,6 +19,7 @@ pub trait LoadSource {}
 
 /// All builds start with a single `Source` which provides the initial image
 /// to be subjected to further customizations.
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Source {
     Iso {
         url: String,
@@ -81,7 +85,9 @@ impl SourceCache {
             // Try to download it
             let rs = reqwest::blocking::get(&url)?;
             if rs.status().is_success() {
-                let length = rs.content_length().ok_or("Failed to get content length")?;
+                let length = rs
+                    .content_length()
+                    .ok_or_else(|| anyhow!("Failed to get content length"))?;
                 let mut file = File::create(&path)?;
 
                 info!("Saving install media");
