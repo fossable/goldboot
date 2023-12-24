@@ -19,8 +19,8 @@ pub trait LoadSource {}
 
 /// All builds start with a single `Source` which provides the initial image
 /// to be subjected to further customizations.
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum Source {
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub enum ImageSource {
     Iso {
         url: String,
         checksum: Option<String>,
@@ -28,6 +28,7 @@ pub enum Source {
     Mold {
         base: String,
     },
+    #[default]
     Buildroot,
 }
 

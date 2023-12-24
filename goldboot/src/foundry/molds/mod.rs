@@ -77,6 +77,8 @@ impl ImageMold {
     pub fn alloy(&self) -> bool {
         false
     }
+
+    // pub fn default_source
 }
 
 impl Display for ImageMold {
@@ -88,5 +90,11 @@ impl Display for ImageMold {
                 ImageMold::ArchLinux(_) => "Arch Linux",
             }
         )
+    }
+}
+
+impl Default for ImageMold {
+    fn default() -> Self {
+        ImageMold::ArchLinux(ArchLinux::default())
     }
 }

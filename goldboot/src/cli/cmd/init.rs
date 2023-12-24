@@ -6,6 +6,7 @@ use goldboot_image::ImageArch;
 use std::{error::Error, path::Path};
 use strum::IntoEnumIterator;
 
+use crate::foundry::ImageElement;
 use crate::foundry::{molds::ImageMold, Foundry, FoundryConfig};
 
 fn print_banner() {
@@ -100,7 +101,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                     // Find molds suitable for the architecture
                     let molds: Vec<ImageMold> = ImageMold::iter()
                         .filter(|mold| mold.architectures().contains(&foundry.arch))
-                        .filter(|mold| foundry.molds().len() == 0 || mold.alloy())
+                        .filter(|mold| foundry.alloy.len() == 0 || mold.alloy())
                         .collect();
 
                     let choice_index = Select::with_theme(&theme)
@@ -109,7 +110,11 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                         .interact()?;
 
                     let mold = &molds[choice_index];
-                    // foundry.templates.push(mold);
+                    foundry.alloy.push(ImageElement {
+                        source: mold.default_source(),
+                        mold: mold.to_owned(),
+                        fabricators: None,
+                    });
 
                     if !mold.alloy()
                         || !Confirm::with_theme(&theme)

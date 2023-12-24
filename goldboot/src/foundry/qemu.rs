@@ -215,11 +215,8 @@ impl QemuBuilder {
                 machine: format!("type=pc,accel={}", detect_accel()),
 
                 // Use the recommended memory amount from the config or use a default
-                memory: match &worker.config.memory {
-                    Some(memory) => memory.clone(),
-                    None => String::from("4G"),
-                },
-                name: worker.config.name.clone(),
+                memory: worker.memory.clone(),
+                name: String::from("goldboot"),
                 netdev: vec![format!(
                     "user,id=user.0,hostfwd=tcp::{}-:22",
                     worker.ssh_port
@@ -231,14 +228,14 @@ impl QemuBuilder {
             },
             vnc_port: worker.vnc_port,
             ssh_port: worker.ssh_port,
-            exe: match &worker.config.arch {
+            exe: match &worker.arch {
                 ImageArch::Amd64 => "qemu-system-x86_64",
                 ImageArch::Arm64 => "qemu-system-aarch64",
                 _ => "qemu-system-x86_64",
             }
             .into(),
-            debug: todo!(),
-            record: todo!(),
+            debug: worker.debug,
+            record: worker.debug,
         }
     }
 

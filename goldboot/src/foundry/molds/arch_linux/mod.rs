@@ -7,7 +7,7 @@ use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
     enter,
-    foundry::{sources::Source, FoundryWorker},
+    foundry::{sources::ImageSource, FoundryWorker},
     wait_screen_rect,
 };
 use anyhow::bail;
@@ -136,7 +136,7 @@ impl ArchLinuxMirrorlist {
 }
 
 /// Fetch the latest installation ISO
-fn fetch_latest_iso() -> Result<Source> {
+fn fetch_latest_iso() -> Result<ImageSource> {
     let rs = reqwest::blocking::get(format!(
         "http://mirror.fossable.org/archlinux/iso/latest/sha1sums.txt"
     ))?;
@@ -145,7 +145,7 @@ fn fetch_latest_iso() -> Result<Source> {
             if line.ends_with(".iso") {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {
-                    return Ok(Source::Iso {
+                    return Ok(ImageSource::Iso {
                         url: format!("http://mirror.fossable.org/archlinux/iso/latest/{filename}"),
                         checksum: Some(format!("sha1:{hash}")),
                     });

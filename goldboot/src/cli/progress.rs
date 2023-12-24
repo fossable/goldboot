@@ -67,6 +67,23 @@ impl ProgressBar {
         })
     }
 
+    pub fn new_empty(&self) -> Box<dyn Fn(u64, u64)> {
+        if !show_progress() {
+            // No progress bar
+            return Box::new(|_, _| {});
+        }
+
+        let progress = self.create_progressbar(0);
+        Box::new(move |v, t| {
+            progress.set_length(t);
+            if progress.position() + v >= t {
+                progress.finish_and_clear();
+            } else {
+                progress.inc(v);
+            }
+        })
+    }
+
     /// Fully copy the given reader to the given writer and display a
     /// progressbar if running in interactive mode.
     pub fn copy(&self, reader: &mut dyn Read, writer: &mut dyn Write, len: u64) -> Result<()> {

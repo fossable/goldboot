@@ -1,5 +1,10 @@
+use self::{fabricators::Fabricator, molds::ImageMold, sources::ImageSource};
+use crate::cli::progress::ProgressBar;
+use crate::foundry::molds::CastImage;
+use crate::library::ImageLibrary;
 use anyhow::bail;
 use anyhow::Result;
+use byte_unit::Byte;
 use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
 use log::{debug, info};
 use rand::Rng;
@@ -13,10 +18,6 @@ use std::{
 };
 use validator::Validate;
 
-use crate::{foundry::sources::SourceCache, library::ImageLibrary};
-
-use self::{fabricators::Fabricator, molds::ImageMold, sources::Source};
-
 pub mod fabricators;
 pub mod molds;
 pub mod options;
@@ -26,11 +27,36 @@ pub mod sources;
 pub mod ssh;
 pub mod vnc;
 
+///
+#[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
+pub struct ImageElement {
+    pub source: ImageSource,
+    pub mold: ImageMold,
+    pub fabricators: Option<Vec<Fabricator>>,
+    pub size: Option<String>,
+}
+
+impl ImageElement {
+    /// Get the size
+    pub fn size(&self, image_size: String) -> u64 {
+        let image_size = Byte::parse_str(image_size, true).unwrap();
+
+        if let Some(size) = &self.size {
+            todo!()
+        } else {
+            image_size.as_u64()
+        }
+    }
+}
+
 /// A `Foundry` produces a goldboot image given a raw configuration. This is the
 /// central concept in the machinery that creates images.
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 #[validate(schema(function = "crate::foundry::custom_foundry_validator"))]
 pub struct Foundry {
+    #[validate(length(min = 1))]
+    pub alloy: Vec<ImageElement>,
+
     /// The system architecture
     #[serde(flatten)]
     pub arch: ImageArch,
@@ -43,14 +69,9 @@ pub struct Foundry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    #[validate(length(min = 1))]
-    pub fabricators: Option<Vec<Fabricator>>,
-
     /// The amount of memory to allocate to the VM
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<String>,
-
-    pub mold: Option<ImageMold>,
 
     /// The image name
     #[validate(length(min = 1, max = 64))]
@@ -71,9 +92,7 @@ pub struct Foundry {
     /// Whether screenshots will be generated during the run for debugging
     pub record: bool,
 
-    // #[validate(length(min = 2))]
-    // pub alloy: Vec<Element>,
-    pub source: Option<Source>,
+    pub size: String,
 }
 
 /// Handles more sophisticated validation of a [`Foundry`].
@@ -91,7 +110,7 @@ pub fn custom_foundry_validator(f: &Foundry) -> Result<(), validator::Validation
 }
 
 impl Foundry {
-    fn new_worker(&self) -> FoundryWorker {
+    fn new_worker(&self, element: ImageElement) -> FoundryWorker {
         // Obtain a temporary directory for the worker
         let tmp = tempfile::tempdir().unwrap();
 
@@ -104,6 +123,9 @@ impl Foundry {
         // crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
 
         FoundryWorker {
+            arch: self.arch,
+            debug: self.debug,
+            memory: self.memory.unwrap_or(String::from("4G")),
             tmp,
             start_time: None,
             end_time: None,
@@ -113,15 +135,9 @@ impl Foundry {
             } else {
                 rand::thread_rng().gen_range(5900..5999)
             },
-            image_path,
-        }
-    }
-
-    pub fn molds(&self) -> Vec<&ImageMold> {
-        if let Some(mold) = &self.mold {
-            vec![mold]
-        } else {
-            todo!()
+            qcow_path: image_path,
+            qcow_size: element.size(self.size.clone()),
+            element,
         }
     }
 
@@ -133,8 +149,8 @@ impl Foundry {
 
         // If we're in debug mode, run workers sequentially
         if self.debug {
-            for mold in self.molds() {
-                let worker = self.new_worker(template)?;
+            for element in self.alloy.into_iter() {
+                let worker = self.new_worker(element);
                 worker.run()?;
                 workers.push(worker);
             }
@@ -143,8 +159,8 @@ impl Foundry {
         else {
             let mut handles = Vec::new();
 
-            for mold in self.molds() {
-                let worker = self.new_worker(template)?;
+            for element in self.alloy.into_iter() {
+                let worker = self.new_worker(element);
                 handles.push(thread::spawn(move || {
                     worker.run().unwrap();
                     worker
@@ -160,21 +176,20 @@ impl Foundry {
         let final_qcow = if workers.len() > 1 {
             // Allocate a temporary image if we need to merge
             // TODO
-            Qcow3::open(&workers[0].image_path)?
+            Qcow3::open(&workers[0].qcow_path)?
         } else {
-            Qcow3::open(&workers[0].image_path)?
+            Qcow3::open(&workers[0].qcow_path)?
         };
 
         // Convert into final immutable image
-        ImageHandle::convert(&final_qcow, self.config.clone(), &self.image_path)?;
-
-        if let Some(output) = output {
-            // Move the image to output
-            std::fs::copy(&self.image_path, &output)?;
-        } else {
-            // Move the image to the library
-            ImageLibrary::add(&self.image_path)?;
-        }
+        ImageHandle::convert(
+            &final_qcow,
+            self.name.clone(),
+            ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
+            self.password.clone(),
+            output.unwrap(), // TODO ImageLibrary
+            ProgressBar::Convert.new_empty(),
+        )?;
 
         Ok(())
     }
@@ -183,38 +198,41 @@ impl Foundry {
 /// Manages the image casting process. Multiple workers can run in parallel
 /// to speed up multiboot configurations.
 pub struct FoundryWorker {
-    /// A general purpose temporary directory for the run
-    pub tmp: tempfile::TempDir,
+    pub arch: ImageArch,
+
+    pub debug: bool,
+
+    pub element: ImageElement,
+
+    /// The end time of the run
+    pub end_time: Option<SystemTime>,
+
+    pub memory: String,
 
     /// The path to the intermediate image artifact
-    pub image_path: String,
+    pub qcow_path: String,
+
+    /// The size of the intermediate image in bytes
+    pub qcow_size: u64,
 
     /// The VM port for SSH
     pub ssh_port: u16,
 
-    /// The VM port for VNC
-    pub vnc_port: u16,
-
     /// The start time of the run
     pub start_time: Option<SystemTime>,
 
-    /// The end time of the run
-    pub end_time: Option<SystemTime>,
+    /// A general purpose temporary directory for the run
+    pub tmp: tempfile::TempDir,
+
+    /// The VM port for VNC
+    pub vnc_port: u16,
 }
 
 impl FoundryWorker {
     /// Run the template build.
     pub fn run(&self) -> Result<()> {
         self.start_time = Some(SystemTime::now());
-        debug!(
-            "Allocating new {} image: {}",
-            self.template.general().storage_size,
-            self.image_path
-        );
-        Qcow3::create(
-            &self.image_path,
-            self.template.general().storage_size_bytes(),
-        )?;
+        Qcow3::create(&self.qcow_path, self.qcow_size)?;
 
         // qemuargs.drive.push(format!(
         //     "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
@@ -225,7 +243,7 @@ impl FoundryWorker {
         //     SourceCache::default()?.get(self.iso.url.clone(), &self.iso.checksum)?
         // ));
 
-        self.template.build(&self)?;
+        self.element.mold.cast(&self)?;
         info!(
             "Build completed in: {:?}",
             self.start_time.unwrap().elapsed()?
