@@ -1,8 +1,8 @@
 use crate::library::ImageLibrary;
 use anyhow::Result;
 use chrono::TimeZone;
-use console::Style;
-use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+
+
 use ubyte::ToByteUnit;
 
 pub fn run(cmd: super::Commands) -> Result<()> {
@@ -28,7 +28,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
             }
             super::ImageCommands::Info { image } => {
                 if let Some(image) = image {
-                    let image = ImageLibrary::find_by_id(image)?;
+                    let _image = ImageLibrary::find_by_id(image)?;
                     // TODO
                 }
 

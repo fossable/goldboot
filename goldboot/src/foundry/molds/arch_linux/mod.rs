@@ -1,4 +1,4 @@
-use super::CastImage;
+use super::{CastImage, DefaultSource};
 use crate::cli::prompt::Prompt;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
@@ -6,7 +6,6 @@ use crate::foundry::qemu::QemuBuilder;
 use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
-    enter,
     foundry::{sources::ImageSource, FoundryWorker},
     wait_screen_rect,
 };
@@ -19,7 +18,7 @@ use std::io::{BufRead, BufReader};
 use validator::Validate;
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinux {
     pub hostname: Option<Hostname>,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
@@ -42,6 +41,19 @@ impl Default for ArchLinux {
     }
 }
 
+// TODO proc macro
+impl Prompt for ArchLinux {
+    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+        todo!()
+    }
+}
+
+impl DefaultSource for ArchLinux {
+    fn default_source(&self) -> ImageSource {
+        todo!()
+    }
+}
+
 impl CastImage for ArchLinux {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker).start()?;
@@ -54,16 +66,11 @@ impl CastImage for ArchLinux {
 			// Wait for login
 			wait_screen_rect!("5b3ca88689e9d671903b3040889c7fa1cb5f244a", 100, 0, 1024, 400),
 			// Configure root password
-			enter!("passwd"), enter!(self.root_password), enter!(self.root_password),
-			// Configure SSH
-			enter!("echo 'AcceptEnv *' >>/etc/ssh/sshd_config"),
-			enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"),
-			// Start sshd
-			enter!("systemctl restart sshd"),
+			// enter!("passwd"), enter!(self.root_password), enter!(self.root_password),
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh("root", &self.root_password)?;
+        let mut ssh = qemu.ssh()?;
 
         // Run install script
         info!("Running base installation");
@@ -109,7 +116,7 @@ impl Default for ArchLinuxMirrorlist {
 }
 
 impl Prompt for ArchLinuxMirrorlist {
-    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
         // Prompt mirror list
         // {
         //     let mirror_index = dialoguer::Select::with_theme(&theme)

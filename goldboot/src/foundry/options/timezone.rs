@@ -10,7 +10,7 @@ pub struct Timezone {
 }
 
 impl Prompt for Timezone {
-    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
         todo!()
     }
 }

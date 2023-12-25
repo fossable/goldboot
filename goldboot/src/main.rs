@@ -1,17 +1,7 @@
-use crate::cmd::Commands;
-use anyhow::bail;
 use anyhow::Result;
-use chrono::TimeZone;
-use clap::{Parser, Subcommand};
-use goldboot::{
-    build::{BuildConfig, BuildJob},
-    library::ImageLibrary,
-    *,
-};
-use log::debug;
-use std::{collections::HashMap, env, error::Error, fs::File, path::Path};
-use ubyte::ToByteUnit;
-use validator::Validate;
+use clap::Parser;
+use goldboot::cli::cmd::Commands;
+use std::env;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -39,12 +29,12 @@ pub fn main() -> Result<()> {
     // Configure logging
     {
         let default_filter = match &command_line.command {
-            Commands::Build {
-                record,
+            Commands::Cast {
+                record: _,
                 debug,
-                read_password,
-                output,
-                config,
+                read_password: _,
+                output: _,
+                path: _,
             } => {
                 if *debug {
                     "debug"
@@ -60,10 +50,10 @@ pub fn main() -> Result<()> {
 
     // Dispatch command
     match &command_line.command {
-        Commands::Init { .. } => crate::cmd::init::run(command_line.command),
-        Commands::Build { .. } => crate::cmd::build::run(command_line.command),
-        Commands::Image { .. } => crate::cmd::image::run(command_line.command),
-        Commands::Registry { .. } => crate::cmd::registry::run(command_line.command),
-        Commands::Write { .. } => crate::cmd::write::run(command_line.command),
+        Commands::Init { .. } => goldboot::cli::cmd::init::run(command_line.command),
+        Commands::Cast { .. } => goldboot::cli::cmd::build::run(command_line.command),
+        Commands::Image { .. } => goldboot::cli::cmd::image::run(command_line.command),
+        Commands::Registry { .. } => goldboot::cli::cmd::registry::run(command_line.command),
+        Commands::Write { .. } => goldboot::cli::cmd::write::run(command_line.command),
     }
 }

@@ -2,6 +2,7 @@
 
 use std::fmt::Display;
 
+use super::sources::ImageSource;
 use crate::foundry::FoundryWorker;
 use anyhow::Result;
 use arch_linux::ArchLinux;
@@ -21,6 +22,11 @@ pub mod arch_linux;
 pub trait CastImage {
     /// Cast an image from the mold.
     fn cast(&self, context: &FoundryWorker) -> Result<()>;
+}
+
+#[enum_dispatch(ImageMold)]
+pub trait DefaultSource {
+    fn default_source(&self) -> ImageSource;
 }
 
 /// Represents a "base configuration" that users can modify and use to build

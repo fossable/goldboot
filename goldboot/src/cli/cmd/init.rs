@@ -1,11 +1,12 @@
-use anyhow::bail;
+
 use anyhow::Result;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use goldboot_image::ImageArch;
-use std::{error::Error, path::Path};
+
 use strum::IntoEnumIterator;
 
+use crate::foundry::molds::DefaultSource;
 use crate::foundry::ImageElement;
 use crate::foundry::{molds::ImageMold, Foundry, FoundryConfig};
 
@@ -26,7 +27,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
         super::Commands::Init {
             name,
             mold,
-            mimic_hardware,
+            mimic_hardware: _,
         } => {
             let config_path =
                 FoundryConfig::from_dir(".").unwrap_or(FoundryConfig::Ron("./goldboot.ron".into()));
@@ -114,6 +115,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                         source: mold.default_source(),
                         mold: mold.to_owned(),
                         fabricators: None,
+                        size: None,
                     });
 
                     if !mold.alloy()

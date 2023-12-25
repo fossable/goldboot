@@ -60,6 +60,7 @@ pub fn mimic_hardware() {}
 pub struct QemuProcess {
     pub process: Child,
     pub vnc: VncConnection,
+    pub ssh_port: u16,
 }
 
 impl Drop for QemuProcess {
@@ -69,7 +70,7 @@ impl Drop for QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn ssh(&mut self, port: u16, username: &str, password: &str) -> Result<SshConnection> {
+    pub fn ssh(&mut self) -> Result<SshConnection> {
         info!("Waiting for SSH connection");
 
         let mut i = 0;
@@ -78,7 +79,8 @@ impl QemuProcess {
             i += 1;
             std::thread::sleep(Duration::from_secs(5));
 
-            match SshConnection::new(port, &username, &password) {
+            // TODO spawn SSH via VNC and automatically setup randomized credentials
+            match SshConnection::new(self.ssh_port, "TODO", "TODO") {
                 Ok(ssh) => break ssh,
                 Err(error) => debug!("{}", error),
             }
@@ -273,6 +275,10 @@ impl QemuBuilder {
                 }
             }
         }?;
-        Ok(QemuProcess { process, vnc })
+        Ok(QemuProcess {
+            process,
+            vnc,
+            ssh_port: self.ssh_port,
+        })
     }
 }

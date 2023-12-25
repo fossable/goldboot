@@ -1,12 +1,12 @@
 use self::{fabricators::Fabricator, molds::ImageMold, sources::ImageSource};
 use crate::cli::progress::ProgressBar;
 use crate::foundry::molds::CastImage;
-use crate::library::ImageLibrary;
-use anyhow::bail;
+
+
 use anyhow::Result;
 use byte_unit::Byte;
 use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
-use log::{debug, info};
+use log::{info};
 use rand::Rng;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -41,7 +41,7 @@ impl ImageElement {
     pub fn size(&self, image_size: String) -> u64 {
         let image_size = Byte::parse_str(image_size, true).unwrap();
 
-        if let Some(size) = &self.size {
+        if let Some(_size) = &self.size {
             todo!()
         } else {
             image_size.as_u64()
@@ -96,7 +96,7 @@ pub struct Foundry {
 }
 
 /// Handles more sophisticated validation of a [`Foundry`].
-pub fn custom_foundry_validator(f: &Foundry) -> Result<(), validator::ValidationError> {
+pub fn custom_foundry_validator(_f: &Foundry) -> Result<(), validator::ValidationError> {
     // If there's more than one mold, they must all support alloy
     // if f.alloy.len() > 1 {
     //     for template in &self.config.templates {
@@ -118,14 +118,14 @@ impl Foundry {
         let image_path = tmp.path().join("image.gb").to_string_lossy().to_string();
 
         // Unpack included firmware
-        let ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
+        let _ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
 
         // crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
 
         FoundryWorker {
             arch: self.arch,
             debug: self.debug,
-            memory: self.memory.unwrap_or(String::from("4G")),
+            memory: self.memory.clone().unwrap_or(String::from("4G")),
             tmp,
             start_time: None,
             end_time: None,
@@ -138,6 +138,7 @@ impl Foundry {
             qcow_path: image_path,
             qcow_size: element.size(self.size.clone()),
             element,
+            ovmf_path: self.ovmf_path.clone(),
         }
     }
 
@@ -149,8 +150,8 @@ impl Foundry {
 
         // If we're in debug mode, run workers sequentially
         if self.debug {
-            for element in self.alloy.into_iter() {
-                let worker = self.new_worker(element);
+            for element in self.alloy.clone().into_iter() {
+                let mut worker = self.new_worker(element);
                 worker.run()?;
                 workers.push(worker);
             }
@@ -159,8 +160,8 @@ impl Foundry {
         else {
             let mut handles = Vec::new();
 
-            for element in self.alloy.into_iter() {
-                let worker = self.new_worker(element);
+            for element in self.alloy.clone().into_iter() {
+                let mut worker = self.new_worker(element);
                 handles.push(thread::spawn(move || {
                     worker.run().unwrap();
                     worker
@@ -226,11 +227,13 @@ pub struct FoundryWorker {
 
     /// The VM port for VNC
     pub vnc_port: u16,
+
+    pub ovmf_path: String,
 }
 
 impl FoundryWorker {
     /// Run the template build.
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         self.start_time = Some(SystemTime::now());
         Qcow3::create(&self.qcow_path, self.qcow_size)?;
 
@@ -310,11 +313,13 @@ impl FoundryConfig {
 
 impl Display for FoundryConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            FoundryConfig::Json(path) => &path.to_string_lossy(),
-            FoundryConfig::Ron(path) => &path.to_string_lossy(),
-            FoundryConfig::Toml(path) => &path.to_string_lossy(),
-            FoundryConfig::Yaml(path) => &path.to_string_lossy(),
-        })
+        let path = match self {
+            FoundryConfig::Json(path) => path,
+            FoundryConfig::Ron(path) => path,
+            FoundryConfig::Toml(path) => path,
+            FoundryConfig::Yaml(path) => path,
+        }
+        .to_string_lossy();
+        path.fmt(f)
     }
 }

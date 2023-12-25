@@ -35,7 +35,7 @@ serde = { version = "1.0.190", features = ["derive"] }
 serde_win_unattend = "0.1.0"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
-ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
+ssh2 = { version = "0.9.4", features = ["vendored-openssl"] } # TODO russh
 strum = { version = "0.25.0", features = ["derive"] }
 tempfile = "3.8.1"
 ubyte = "0.10.4"

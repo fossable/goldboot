@@ -29,7 +29,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                 let mut password = String::new();
                 std::io::stdin().read_line(&mut password)?;
                 // config.password = Some(password);
-            } else if let Ok(password) = std::env::var("GOLDBOOT_PASSWORD") {
+            } else if let Ok(_password) = std::env::var("GOLDBOOT_PASSWORD") {
                 // Wipe out the value since we no longer need it
                 std::env::set_var("GOLDBOOT_PASSWORD", "");
                 // config.password = Some(password);

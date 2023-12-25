@@ -1,8 +1,7 @@
-use axum::extract::{Json, Path, Query};
-use std::{error::Error, fs::File, path::Path};
+use axum::extract::{Path};
 
 /// Get image info
-pub async fn info(Path(id): Path<String>) {}
+pub async fn info(Path(_id): Path<String>) {}
 
 /// Get image list
 pub async fn list() {}
@@ -27,7 +26,7 @@ pub async fn push(id: web::Path<String>, rq: actix_web::HttpRequest) -> Result<H
 }*/
 
 /// Get cluster data
-pub async fn clusters(Path(id): Path<String>, Path(range): Path<String>) {}
+pub async fn clusters(Path(_id): Path<String>, Path(_range): Path<String>) {}
 
 /// Get cluster hashes
-pub async fn hashes(Path(id): Path<String>, Path(range): Path<String>) {}
+pub async fn hashes(Path(_id): Path<String>, Path(_range): Path<String>) {}

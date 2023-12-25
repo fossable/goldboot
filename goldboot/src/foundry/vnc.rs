@@ -7,7 +7,7 @@ use anyhow::Result;
 use log::{debug, info, trace};
 use rand::Rng;
 use sha1::{Digest, Sha1};
-use std::{error::Error, fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
+use std::{fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
 use vnc::client::Event;
 
 /// A rectangular snapshot of the entire screen or an arbitrary subsection.
@@ -362,6 +362,21 @@ impl VncConnection {
 }
 
 pub mod macros {
+
+    /// Spawn a temporary SSH server on the VM.
+    #[macro_export]
+    macro_rules! ssh_server {
+        ($port:expr) => {
+            todo!()
+        };
+    }
+
+    #[macro_export]
+    macro_rules! upload {
+        ($port:expr) => {
+            todo!()
+        };
+    }
 
     #[macro_export]
     macro_rules! enter {

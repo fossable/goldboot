@@ -6,7 +6,7 @@ use anyhow::Result;
 use dialoguer::theme::Theme;
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::Path};
+use std::{path::Path};
 use validator::Validate;
 
 /// Runs an executable file.

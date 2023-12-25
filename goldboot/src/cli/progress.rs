@@ -2,7 +2,6 @@ use anyhow::Result;
 use std::io::IsTerminal;
 use std::{
     cmp::min,
-    error::Error,
     io::{Read, Write},
     time::Duration,
 };

@@ -2,7 +2,6 @@ use anyhow::bail;
 use anyhow::Result;
 use log::{debug, info};
 use std::{
-    error::Error,
     io::{BufRead, BufReader, Cursor},
     net::TcpStream,
     path::Path,

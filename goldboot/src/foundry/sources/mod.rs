@@ -9,7 +9,6 @@ use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};
 use std::{
     fs::File,
-    io::{Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -84,7 +83,7 @@ impl SourceCache {
             }
 
             // Try to download it
-            let rs = reqwest::blocking::get(&url)?;
+            let mut rs = reqwest::blocking::get(&url)?;
             if rs.status().is_success() {
                 let length = rs
                     .content_length()

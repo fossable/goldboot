@@ -1,9 +1,9 @@
 use anyhow::Result;
 use console::Style;
-use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use std::{error::Error, path::Path};
+use dialoguer::{theme::ColorfulTheme, Confirm};
+use std::path::Path;
 
-use crate::library::ImageLibrary;
+use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 
 pub fn run(cmd: super::Commands) -> Result<()> {
     match cmd {
@@ -30,7 +30,8 @@ pub fn run(cmd: super::Commands) -> Result<()> {
 
             // TODO special case for GBL; select images to include
 
-            image.write(output)
+            image.write(output, ProgressBar::Write.new_empty())?;
+            Ok(())
         }
         _ => panic!(),
     }

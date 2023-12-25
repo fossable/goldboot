@@ -2,7 +2,7 @@ use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+
 
 #[derive(Serialize, Deserialize)]
 pub struct GetMediaResponse {

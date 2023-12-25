@@ -5,7 +5,7 @@ use anyhow::Result;
 use dialoguer::theme::Theme;
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::Path, process::Command};
+use std::{path::Path, process::Command};
 use validator::Validate;
 
 use super::Fabricate;
@@ -50,7 +50,7 @@ impl Ansible {
 }
 
 impl Fabricate for Ansible {
-    fn run(&self, ssh: &mut SshConnection) -> Result<()> {
+    fn run(&self, _ssh: &mut SshConnection) -> Result<()> {
         todo!()
     }
 }
