@@ -1,3 +1,4 @@
+use crate::gui::load_png;
 use glib::clone;
 use gtk::glib;
 use gtk4 as gtk;
@@ -6,15 +7,11 @@ use log::info;
 use std::error::Error;
 use ubyte::ToByteUnit;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/select_device/"]
-struct Resources;
-
 pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
     let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
     {
-        let logo = crate::load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
+        let logo = load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
         container.append(&logo);
     }
     {
@@ -37,7 +34,7 @@ pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
         }
 
         device_box.connect_row_activated(move |_, row| {
-            crate::confirm::init(
+            crate::gui::confirm::init(
                 &window,
                 image_id.clone(),
                 devices[row.index() as usize].clone(),
@@ -67,16 +64,16 @@ fn create_device_row(device: &block_utils::Device) -> gtk::Box {
     // Device icon
     let device_image = match device.media_type {
         block_utils::MediaType::SolidState => {
-            crate::load_png(Resources::get("ssd.png").unwrap().data.to_vec(), 32, 32)
+            load_png(Resources::get("ssd.png").unwrap().data.to_vec(), 32, 32)
         }
         block_utils::MediaType::Rotational => {
-            crate::load_png(Resources::get("hdd.png").unwrap().data.to_vec(), 32, 32)
+            load_png(Resources::get("hdd.png").unwrap().data.to_vec(), 32, 32)
         }
         block_utils::MediaType::NVME => {
-            crate::load_png(Resources::get("nvme.png").unwrap().data.to_vec(), 32, 32)
+            load_png(Resources::get("nvme.png").unwrap().data.to_vec(), 32, 32)
         }
         block_utils::MediaType::Ram => {
-            crate::load_png(Resources::get("ram.png").unwrap().data.to_vec(), 32, 32)
+            load_png(Resources::get("ram.png").unwrap().data.to_vec(), 32, 32)
         }
         _ => panic!(),
     };

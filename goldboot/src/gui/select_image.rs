@@ -1,3 +1,4 @@
+use crate::gui::load_png;
 use gdk4 as gdk;
 use gdk_pixbuf::PixbufLoader;
 use glib::clone;
@@ -8,15 +9,11 @@ use gtk4::{prelude::*, EventControllerKey};
 use log::info;
 use ubyte::ToByteUnit;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/select_image/"]
-struct Resources;
-
 pub fn init(window: &'static gtk::ApplicationWindow) {
     let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
     {
-        let logo = crate::load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
+        let logo = load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
         container.append(&logo);
     }
     {
@@ -39,7 +36,7 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
         image_box.connect_row_activated(move |_, row| {
             let image_id = images[row.index() as usize].clone();
             info!("Selected image: {}", image_id);
-            crate::select_device::init(&window, image_id);
+            crate::gui::select_device::init(&window, image_id);
         });
     }
     {
@@ -101,7 +98,7 @@ fn create_image_row(image: &ImageHandle) -> gtk::Box {
         if let Some(resource) =
             Resources::get(&format!("{}.png", config.get_template_bases().unwrap()[0]))
         {
-            let image = crate::load_png(resource.data.to_vec(), 32, 32);
+            let image = load_png(resource.data.to_vec(), 32, 32);
             image.add_css_class("listIcon");
             row.append(&image);
         }

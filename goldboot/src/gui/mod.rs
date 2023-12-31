@@ -7,7 +7,7 @@ pub mod confirm;
 pub mod select_device;
 pub mod select_image;
 
-fn main() {
+fn load_gui() {
     // Configure logging
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
