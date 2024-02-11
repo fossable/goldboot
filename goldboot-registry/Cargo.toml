@@ -10,7 +10,7 @@ homepage = "https://goldboot.fossable.org"
 repository = "https://github.com/fossable/goldboot"
 
 [dependencies]
-axum = "0.6.20"
+axum = "0.7.4"
 reqwest = { version = "0.11.22", features = ["stream"] }
 rustls = "0.21.8"
 rustls-pemfile = "1.0.3"
