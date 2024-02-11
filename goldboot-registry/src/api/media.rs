@@ -1,6 +1,3 @@
-
-
-
 // pub async fn download(path: web::Path<(String, String, String)>) -> Result<impl Responder> {
 //     let (template, edition, arch) = path.into_inner();
 

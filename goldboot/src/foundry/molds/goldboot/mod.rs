@@ -8,9 +8,9 @@ use crate::{
     templates::*,
 };
 use anyhow::bail;
-use log::info;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use tracing::info;
 use validator::Validate;
 
 #[derive(rust_embed::RustEmbed)]

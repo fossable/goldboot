@@ -1,13 +1,13 @@
 use anyhow::bail;
 use anyhow::Result;
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
-use log::debug;
 use std::{
     fs::File,
     io::BufReader,
     path::Path,
     process::{Command, Stdio},
 };
+use tracing::debug;
 
 mod header;
 pub use header::*;

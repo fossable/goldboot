@@ -2,7 +2,6 @@ use crate::cli::progress::ProgressBar;
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
-use log::{debug, info};
 use serde::Deserialize;
 use serde::Serialize;
 use sha1::{Digest, Sha1};
@@ -11,6 +10,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
+use tracing::{debug, info};
 
 pub mod iso;
 

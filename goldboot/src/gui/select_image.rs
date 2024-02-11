@@ -6,7 +6,7 @@ use goldboot::{image::ImageHandle, library::ImageLibrary};
 use gtk::glib;
 use gtk4 as gtk;
 use gtk4::{prelude::*, EventControllerKey};
-use log::info;
+use tracing::info;
 use ubyte::ToByteUnit;
 
 pub fn init(window: &'static gtk::ApplicationWindow) {

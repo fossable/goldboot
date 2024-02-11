@@ -1,4 +1,6 @@
-pub mod build;
+use crate::foundry::{molds::ImageMold, FoundryConfig};
+
+pub mod cast;
 pub mod image;
 pub mod init;
 pub mod registry;
@@ -53,13 +55,20 @@ pub enum Commands {
 
     /// Initialize the current directory
     Init {
-        /// The image name
+        /// New image name
         #[clap(long)]
         name: Option<String>,
 
-        /// A base mold that can be customized further
+        /// Base mold(s)
+        #[clap(long, value_enum)]
+        mold: Vec<ImageMold>,
+
+        #[clap(long, value_enum)]
+        output: FoundryConfig,
+
+        /// The total image size
         #[clap(long)]
-        mold: Vec<String>,
+        size: String,
 
         // #[clap(long, num_args = 0)]
         // list: bool,

@@ -2,20 +2,22 @@ use self::{fabricators::Fabricator, molds::ImageMold, sources::ImageSource};
 use crate::cli::progress::ProgressBar;
 use crate::foundry::molds::CastImage;
 
-
 use anyhow::Result;
 use byte_unit::Byte;
+use clap::{builder::PossibleValue, ValueEnum};
 use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
-use log::{info};
 use rand::Rng;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     path::{Path, PathBuf},
+    sync::OnceLock,
     thread,
     time::SystemTime,
 };
+use strum::EnumIter;
+use tracing::info;
 use validator::Validate;
 
 pub mod fabricators;
@@ -30,10 +32,10 @@ pub mod vnc;
 ///
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct ImageElement {
-    pub source: ImageSource,
-    pub mold: ImageMold,
     pub fabricators: Option<Vec<Fabricator>>,
-    pub size: Option<String>,
+    pub mold: ImageMold,
+    pub pref_size: Option<String>,
+    pub source: ImageSource,
 }
 
 impl ImageElement {
@@ -41,7 +43,7 @@ impl ImageElement {
     pub fn size(&self, image_size: String) -> u64 {
         let image_size = Byte::parse_str(image_size, true).unwrap();
 
-        if let Some(_size) = &self.size {
+        if let Some(_size) = &self.pref_size {
             todo!()
         } else {
             image_size.as_u64()
@@ -81,7 +83,8 @@ pub struct Foundry {
     pub nvme: Option<bool>,
 
     /// The path to an OVMF.fd file
-    pub ovmf_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ovmf_path: Option<String>,
 
     /// The encryption password. This value can alternatively be specified on
     /// the command line and will be cleared before the config is included in
@@ -117,10 +120,15 @@ impl Foundry {
         // Determine image path
         let image_path = tmp.path().join("image.gb").to_string_lossy().to_string();
 
-        // Unpack included firmware
-        let _ovmf_path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
+        // Unpack included firmware if one isn't given
+        let ovmf_path = if let Some(path) = self.ovmf_path.clone() {
+            path
+        } else {
+            let path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
 
-        // crate::ovmf::write_to(&self.config.arch, &ovmf_path)?;
+            crate::foundry::ovmf::write_to(self.arch, &path).unwrap();
+            path
+        };
 
         FoundryWorker {
             arch: self.arch,
@@ -138,7 +146,7 @@ impl Foundry {
             qcow_path: image_path,
             qcow_size: element.size(self.size.clone()),
             element,
-            ovmf_path: self.ovmf_path.clone(),
+            ovmf_path,
         }
     }
 
@@ -259,11 +267,42 @@ impl FoundryWorker {
 
 /// Represents a foundry configuration file. This mainly helps sort out the various
 /// supported config formats.
+#[derive(Clone, Debug, EnumIter)]
 pub enum FoundryConfig {
     Json(PathBuf),
     Ron(PathBuf),
     Toml(PathBuf),
     Yaml(PathBuf),
+}
+
+impl Default for FoundryConfig {
+    fn default() -> Self {
+        FoundryConfig::Ron(PathBuf::from("./goldboot.ron"))
+    }
+}
+
+static VARIANTS: OnceLock<Vec<FoundryConfig>> = OnceLock::new();
+
+impl ValueEnum for FoundryConfig {
+    fn value_variants<'a>() -> &'a [Self] {
+        VARIANTS.get_or_init(|| {
+            vec![
+                FoundryConfig::Json(PathBuf::from("./goldboot.json")),
+                FoundryConfig::Ron(PathBuf::from("./goldboot.ron")),
+                FoundryConfig::Toml(PathBuf::from("./goldboot.toml")),
+                FoundryConfig::Yaml(PathBuf::from("./goldboot.yaml")),
+            ]
+        })
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        match *self {
+            FoundryConfig::Json(_) => Some(PossibleValue::new("json")),
+            FoundryConfig::Ron(_) => Some(PossibleValue::new("ron")),
+            FoundryConfig::Toml(_) => Some(PossibleValue::new("toml")),
+            FoundryConfig::Yaml(_) => Some(PossibleValue::new("yaml")),
+        }
+    }
 }
 
 impl FoundryConfig {

@@ -6,7 +6,6 @@ use aes_gcm::{aead::Aead, Aes256Gcm, Key, Nonce};
 use anyhow::bail;
 use anyhow::Result;
 use binrw::{BinRead, BinReaderExt, BinWrite};
-use log::{debug, info, trace};
 use rand::Rng;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -18,6 +17,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use strum::{Display, EnumIter};
+use tracing::{debug, info, trace};
 
 pub mod qcow;
 

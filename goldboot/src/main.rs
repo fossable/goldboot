@@ -45,13 +45,15 @@ pub fn main() -> Result<()> {
             _ => "info",
         };
 
-        env_logger::init_from_env(env_logger::Env::new().default_filter_or(default_filter));
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .init();
     }
 
     // Dispatch command
     match &command_line.command {
         Commands::Init { .. } => goldboot::cli::cmd::init::run(command_line.command),
-        Commands::Cast { .. } => goldboot::cli::cmd::build::run(command_line.command),
+        Commands::Cast { .. } => goldboot::cli::cmd::cast::run(command_line.command),
         Commands::Image { .. } => goldboot::cli::cmd::image::run(command_line.command),
         Commands::Registry { .. } => goldboot::cli::cmd::registry::run(command_line.command),
         Commands::Write { .. } => goldboot::cli::cmd::write::run(command_line.command),

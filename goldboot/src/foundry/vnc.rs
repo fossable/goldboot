@@ -4,10 +4,10 @@
 
 use anyhow::bail;
 use anyhow::Result;
-use log::{debug, info, trace};
 use rand::Rng;
 use sha1::{Digest, Sha1};
 use std::{fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
+use tracing::{debug, info, trace};
 use vnc::client::Event;
 
 /// A rectangular snapshot of the entire screen or an arbitrary subsection.

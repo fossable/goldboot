@@ -4,9 +4,9 @@ use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
 use anyhow::bail;
 use anyhow::Result;
 use dialoguer::theme::Theme;
-use log::info;
 use serde::{Deserialize, Serialize};
-use std::{path::Path};
+use std::path::Path;
+use tracing::info;
 use validator::Validate;
 
 /// Runs an executable file.

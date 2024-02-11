@@ -1,7 +1,7 @@
 use crate::foundry::{Foundry, FoundryConfig};
 use anyhow::anyhow;
 use anyhow::Result;
-use log::debug;
+use tracing::debug;
 use validator::Validate;
 
 pub fn run(cmd: super::Commands) -> Result<()> {

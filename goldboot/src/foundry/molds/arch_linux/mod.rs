@@ -3,6 +3,7 @@ use crate::cli::prompt::Prompt;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
 use crate::foundry::qemu::QemuBuilder;
+use crate::foundry::sources::iso::IsoSource;
 use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
@@ -12,14 +13,15 @@ use crate::{
 use anyhow::bail;
 use anyhow::Result;
 use dialoguer::theme::Theme;
-use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
+use tracing::{debug, info};
 use validator::Validate;
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct ArchLinux {
+    #[serde(flatten)]
     pub hostname: Option<Hostname>,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
     pub packages: Option<ArchLinuxPackages>,
@@ -50,7 +52,10 @@ impl Prompt for ArchLinux {
 
 impl DefaultSource for ArchLinux {
     fn default_source(&self) -> ImageSource {
-        todo!()
+        ImageSource::Iso {
+            url: "http://mirror.fossable.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso".to_string(),
+            checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
+        }
     }
 }
 

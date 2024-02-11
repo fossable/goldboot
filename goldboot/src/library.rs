@@ -3,13 +3,13 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageHandle;
-use log::{debug, info};
 use sha1::Digest;
 use sha2::Sha256;
 use std::{
     fs::File,
     path::{Path, PathBuf},
 };
+use tracing::{debug, info};
 
 /// Represents the local image library.
 ///

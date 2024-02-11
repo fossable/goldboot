@@ -1,15 +1,16 @@
 //! Templates are the central concept that make it easy to define images.
 
-use std::fmt::Display;
+use std::{fmt::Display, sync::OnceLock};
 
 use super::sources::ImageSource;
 use crate::foundry::FoundryWorker;
 use anyhow::Result;
 use arch_linux::ArchLinux;
+use clap::ValueEnum;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use strum::EnumIter;
+use strum::{EnumIter, IntoEnumIterator};
 
 pub mod arch_linux;
 
@@ -93,7 +94,7 @@ impl Display for ImageMold {
             f,
             "{}",
             match self {
-                ImageMold::ArchLinux(_) => "Arch Linux",
+                ImageMold::ArchLinux(_) => "ArchLinux",
             }
         )
     }
@@ -102,5 +103,19 @@ impl Display for ImageMold {
 impl Default for ImageMold {
     fn default() -> Self {
         ImageMold::ArchLinux(ArchLinux::default())
+    }
+}
+
+static VARIANTS: OnceLock<Vec<ImageMold>> = OnceLock::new();
+
+impl ValueEnum for ImageMold {
+    fn value_variants<'a>() -> &'a [Self] {
+        VARIANTS.get_or_init(|| ImageMold::iter().collect())
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(clap::builder::PossibleValue::new(
+            Into::<clap::builder::Str>::into(self.to_string()),
+        ))
     }
 }

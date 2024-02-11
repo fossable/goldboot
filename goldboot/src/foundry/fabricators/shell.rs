@@ -1,7 +1,7 @@
 use anyhow::bail;
 use anyhow::Result;
-use log::info;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use validator::Validate;
 
 use crate::foundry::ssh::SshConnection;

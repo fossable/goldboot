@@ -3,8 +3,8 @@ use glib::clone;
 use gtk::glib;
 use gtk4 as gtk;
 use gtk4::prelude::*;
-use log::info;
 use std::error::Error;
+use tracing::info;
 use ubyte::ToByteUnit;
 
 pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {

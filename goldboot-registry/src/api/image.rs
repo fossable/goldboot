@@ -1,4 +1,4 @@
-use axum::extract::{Path};
+use axum::extract::Path;
 
 /// Get image info
 pub async fn info(Path(_id): Path<String>) {}

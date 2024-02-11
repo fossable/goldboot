@@ -1,4 +1,4 @@
-use axum::extract::{Path};
+use axum::extract::Path;
 
 /// Start a new build
 pub async fn start() {}

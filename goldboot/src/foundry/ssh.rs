@@ -1,12 +1,12 @@
 use anyhow::bail;
 use anyhow::Result;
-use log::{debug, info};
 use std::{
     io::{BufRead, BufReader, Cursor},
     net::TcpStream,
     path::Path,
     time::Duration,
 };
+use tracing::{debug, info};
 
 /// Represents an SSH session to a running VM.
 pub struct SshConnection {

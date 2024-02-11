@@ -12,9 +12,9 @@ use crate::{
 use anyhow::bail;
 use anyhow::Result;
 use dialoguer::theme::Theme;
-use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
+use tracing::{debug, info};
 use validator::Validate;
 
 /// This `Mold` produces an AOSP image.

@@ -2,12 +2,12 @@ use crate::foundry::{ssh::SshConnection, vnc::VncConnection, FoundryWorker};
 use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
-use log::{debug, info, trace};
 use std::path::PathBuf;
 use std::{
     process::{Child, Command},
     time::Duration,
 };
+use tracing::{debug, info, trace};
 
 /// Get the QEMU system binary for the current platform.
 pub fn current_qemu_binary() -> &'static str {

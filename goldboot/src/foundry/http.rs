@@ -1,6 +1,6 @@
 use anyhow::Result;
-use log::info;
 use std::{io::Write, net::TcpListener};
+use tracing::info;
 
 /// Minimal HTTP server for serving files to virtual machines
 pub struct HttpServer {

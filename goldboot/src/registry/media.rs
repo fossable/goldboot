@@ -3,7 +3,6 @@ use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Serialize, Deserialize)]
 pub struct GetMediaResponse {
     pub url: String,

@@ -5,7 +5,7 @@ use crate::{
     qemu::QemuArgs,
     templates::*,
 };
-use log::info;
+use tracing::info;
 use serde::{Deserialize, Serialize};
 use anyhow::bail;
 use std::{

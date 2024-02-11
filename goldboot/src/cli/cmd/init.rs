@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
@@ -27,13 +26,15 @@ pub fn run(cmd: super::Commands) -> Result<()> {
         super::Commands::Init {
             name,
             mold,
+            output,
+            size,
             mimic_hardware: _,
         } => {
-            let config_path =
-                FoundryConfig::from_dir(".").unwrap_or(FoundryConfig::Ron("./goldboot.ron".into()));
+            let config_path = FoundryConfig::from_dir(".").unwrap_or(output);
 
             // Build a new default config that we'll override
             let mut foundry = Foundry::default();
+            foundry.size = size;
 
             if mold.len() > 0 {
                 // If a mold name was given, use the default
@@ -46,17 +47,14 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                     }
                 }
 
-                // Add default templates
-                // for template_id in template {
-                //     if let Some(id) = Template::iter()
-                //         .filter(|id| id.to_string() == template_id)
-                //         .next()
-                //     {
-                //         config.templates.push(id.default());
-                //     } else {
-                //         bail!("Template not found");
-                //     }
-                // }
+                for m in mold {
+                    foundry.alloy.push(ImageElement {
+                        source: m.default_source(),
+                        mold: m,
+                        fabricators: None,
+                        pref_size: None,
+                    });
+                }
 
                 // Generate QEMU flags for this hardware
                 //config.qemuargs = generate_qemuargs()?;
@@ -115,7 +113,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                         source: mold.default_source(),
                         mold: mold.to_owned(),
                         fabricators: None,
-                        size: None,
+                        pref_size: None,
                     });
 
                     if !mold.alloy()

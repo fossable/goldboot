@@ -12,10 +12,9 @@ repository = "https://github.com/goldboot/goldboot/"
 [dependencies]
 block-utils = { version = "0.11.1", optional = true }
 chrono = "0.4.31"
-clap = { version = "4.4.7", features = ["derive"] }
+clap = { version = "4.4.7", features = ["derive", "string"] }
 console = "0.15.7"
 dialoguer = "0.11.0"
-env_logger = "0"
 fossable = "0.1.2"
 gdk4 = { version = "0.7.3", optional = true }
 gdk-pixbuf = { version = "0.18.3", optional = true }
@@ -25,7 +24,6 @@ goldboot-macros = { path="../goldboot-macros", version = "0.0.1" }
 gtk4 = { version = "0.7.3", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
-log = { version = "0.4.20", default-features = false }
 png = "0.17.10"
 rand = "0.8.5"
 regex = "1.10.2"
@@ -50,6 +48,8 @@ toml = "0.8.8"
 serde_yaml = "0.9.27"
 anyhow = "1.0.76"
 byte-unit = "5.1.2"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [dev-dependencies]
 test-env-log = "0"

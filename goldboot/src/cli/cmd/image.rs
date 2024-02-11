@@ -2,7 +2,6 @@ use crate::library::ImageLibrary;
 use anyhow::Result;
 use chrono::TimeZone;
 
-
 use ubyte::ToByteUnit;
 
 pub fn run(cmd: super::Commands) -> Result<()> {

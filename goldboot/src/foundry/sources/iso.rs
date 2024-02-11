@@ -1,4 +1,3 @@
-
 use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
 use dialoguer::theme::Theme;
