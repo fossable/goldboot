@@ -7,12 +7,14 @@ use crate::foundry::FoundryWorker;
 use anyhow::Result;
 use arch_linux::ArchLinux;
 use clap::ValueEnum;
+use debian::Debian;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 
 pub mod arch_linux;
+pub mod debian;
 
 /// "Casting" is the process of generating an immutable goldboot image from raw
 /// configuration data.
@@ -40,7 +42,7 @@ pub enum ImageMold {
     // Artix,
     // BedrockLinux,
     // CentOs,
-    // Debian,
+    Debian,
     // ElementaryOs,
     // Fedora,
     // FreeBsd,
@@ -95,6 +97,7 @@ impl Display for ImageMold {
             "{}",
             match self {
                 ImageMold::ArchLinux(_) => "ArchLinux",
+                ImageMold::Debian(_) => "Debian",
             }
         )
     }

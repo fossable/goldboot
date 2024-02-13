@@ -1,21 +1,24 @@
-use crate::{
-    build::BuildWorker,
-    cache::{MediaCache, MediaFormat},
-    http::HttpServer,
-    provisioners::*,
-    qemu::QemuArgs,
-    templates::*,
-};
+use anyhow::{bail, Result};
+use dialoguer::theme::Theme;
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::{
-    error::Error,
-    io::{BufRead, BufReader},
-};
+use std::io::{BufRead, BufReader};
 use validator::Validate;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/Debian/"]
-struct Resources;
+use crate::{
+    cli::prompt::Prompt,
+    enter,
+    foundry::{
+        http::HttpServer,
+        options::{hostname::Hostname, unix_account::RootPassword},
+        qemu::QemuBuilder,
+        sources::ImageSource,
+        Foundry, FoundryWorker,
+    },
+    input, wait, wait_screen,
+};
+
+use super::{CastImage, DefaultSource};
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub enum DebianEdition {
@@ -27,11 +30,11 @@ pub enum DebianEdition {
 }
 
 /// Fetch the latest ISO
-pub fn fetch_debian_iso(edition: DebianEdition, arch: Architecture) -> Result<IsoContainer> {
+pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<ImageSource> {
     let arch = match arch {
-        Architecture::amd64 => "amd64",
-        Architecture::arm64 => "arm64",
-        Architecture::i386 => "i386",
+        ImageArch::Amd64 => "amd64",
+        ImageArch::Arm64 => "arm64",
+        ImageArch::I386 => "i386",
         _ => bail!("Unsupported architecture"),
     };
     let version = match edition {
@@ -47,9 +50,9 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: Architecture) -> Result<Is
             if line.ends_with(".iso") {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {
-                    return Ok(IsoContainer{
+                    return Ok(ImageSource::Iso {
 						url: format!("https://cdimage.debian.org/cdimage/archive/{version}/{arch}/iso-cd/{filename}"),
-						checksum: format!("sha256:{hash}"),
+						checksum: Some(format!("sha256:{hash}")),
 					});
                 }
             }
@@ -59,77 +62,70 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: Architecture) -> Result<Is
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct DebianTemplate {
-    pub id: TemplateId,
+pub struct Debian {
     pub edition: DebianEdition,
 
-    pub iso: IsoSource,
-    pub hostname: HostnameProvisioner,
-    pub ansible: Option<Vec<AnsibleProvisioner>>,
+    #[serde(flatten)]
+    pub hostname: Option<Hostname>,
+    pub root_password: Option<RootPassword>,
 }
 
-impl Default for DebianTemplate {
+impl Default for Debian {
     fn default() -> Self {
         Self {
-            root_password: String::from("root"),
-            iso: fetch_debian_iso(DebianEdition::Bullseye, Architecture::amd64).unwrap(),
-            general: GeneralContainer {
-                base: TemplateBase::Debian,
-                storage_size: String::from("15 GiB"),
-                ..Default::default()
-            },
+            root_password: Some(RootPassword {
+                plaintext: "root".to_string(),
+            }),
             edition: DebianEdition::default(),
-            provisioners: ProvisionersContainer::default(),
+            hostname: Some(Hostname::default()),
         }
     }
 }
 
-impl Template for DebianTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<()> {
-        let mut qemuargs = QemuArgs::new(&context);
+// TODO proc macro
+impl Prompt for Debian {
+    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+        todo!()
+    }
+}
+
+impl DefaultSource for Debian {
+    fn default_source(&self) -> ImageSource {
+        ImageSource::Iso {
+            url: "http://mirror.fossable.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso".to_string(),
+            checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
+        }
+    }
+}
+
+impl CastImage for Debian {
+    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+        let mut qemu = QemuBuilder::new(&worker)
+            .source(&worker.element.source)?
+            .start()?;
 
         // Start HTTP
-        let http =
-            HttpServer::serve_file(Resources::get("default/preseed.cfg").unwrap().data.to_vec())?;
-
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-            "file={},media=cdrom",
-            MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
-        ));
-
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
+        let http = HttpServer::serve_file(include_bytes!("preseed.cfg"))?;
 
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.boot_command(vec![
+		qemu.vnc.run(vec![
 			wait!(10),
 			input!("aa"),
 			wait_screen!("53471d73e98f0109ce3262d9c45c522d7574366b"),
 			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
 			wait_screen!("97354165fd270a95fd3da41ef43c35bf24b7c09b"),
-			enter!(&self.root_password),
-			enter!(&self.root_password),
+			// enter!(&self.root_password),
+			// enter!(&self.root_password),
 			wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
-
-        // Run provisioners
-        self.provisioners.run(&mut ssh)?;
+        let mut ssh = qemu.ssh()?;
 
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
         Ok(())
-    }
-
-    fn general(&self) -> GeneralContainer {
-        self.general.clone()
     }
 }

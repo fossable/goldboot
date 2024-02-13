@@ -9,6 +9,9 @@ use std::{
 };
 use tracing::{debug, info, trace};
 
+use super::sources::ImageSource;
+use super::sources::SourceCache;
+
 /// Get the QEMU system binary for the current platform.
 pub fn current_qemu_binary() -> &'static str {
     if cfg!(target_arch = "x86_64") {
@@ -210,7 +213,13 @@ impl QemuBuilder {
                 } else {
                     String::from("none")
                 },
-                drive: vec![],
+
+                // Add the output image as a drive
+                // TODO nvme?
+                drive: vec![format!(
+                    "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
+                    worker.qcow_path
+                )],
 
                 // This seems to be necessary for the EFI variables to persist
                 global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
@@ -239,6 +248,21 @@ impl QemuBuilder {
             debug: worker.debug,
             record: worker.debug,
         }
+    }
+
+    /// Set the image source.
+    pub fn source(mut self, source: &ImageSource) -> Result<Self> {
+        match source {
+            ImageSource::Iso { url, checksum } => {
+                self.args.drive.push(format!(
+                    "file={},media=cdrom",
+                    SourceCache::default()?.get(url.clone(), checksum.clone())?
+                ));
+            }
+            _ => todo!(),
+        }
+
+        Ok(self)
     }
 
     /// Append a "-drive" argument to the invocation.

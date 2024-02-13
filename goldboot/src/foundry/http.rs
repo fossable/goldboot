@@ -8,8 +8,8 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    /// Server a file to all requests.
-    pub fn serve_file(data: Vec<u8>) -> Result<Self> {
+    /// Serve a file to all requests.
+    pub fn serve_file(data: &'static [u8]) -> Result<Self> {
         let port = crate::find_open_port(8000, 9000);
         info!("Starting static HTTP server on port: {}", port);
 

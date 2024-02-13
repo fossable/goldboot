@@ -61,7 +61,9 @@ impl DefaultSource for ArchLinux {
 
 impl CastImage for ArchLinux {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker).start()?;
+        let mut qemu = QemuBuilder::new(&worker)
+            .source(&worker.element.source)?
+            .start()?;
 
         // Send boot command
         #[rustfmt::skip]

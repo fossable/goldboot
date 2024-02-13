@@ -64,15 +64,19 @@ impl SourceCache {
         Ok(Self { directory })
     }
 
-    pub fn get(&self, url: String, checksum: &str) -> Result<String> {
+    pub fn get(&self, url: String, checksum: Option<String>) -> Result<String> {
         let id = hex::encode(Sha1::new().chain_update(&url).finalize());
         let path = self.directory.join(id);
 
         // Delete file if the checksum doesn't match
-        if path.is_file() {
-            if !Self::verify_checksum(path.to_string_lossy().to_string(), checksum).is_ok() {
-                info!("Deleting corrupt cached file");
-                std::fs::remove_file(&path)?;
+        if let Some(checksum) = checksum.clone() {
+            if path.is_file() {
+                if !Self::verify_checksum(path.to_string_lossy().to_string(), checksum.as_str())
+                    .is_ok()
+                {
+                    info!("Deleting corrupt cached file");
+                    std::fs::remove_file(&path)?;
+                }
             }
         }
 
@@ -96,7 +100,9 @@ impl SourceCache {
                 bail!("Failed to download");
             }
 
-            Self::verify_checksum(path.to_string_lossy().to_string(), checksum)?;
+            if let Some(checksum) = checksum {
+                Self::verify_checksum(path.to_string_lossy().to_string(), checksum.as_str())?;
+            }
         }
 
         Ok(path.to_string_lossy().to_string())

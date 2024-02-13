@@ -21,6 +21,7 @@ use tracing::info;
 use validator::Validate;
 
 pub mod fabricators;
+pub mod http;
 pub mod molds;
 pub mod options;
 pub mod ovmf;
@@ -240,19 +241,10 @@ pub struct FoundryWorker {
 }
 
 impl FoundryWorker {
-    /// Run the template build.
+    /// Run the image casting/building process.
     pub fn run(&mut self) -> Result<()> {
         self.start_time = Some(SystemTime::now());
         Qcow3::create(&self.qcow_path, self.qcow_size)?;
-
-        // qemuargs.drive.push(format!(
-        //     "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-        //     context.image_path
-        // ));
-        // qemuargs.drive.push(format!(
-        //     "file={},media=cdrom",
-        //     SourceCache::default()?.get(self.iso.url.clone(), &self.iso.checksum)?
-        // ));
 
         self.element.mold.cast(&self)?;
         info!(
