@@ -716,10 +716,10 @@ impl ImageHandle {
         let mut cluster_table = BufReader::new(File::open(&self.path)?);
 
         // Extend the file if necessary
-        // TODO nightly
-        // if dest.stream_len()? < self.primary_header.size {
-        //     dest.set_len(self.primary_header.size)?;
-        // }
+        // TODO stream_len?
+        if dest.metadata()?.len() < self.primary_header.size {
+            dest.set_len(self.primary_header.size)?;
+        }
 
         let mut block = vec![0u8; protected_header.block_size as usize];
 
@@ -782,7 +782,7 @@ mod tests {
     use super::*;
     use sha1::Sha1;
 
-    #[test_env_log::test]
+    #[test]
     fn convert_small_qcow2_to_unencrypted_image() -> Result<()> {
         let tmp = tempfile::tempdir()?;
 
@@ -820,7 +820,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_env_log::test]
+    #[test]
     fn convert_small_qcow2_to_encrypted_image() -> Result<()> {
         let tmp = tempfile::tempdir()?;
 

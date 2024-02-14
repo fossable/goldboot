@@ -152,7 +152,7 @@ impl ArchLinuxMirrorlist {
 /// Fetch the latest installation ISO
 fn fetch_latest_iso() -> Result<ImageSource> {
     let rs = reqwest::blocking::get(format!(
-        "http://mirror.fossable.org/archlinux/iso/latest/sha1sums.txt"
+        "http://mirror.fossable.org/archlinux/iso/latest/sha256sums.txt"
     ))?;
     if rs.status().is_success() {
         for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
@@ -161,7 +161,7 @@ fn fetch_latest_iso() -> Result<ImageSource> {
                 if let [hash, filename] = split[..] {
                     return Ok(ImageSource::Iso {
                         url: format!("http://mirror.fossable.org/archlinux/iso/latest/{filename}"),
-                        checksum: Some(format!("sha1:{hash}")),
+                        checksum: Some(format!("sha256:{hash}")),
                     });
                 }
             }
