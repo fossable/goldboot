@@ -52,14 +52,14 @@ jobs:
           name: goldboot-linux-x86_64-unknown-linux-gnu
           path: target/release/goldboot-linux
 
-      - name: Build goldboot-linux image x86_64
-        run: |
-          export RUST_BACKTRACE=1
-          export RUST_LOG=debug
-          target/release/goldboot init --template GoldbootLinux
-          jq '.templates[0].executable = "target/release/goldboot-linux"' goldboot.json >goldboot.json.tmp
-          mv goldboot.json.tmp goldboot.json
-          target/release/goldboot build --output goldboot-linux-x86_64.gb
+      # - name: Build goldboot-linux image x86_64
+      #   run: |
+      #     export RUST_BACKTRACE=1
+      #     export RUST_LOG=debug
+      #     target/release/goldboot init --template GoldbootLinux
+      #     jq '.templates[0].executable = "target/release/goldboot-linux"' goldboot.json >goldboot.json.tmp
+      #     mv goldboot.json.tmp goldboot.json
+      #     target/release/goldboot build --output goldboot-linux-x86_64.gb
 
       - uses: actions/upload-artifact@v3
         with:
@@ -78,9 +78,6 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v2
-
-      - name: Disable goldboot-linux
-        run: sed -i '' '/goldboot-linux/d' Cargo.toml
 
       - name: Run unit tests
         uses: actions-rs/cargo@v1
@@ -116,9 +113,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Disable goldboot-linux
-        run: sed -i '/goldboot-linux/d' Cargo.toml
-
       - name: Run unit tests
         uses: actions-rs/cargo@v1
         with:
@@ -148,7 +142,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [ArchLinux, Debian]
+        mold: [ArchLinux, Debian]
     steps:
       - name: Increase free space
         uses: easimon/maximize-build-space@master
@@ -174,10 +168,10 @@ jobs:
       - name: Run goldboot
         run: |
           export RUST_LOG=debug
-          goldboot init --template ${{ matrix.profile }} --disk 16G
-          goldboot build --record
+          goldboot init --mold ${{ matrix.mold }} --size 16G
+          goldboot cast --record
           fallocate -l 16GiB disk.raw
-          goldboot write --image ${{ matrix.profile }} --output disk.raw
+          goldboot write --confirm --image ${{ matrix.mold }} --output disk.raw
 
       - name: Store debug output
         if: always()
