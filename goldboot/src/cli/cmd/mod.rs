@@ -63,7 +63,7 @@ pub enum Commands {
         #[clap(long, value_enum)]
         mold: Vec<ImageMold>,
 
-        #[clap(long, value_enum)]
+        #[clap(long, default_value_t, value_enum)]
         output: FoundryConfig,
 
         /// The total image size

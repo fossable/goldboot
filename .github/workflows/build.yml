@@ -168,7 +168,7 @@ jobs:
       - name: Run goldboot
         run: |
           export RUST_LOG=debug
-          goldboot init --mold ${{ matrix.mold }} --size 16G
+          goldboot init --output json --mold ${{ matrix.mold }} --size 16G
           goldboot cast --record
           fallocate -l 16GiB disk.raw
           goldboot write --confirm --image ${{ matrix.mold }} --output disk.raw

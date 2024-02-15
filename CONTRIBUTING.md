@@ -1,41 +1,69 @@
 # Contributing
 
-Thanks for all of the interest in `goldboot`! This guide contains helpful information
-for first time contributors.
+This guide contains helpful information for first time contributors.
 
-## Crate Architecture
+## Crate architecture
 
 There are currently four crates to know about:
 
 - `goldboot`
   - The primary CLI application for building goldboot images
-  - Current estimated completion: 60%
-- `goldboot-graphics`
-  - Contains common graphical utilities
-  - Current estimated completion: 100%
-- `goldboot-linux`
-  - Specialized Linux distribution for applying goldboot images
-  - Current estimated completion: 50%
+- `goldboot-image`
+  - Implements the goldboot image format
+- `goldboot-macros`
+  - Procedural macros
 - `goldboot-registry`
   - Web service that hosts goldboot images
-  - Current estimated completion: 10%
 
-## Adding new templates
+## The metallurgy metaphor
+
+Although end-users could probably ignore it, the internals of `goldboot` use vocabulary
+taken from the field of metallurgy.
+
+#### Foundry
+
+An image foundry is a configuration object that knows how to build goldboot images.
+
+#### Mold
+
+An image mold takes an image source and refines it according to built-in rules.
+For example, the `ArchLinux` mold knows how to take Arch Linux install media (in
+the form of an ISO) and install it in an automated manner.
+
+#### Casting
+
+Casting (or building) is the process that takes image sources and produces
+a final goldboot image containing all customizations.
+
+Under the hood, foundries cast images by spawning a Qemu virtual machine and
+running one or more image molds against it (via SSH or VNC). Once the virtual
+machine is fully provisioned, its shutdown and the underlying storage (.qcow2)
+is converted into a final goldboot image (.gb).
+
+#### Alloys
+
+An alloy is an image made from more than one mold (also known as multi-boot).
+
+#### Fabricators
+
+Operates on images at the end of the casting process. For example, the shell
+fabricator runs shell commands on the image which can be useful in many cases.
+
+## Adding new molds
 
 If `goldboot` doesn't already support your operating system, it should be possible
 to add it relatively easily.
 
-Start by finding a template similar to your operating system in the `goldboot::templates`
+Start by finding a mold similar to your operating system in the `goldboot::foundry::molds`
 module.
 
 TODO
 
-## Template Maintenance
+## Mold maintenance
 
-As a result of the nature of software, templates need constant maintenance as
-new releases are made and old ones are retired. Typically this involves adding
-new versions and marking old ones as deprecated, but occasionally upstream changes
-may cause breakages for us.
+Molds often need constant maintenance as new upstream releases are made and old
+ones are retired. Typically this involves adding new versions and marking some
+as deprecated, but occasionally upstream changes may cause breakages for us.
 
 For example, we have a struct that tracks Alpine releases which needs to be
 updated about twice per year:
@@ -50,13 +78,13 @@ pub enum AlpineRelease {
     V3_16,
     #[serde(rename = "v3.15")]
     V3_15,
-	#[deprecated]
+    #[deprecated]
     #[serde(rename = "v3.14")]
     V3_14,
 }
 ```
 
-In the future, we may designate "official maintainers" for templates that change
+In the future, we may designate "official maintainers" for molds that change
 frequently to handle the burden.
 
 ## Testing
