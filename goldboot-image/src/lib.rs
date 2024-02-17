@@ -374,10 +374,7 @@ impl ImageHandle {
         let path = path.as_ref();
         let mut file = File::open(path)?;
 
-        debug!(
-            "Opening image from: {}",
-            &path.to_string_lossy().to_string()
-        );
+        debug!("Opening image from: {}", path.display());
 
         // Read primary header (always plaintext)
         let primary_header: PrimaryHeader = file.read_be()?;

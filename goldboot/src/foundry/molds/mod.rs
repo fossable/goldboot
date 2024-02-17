@@ -79,7 +79,10 @@ pub enum ImageMold {
 impl ImageMold {
     /// Supported system architectures
     pub fn architectures(&self) -> Vec<ImageArch> {
-        todo!()
+        match self {
+            ImageMold::ArchLinux(_) => vec![ImageArch::Amd64],
+            ImageMold::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+        }
     }
 
     /// Whether the template can be combined with others in the same image

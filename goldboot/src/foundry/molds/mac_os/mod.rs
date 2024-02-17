@@ -71,7 +71,7 @@ impl Template for MacOsTemplate {
         // Add boot partition
         qemuargs.drive.push(format!(
             "file={}/OpenCore.qcow2,id=OpenCore,if=none,format=qcow2",
-            context.tmp.path().to_string_lossy()
+            context.tmp.path().display()
         ));
         qemuargs
             .device

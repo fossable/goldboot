@@ -2,6 +2,7 @@ use crate::foundry::{ssh::SshConnection, vnc::VncConnection, FoundryWorker};
 use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
+use rand::Rng;
 use std::path::PathBuf;
 use std::{
     process::{Child, Command},
@@ -12,15 +13,10 @@ use tracing::{debug, info, trace};
 use super::sources::ImageSource;
 use super::sources::SourceCache;
 
-/// Get the QEMU system binary for the current platform.
-pub fn current_qemu_binary() -> &'static str {
-    if cfg!(target_arch = "x86_64") {
-        "qemu-system-x86_64"
-    } else if cfg!(target_arch = "aarch64") {
-        "qemu-system-aarch64"
-    } else {
-        panic!("Unsupported platform");
-    }
+pub enum OsCategory {
+    Darwin,
+    Linux,
+    Windows,
 }
 
 /// Detect the best acceleration type for the current hardware.
@@ -61,9 +57,11 @@ pub fn mimic_hardware() {}
 
 /// Wraps a qemu process and provides easy access to VNC and SSH.
 pub struct QemuProcess {
+    pub arch: ImageArch,
     pub process: Child,
-    pub vnc: VncConnection,
     pub ssh_port: u16,
+    pub private_key: PathBuf,
+    pub vnc: VncConnection,
 }
 
 impl Drop for QemuProcess {
@@ -73,25 +71,12 @@ impl Drop for QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn ssh(&mut self) -> Result<SshConnection> {
-        info!("Waiting for SSH connection");
-
-        let mut i = 0;
-
-        Ok(loop {
-            i += 1;
-            std::thread::sleep(Duration::from_secs(5));
-
-            // TODO spawn SSH via VNC and automatically setup randomized credentials
-            match SshConnection::new(self.ssh_port, "TODO", "TODO") {
-                Ok(ssh) => break ssh,
-                Err(error) => debug!("{}", error),
-            }
-
-            if i > 25 {
-                bail!("Maximum iterations reached");
-            }
-        })
+    pub fn ssh(&mut self, username: &str) -> Result<SshConnection> {
+        Ok(SshConnection::new(
+            username,
+            &self.private_key,
+            self.ssh_port,
+        )?)
     }
 
     pub fn shutdown_wait(&mut self) -> Result<()> {
@@ -189,17 +174,20 @@ impl Into<Vec<String>> for QemuArgs {
 }
 
 pub struct QemuBuilder {
+    arch: ImageArch,
     args: QemuArgs,
-
-    exe: PathBuf,
-    vnc_port: u16,
-    ssh_port: u16,
     debug: bool,
     record: bool,
+    ssh_port: u16,
+    private_key: PathBuf,
+    vnc_port: u16,
+    os_category: OsCategory,
 }
 
 impl QemuBuilder {
-    pub fn new(worker: &FoundryWorker) -> Self {
+    pub fn new(worker: &FoundryWorker, os_category: OsCategory) -> Self {
+        let ssh_port = rand::thread_rng().gen_range(10000..11000);
+
         Self {
             args: QemuArgs {
                 bios: worker.ovmf_path.clone(),
@@ -228,25 +216,19 @@ impl QemuBuilder {
                 // Use the recommended memory amount from the config or use a default
                 memory: worker.memory.clone(),
                 name: String::from("goldboot"),
-                netdev: vec![format!(
-                    "user,id=user.0,hostfwd=tcp::{}-:22",
-                    worker.ssh_port
-                )],
+                netdev: vec![format!("user,id=user.0,hostfwd=tcp::{}-:22", ssh_port)],
                 smbios: None,
                 smp: String::from("4,sockets=1,cores=4,threads=1"),
                 usbdevice: vec![],
                 vnc: vec![format!("127.0.0.1:{}", worker.vnc_port % 5900)],
             },
             vnc_port: worker.vnc_port,
-            ssh_port: worker.ssh_port,
-            exe: match &worker.arch {
-                ImageArch::Amd64 => "qemu-system-x86_64",
-                ImageArch::Arm64 => "qemu-system-aarch64",
-                _ => "qemu-system-x86_64",
-            }
-            .into(),
+            ssh_port,
+            private_key: crate::foundry::ssh::generate_private_key(worker.tmp.path()),
+            arch: worker.arch,
             debug: worker.debug,
             record: worker.debug,
+            os_category,
         }
     }
 
@@ -278,7 +260,13 @@ impl QemuBuilder {
 
         // Start the VM
         let cmdline: Vec<String> = self.args.into();
-        let mut process = Command::new(&self.exe).args(cmdline.iter()).spawn()?;
+        let mut process = Command::new(match &self.arch {
+            ImageArch::Amd64 => "qemu-system-x86_64",
+            ImageArch::Arm64 => "qemu-system-aarch64",
+            _ => bail!("Unknown arch"),
+        })
+        .args(cmdline.iter())
+        .spawn()?;
 
         // Connect to VNC immediately
         let vnc = loop {
@@ -300,9 +288,11 @@ impl QemuBuilder {
             }
         }?;
         Ok(QemuProcess {
+            arch: self.arch,
             process,
             vnc,
             ssh_port: self.ssh_port,
+            private_key: self.private_key,
         })
     }
 }

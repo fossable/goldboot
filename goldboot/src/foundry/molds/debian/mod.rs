@@ -11,7 +11,7 @@ use crate::{
     foundry::{
         http::HttpServer,
         options::{hostname::Hostname, unix_account::RootPassword},
-        qemu::QemuBuilder,
+        qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
         Foundry, FoundryWorker,
     },
@@ -100,7 +100,7 @@ impl DefaultSource for Debian {
 
 impl CastImage for Debian {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker)
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             .start()?;
 
@@ -121,7 +121,7 @@ impl CastImage for Debian {
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh()?;
+        let mut ssh = qemu.ssh("root")?;
 
         // Shutdown
         ssh.shutdown("poweroff")?;

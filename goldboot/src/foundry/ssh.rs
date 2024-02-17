@@ -1,5 +1,7 @@
 use anyhow::bail;
 use anyhow::Result;
+use ssh2::Session;
+use std::path::PathBuf;
 use std::{
     io::{BufRead, BufReader, Cursor},
     net::TcpStream,
@@ -8,31 +10,54 @@ use std::{
 };
 use tracing::{debug, info};
 
+/// Generate a new random SSH private key
+pub fn generate_private_key(directory: &Path) -> PathBuf {
+    todo!()
+}
+
 /// Represents an SSH session to a running VM.
 pub struct SshConnection {
     pub username: String,
-    pub password: String,
+    pub private_key: PathBuf,
     pub port: u16,
     pub session: ssh2::Session,
 }
 
 impl SshConnection {
-    pub fn new(port: u16, username: &str, password: &str) -> Result<SshConnection> {
-        debug!("Trying SSH: {}@localhost:{}", username, port);
+    pub fn new(username: &str, private_key: &PathBuf, port: u16) -> Result<SshConnection> {
+        let mut i = 0;
+        Ok(loop {
+            i += 1;
+            debug!("Trying SSH: {}@localhost:{}", username, port);
 
+            match Self::connect(username, private_key, port) {
+                Ok(session) => {
+                    break SshConnection {
+                        username: username.to_string(),
+                        private_key: private_key.clone(),
+                        port,
+                        session,
+                    }
+                }
+                Err(error) => debug!("{}", error),
+            };
+
+            if i > 25 {
+                bail!("Maximum iterations reached");
+            }
+
+            std::thread::sleep(Duration::from_secs(5));
+        })
+    }
+
+    fn connect(username: &str, private_key: &PathBuf, port: u16) -> Result<Session> {
         let mut session = ssh2::Session::new()?;
         session.set_tcp_stream(TcpStream::connect(format!("127.0.0.1:{port}"))?);
 
         session.handshake()?;
-        session.userauth_password(username, password)?;
-
+        session.userauth_pubkey_file(username, None, private_key, None)?;
         info!("Established SSH connection");
-        Ok(SshConnection {
-            username: username.to_string(),
-            password: password.to_string(),
-            port,
-            session,
-        })
+        Ok(session)
     }
 
     /// Send the shutdown command to the VM.
@@ -94,10 +119,9 @@ impl SshConnection {
                     info!("SSH disconnected; waiting for it to come back");
                     std::thread::sleep(Duration::from_secs(10));
                     for _ in 0..5 {
-                        match SshConnection::new(self.port, &self.username, &self.password) {
-                            Ok(ssh) => {
-                                // Steal the session
-                                self.session = ssh.session;
+                        match Self::connect(&self.username, &self.private_key, self.port) {
+                            Ok(session) => {
+                                self.session = session;
                                 return Ok(0);
                             }
                             Err(_) => std::thread::sleep(Duration::from_secs(50)),

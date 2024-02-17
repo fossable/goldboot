@@ -138,7 +138,6 @@ impl Foundry {
             tmp,
             start_time: None,
             end_time: None,
-            ssh_port: rand::thread_rng().gen_range(10000..11000),
             vnc_port: if self.debug {
                 5900
             } else {
@@ -224,9 +223,6 @@ pub struct FoundryWorker {
 
     /// The size of the intermediate image in bytes
     pub qcow_size: u64,
-
-    /// The VM port for SSH
-    pub ssh_port: u16,
 
     /// The start time of the run
     pub start_time: Option<SystemTime>,

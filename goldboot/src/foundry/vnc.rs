@@ -89,17 +89,17 @@ pub enum VncCmd {
     /// Input the enter key.
     Enter,
 
-    /// Input the spacebar key.
-    Spacebar,
-
-    /// Input the tab key.
-    Tab,
-
     /// Input the escape key.
     Escape,
 
     /// Input the left super button.
     LeftSuper,
+
+    /// Input the spacebar key.
+    Spacebar,
+
+    /// Input the tab key.
+    Tab,
 
     /// Input the given text characters with a half-second delay between each.
     Type(String),

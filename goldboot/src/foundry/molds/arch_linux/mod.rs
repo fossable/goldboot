@@ -2,7 +2,7 @@ use super::{CastImage, DefaultSource};
 use crate::cli::prompt::Prompt;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
-use crate::foundry::qemu::QemuBuilder;
+use crate::foundry::qemu::{OsCategory, QemuBuilder};
 use crate::foundry::sources::iso::IsoSource;
 use crate::foundry::Foundry;
 use crate::wait;
@@ -61,7 +61,7 @@ impl DefaultSource for ArchLinux {
 
 impl CastImage for ArchLinux {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker)
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             .start()?;
 
@@ -77,7 +77,7 @@ impl CastImage for ArchLinux {
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh()?;
+        let mut ssh = qemu.ssh("root")?;
 
         // Run install script
         info!("Running base installation");

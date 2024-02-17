@@ -32,7 +32,10 @@ impl Ansible {
             .arg("-e")
             .arg(format!("ansible_user={}", ssh.username))
             .arg("-e")
-            .arg(format!("ansible_ssh_pass={}", ssh.password))
+            .arg(format!(
+                "ansible_ssh_private_key_file={}",
+                ssh.private_key.display()
+            ))
             .arg("-e")
             .arg("ansible_connection=ssh")
             .arg(&self.playbook)
