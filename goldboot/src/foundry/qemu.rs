@@ -3,16 +3,21 @@ use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
 use rand::Rng;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use std::{
     process::{Child, Command},
     time::Duration,
 };
+use strum::Display;
 use tracing::{debug, info, trace};
 
 use super::sources::ImageSource;
 use super::sources::SourceCache;
 
+#[derive(Display, Clone, Copy)]
 pub enum OsCategory {
     Darwin,
     Linux,
@@ -62,6 +67,7 @@ pub struct QemuProcess {
     pub ssh_port: u16,
     pub private_key: PathBuf,
     pub vnc: VncConnection,
+    pub os_category: OsCategory,
 }
 
 impl Drop for QemuProcess {
@@ -72,6 +78,7 @@ impl Drop for QemuProcess {
 
 impl QemuProcess {
     pub fn ssh(&mut self, username: &str) -> Result<SshConnection> {
+        // TODO run sshdog
         Ok(SshConnection::new(
             username,
             &self.private_key,
@@ -181,6 +188,7 @@ pub struct QemuBuilder {
     ssh_port: u16,
     private_key: PathBuf,
     vnc_port: u16,
+    temp: PathBuf,
     os_category: OsCategory,
 }
 
@@ -222,13 +230,14 @@ impl QemuBuilder {
                 usbdevice: vec![],
                 vnc: vec![format!("127.0.0.1:{}", worker.vnc_port % 5900)],
             },
-            vnc_port: worker.vnc_port,
-            ssh_port,
-            private_key: crate::foundry::ssh::generate_private_key(worker.tmp.path()),
             arch: worker.arch,
             debug: worker.debug,
-            record: worker.debug,
             os_category,
+            private_key: crate::foundry::ssh::generate_private_key(worker.tmp.path()),
+            record: worker.debug,
+            ssh_port,
+            temp: worker.tmp.path().to_path_buf(),
+            vnc_port: worker.vnc_port,
         }
     }
 
@@ -253,6 +262,42 @@ impl QemuBuilder {
         // arg.split(',')
         self.args.drive.push(arg.to_string());
         self
+    }
+
+    /// Create a temporary FAT filesystem with the given contents and append it
+    /// to the invocation.
+    pub fn drive_files(mut self, files: HashMap<String, Vec<u8>>) -> Result<Self> {
+        let fs_name: String = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(12)
+            .map(char::from)
+            .collect();
+        let fs_path = self.temp.join(fs_name);
+        {
+            let fs_file = File::open(&fs_path)?;
+            let fs = fatfs::FileSystem::new(fs_file, fatfs::FsOptions::new())?;
+            let root_dir = fs.root_dir();
+
+            for (path, content) in &files {
+                let mut file = root_dir.create_file(path)?;
+                file.write_all(content)?;
+            }
+        }
+
+        self.args
+            .drive
+            .push(fs_path.into_os_string().to_string_lossy().to_string());
+        Ok(self)
+    }
+
+    pub fn prepare_ssh(mut self) -> Result<Self> {
+        let arch = self.arch;
+        let os_category = self.os_category;
+
+        Ok(self.drive_files(HashMap::from([(
+            "sshdog".to_string(),
+            crate::foundry::ssh::download_sshdog(arch, os_category)?,
+        )]))?)
     }
 
     pub fn start(self) -> Result<QemuProcess> {
@@ -289,10 +334,11 @@ impl QemuBuilder {
         }?;
         Ok(QemuProcess {
             arch: self.arch,
-            process,
-            vnc,
-            ssh_port: self.ssh_port,
+            os_category: self.os_category,
             private_key: self.private_key,
+            process,
+            ssh_port: self.ssh_port,
+            vnc,
         })
     }
 }

@@ -1,6 +1,11 @@
 use anyhow::bail;
 use anyhow::Result;
+use goldboot_image::ImageArch;
+use rand::Rng;
+use russh_keys::key::KeyPair;
+use russh_keys::key::SignatureHash;
 use ssh2::Session;
+use std::io::Read;
 use std::path::PathBuf;
 use std::{
     io::{BufRead, BufReader, Cursor},
@@ -10,9 +15,49 @@ use std::{
 };
 use tracing::{debug, info};
 
+use super::qemu::OsCategory;
+
 /// Generate a new random SSH private key
 pub fn generate_private_key(directory: &Path) -> PathBuf {
-    todo!()
+    let key_name: String = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(12)
+        .map(char::from)
+        .collect();
+    let key_path = directory.join(key_name);
+
+    match KeyPair::generate_rsa(2048, SignatureHash::SHA2_512) {
+        Some(KeyPair::RSA { key, hash }) => {
+            std::fs::write(&key_path, key.private_key_to_pem().unwrap()).unwrap();
+        }
+        _ => panic!(""),
+    };
+
+    key_path
+}
+
+/// Download and extract sshdog.
+pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u8>> {
+    let url = format!(
+        "https://github.com/fossable/sshdog/releases/download/v0.1.0/sshdog_0.1.0_{}_{}.tar.gz",
+        arch, os_category
+    );
+
+    let response = reqwest::blocking::get(url)?;
+    let mut uncompressed = flate2::read::GzDecoder::new(response);
+    let mut archive = tar::Archive::new(uncompressed);
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+
+        if entry.path()?.to_string_lossy().to_string() == "sshdog" {
+            let mut content = Vec::new();
+            entry.read_to_end(&mut content)?;
+            return Ok(content);
+        }
+    }
+
+    bail!("Executable not found in archive");
 }
 
 /// Represents an SSH session to a running VM.
