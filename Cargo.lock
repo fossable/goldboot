@@ -1264,7 +1264,7 @@ dependencies = [
  "futures-task",
  "futures-util",
  "gio-sys",
- "glib-macros",
+ "glib-macros 0.18.5",
  "glib-sys",
  "gobject-sys",
  "libc",
@@ -1283,6 +1283,19 @@ dependencies = [
  "heck",
  "proc-macro-crate 2.0.0",
  "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.49",
+]
+
+[[package]]
+name = "glib-macros"
+version = "0.19.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f5897ca27a83e4cdc7b4666850bade0a2e73e17689aabafcc9acddad9d823b8"
+dependencies = [
+ "heck",
+ "proc-macro-crate 3.1.0",
  "proc-macro2",
  "quote",
  "syn 2.0.49",
@@ -1327,7 +1340,7 @@ dependencies = [
  "fscommon",
  "gdk-pixbuf",
  "gdk4",
- "glib-macros",
+ "glib-macros 0.19.2",
  "goldboot-image",
  "goldboot-macros",
  "gtk4",
