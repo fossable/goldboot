@@ -17,7 +17,7 @@ console = "0.15.7"
 dialoguer = "0.11.0"
 fossable = "0.1.2"
 gdk4 = { version = "0.7.3", optional = true }
-gdk-pixbuf = { version = "0.18.3", optional = true }
+gdk-pixbuf = { version = "0.19.2", optional = true }
 glib-macros = { version = "0.18.3", optional = true }
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
 goldboot-macros = { path="../goldboot-macros", version = "0.0.1" }
