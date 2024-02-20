@@ -5,6 +5,8 @@ use goldboot_image::ImageArch;
 use rand::Rng;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{
@@ -96,6 +98,7 @@ impl QemuProcess {
     }
 }
 
+#[derive(Debug)]
 pub struct QemuArgs {
     pub bios: String,
     pub boot: String,
@@ -214,7 +217,7 @@ impl QemuBuilder {
                 // TODO nvme?
                 drive: vec![format!(
                     "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-                    worker.qcow_path
+                    worker.qcow_path.display()
                 )],
 
                 // This seems to be necessary for the EFI variables to persist
@@ -274,7 +277,15 @@ impl QemuBuilder {
             .collect();
         let fs_path = self.temp.join(fs_name);
         {
-            let fs_file = File::open(&fs_path)?;
+            let mut fs_file = File::create(&fs_path)?;
+            fs_file.set_len(files.values().map(|c| c.len() as u64).sum())?;
+
+            fatfs::format_volume(
+                fscommon::BufStream::new(fs_file),
+                fatfs::FormatVolumeOptions::new(),
+            )?;
+
+            let mut fs_file = File::open(&fs_path)?;
             let fs = fatfs::FileSystem::new(fs_file, fatfs::FsOptions::new())?;
             let root_dir = fs.root_dir();
 
@@ -301,7 +312,7 @@ impl QemuBuilder {
     }
 
     pub fn start(self) -> Result<QemuProcess> {
-        info!("Spawning new qemu process");
+        info!(args = ?self.args, "Spawning new qemu process");
 
         // Start the VM
         let cmdline: Vec<String> = self.args.into();

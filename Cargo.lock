@@ -1000,6 +1000,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fscommon"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "315ce685aca5ddcc5a3e7e436ef47d4a5d0064462849b6f0f628c28140103531"
+dependencies = [
+ "log 0.4.20",
+]
+
+[[package]]
 name = "fstab"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1315,6 +1324,7 @@ dependencies = [
  "fatfs",
  "flate2 1.0.28",
  "fossable",
+ "fscommon",
  "gdk-pixbuf",
  "gdk4",
  "glib-macros",

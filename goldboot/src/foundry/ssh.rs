@@ -40,10 +40,15 @@ pub fn generate_private_key(directory: &Path) -> PathBuf {
 pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u8>> {
     let url = format!(
         "https://github.com/fossable/sshdog/releases/download/v0.1.0/sshdog_0.1.0_{}_{}.tar.gz",
-        arch, os_category
-    );
+        os_category, arch,
+    )
+    .to_lowercase();
 
+    debug!(url, "Downloading sshdog");
     let response = reqwest::blocking::get(url)?;
+    if !response.status().is_success() {
+        bail!("Failed to download");
+    }
     let mut uncompressed = flate2::read::GzDecoder::new(response);
     let mut archive = tar::Archive::new(uncompressed);
 

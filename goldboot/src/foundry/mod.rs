@@ -118,9 +118,6 @@ impl Foundry {
         // Obtain a temporary directory for the worker
         let tmp = tempfile::tempdir().unwrap();
 
-        // Determine image path
-        let image_path = tmp.path().join("image.gb").to_string_lossy().to_string();
-
         // Unpack included firmware if one isn't given
         let ovmf_path = if let Some(path) = self.ovmf_path.clone() {
             path
@@ -134,19 +131,19 @@ impl Foundry {
         FoundryWorker {
             arch: self.arch,
             debug: self.debug,
-            memory: self.memory.clone().unwrap_or(String::from("4G")),
-            tmp,
-            start_time: None,
             end_time: None,
+            memory: self.memory.clone().unwrap_or(String::from("4G")),
+            ovmf_path,
+            qcow_path: tmp.path().join("image.gb.qcow2"),
+            qcow_size: element.size(self.size.clone()),
+            start_time: None,
+            tmp,
             vnc_port: if self.debug {
                 5900
             } else {
                 rand::thread_rng().gen_range(5900..5999)
             },
-            qcow_path: image_path,
-            qcow_size: element.size(self.size.clone()),
             element,
-            ovmf_path,
         }
     }
 
@@ -219,7 +216,7 @@ pub struct FoundryWorker {
     pub memory: String,
 
     /// The path to the intermediate image artifact
-    pub qcow_path: String,
+    pub qcow_path: PathBuf,
 
     /// The size of the intermediate image in bytes
     pub qcow_size: u64,

@@ -63,6 +63,7 @@ impl CastImage for ArchLinux {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
+            .prepare_ssh()?
             .start()?;
 
         // Send boot command
