@@ -29,7 +29,11 @@ pub fn generate_key(directory: &Path) -> PathBuf {
     match KeyPair::generate_rsa(2048, SignatureHash::SHA2_512) {
         Some(KeyPair::RSA { key, hash }) => {
             std::fs::write(&key_path, key.private_key_to_pem().unwrap()).unwrap();
-            std::fs::write(&key_path.join(".pub"), key.public_key_to_pem().unwrap()).unwrap();
+            std::fs::write(
+                &key_path.with_extension(".pub"),
+                key.public_key_to_pem().unwrap(),
+            )
+            .unwrap();
         }
         _ => panic!(""),
     };

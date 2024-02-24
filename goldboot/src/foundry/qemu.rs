@@ -90,7 +90,7 @@ impl QemuProcess {
             enter!("mount -t vfat /dev/vdb /tmp/goldboot"),
 
             // Spawn the temporary SSH server
-            enter!(format!("/tmp/goldboot/sshdog {} {} {}", self.ssh_port, self.host_key.display(), self.private_key.join(".pub").display())),
+            enter!(format!("/tmp/goldboot/sshdog {} {} {}.pub", self.ssh_port, self.host_key.display(), self.private_key.display())),
         ])?;
 
         Ok(SshConnection::new(
@@ -337,7 +337,7 @@ impl QemuBuilder {
     pub fn prepare_ssh(mut self) -> Result<Self> {
         let sshdog = crate::foundry::ssh::download_sshdog(self.arch, self.os_category)?;
         let host_key = std::fs::read(&self.ssh_host_key)?;
-        let public_key = std::fs::read(self.ssh_private_key.join(".pub"))?;
+        let public_key = std::fs::read(self.ssh_private_key.with_extension(".pub"))?;
 
         Ok(self.drive_files(HashMap::from([
             ("sshdog".to_string(), sshdog),
