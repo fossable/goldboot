@@ -17,8 +17,8 @@ use tracing::{debug, info};
 
 use super::qemu::OsCategory;
 
-/// Generate a new random SSH private key
-pub fn generate_private_key(directory: &Path) -> PathBuf {
+/// Generate a new random SSH keypair
+pub fn generate_key(directory: &Path) -> PathBuf {
     let key_name: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
         .take(12)
@@ -29,6 +29,7 @@ pub fn generate_private_key(directory: &Path) -> PathBuf {
     match KeyPair::generate_rsa(2048, SignatureHash::SHA2_512) {
         Some(KeyPair::RSA { key, hash }) => {
             std::fs::write(&key_path, key.private_key_to_pem().unwrap()).unwrap();
+            std::fs::write(&key_path.join(".pub"), key.public_key_to_pem().unwrap()).unwrap();
         }
         _ => panic!(""),
     };
@@ -39,7 +40,7 @@ pub fn generate_private_key(directory: &Path) -> PathBuf {
 /// Download and extract sshdog.
 pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u8>> {
     let url = format!(
-        "https://github.com/fossable/sshdog/releases/download/v0.1.0/sshdog_0.1.0_{}_{}.tar.gz",
+        "https://github.com/fossable/sshdog/releases/download/v0.2.0/sshdog_0.2.0_{}_{}.tar.gz",
         os_category, arch,
     )
     .to_lowercase();
