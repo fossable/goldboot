@@ -28,10 +28,19 @@ pub fn generate_key(directory: &Path) -> PathBuf {
 
     match KeyPair::generate_rsa(2048, SignatureHash::SHA2_512) {
         Some(KeyPair::RSA { key, hash }) => {
+            let public_key = String::from_utf8(key.public_key_to_pem().unwrap()).unwrap();
+
             std::fs::write(&key_path, key.private_key_to_pem().unwrap()).unwrap();
             std::fs::write(
-                &key_path.with_extension(".pub"),
-                key.public_key_to_pem().unwrap(),
+                &key_path.with_extension("pub"),
+                format!(
+                    "ssh-rsa {}\n",
+                    public_key
+                        .split("\n")
+                        .filter(|s| !s.starts_with("-"))
+                        .collect::<Vec<&str>>()
+                        .join("")
+                ),
             )
             .unwrap();
         }
