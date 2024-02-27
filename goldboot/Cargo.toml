@@ -50,11 +50,11 @@ anyhow = "1.0.76"
 byte-unit = "5.1.2"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-russh-keys = { version = "0.42.0", features = ["openssl"] }
 fatfs = "0.3.6"
 flate2 = "1.0.28"
 tar = "0.4.40"
 fscommon = "0.1.1"
+ssh-key = { version = "0.6.4", features = ["ed25519"] }
 
 [dev-dependencies]
 

@@ -211,8 +211,8 @@ pub struct QemuBuilder {
 impl QemuBuilder {
     pub fn new(worker: &FoundryWorker, os_category: OsCategory) -> Self {
         let ssh_port = rand::thread_rng().gen_range(10000..11000);
-        let ssh_private_key = crate::foundry::ssh::generate_key(worker.tmp.path());
-        let ssh_host_key = crate::foundry::ssh::generate_key(worker.tmp.path());
+        let ssh_private_key = crate::foundry::ssh::generate_key(worker.tmp.path()).unwrap();
+        let ssh_host_key = crate::foundry::ssh::generate_key(worker.tmp.path()).unwrap();
 
         Self {
             args: QemuArgs {
@@ -242,7 +242,7 @@ impl QemuBuilder {
                 // Use the recommended memory amount from the config or use a default
                 memory: worker.memory.clone(),
                 name: String::from("goldboot"),
-                netdev: vec![format!("user,id=user.0,hostfwd=tcp::{}-:22", ssh_port)],
+                netdev: vec![],
                 smbios: None,
                 smp: String::from("4,sockets=1,cores=4,threads=1"),
                 usbdevice: vec![],
@@ -338,6 +338,11 @@ impl QemuBuilder {
         let sshdog = crate::foundry::ssh::download_sshdog(self.arch, self.os_category)?;
         let host_key = std::fs::read(&self.ssh_host_key)?;
         let public_key = std::fs::read(self.ssh_private_key.with_extension("pub"))?;
+
+        self.args.netdev.push(format!(
+            "user,id=user.0,hostfwd=tcp::{}-:{}",
+            self.ssh_port, self.ssh_port
+        ));
 
         Ok(self.drive_files(HashMap::from([
             ("sshdog".to_string(), sshdog),

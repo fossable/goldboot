@@ -2,9 +2,10 @@ use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
 use rand::Rng;
-use russh_keys::key::KeyPair;
-use russh_keys::key::SignatureHash;
 use ssh2::Session;
+use ssh_key::Algorithm;
+use ssh_key::LineEnding;
+use ssh_key::PrivateKey;
 use std::io::Read;
 use std::path::PathBuf;
 use std::{
@@ -18,7 +19,7 @@ use tracing::{debug, info};
 use super::qemu::OsCategory;
 
 /// Generate a new random SSH keypair
-pub fn generate_key(directory: &Path) -> PathBuf {
+pub fn generate_key(directory: &Path) -> Result<PathBuf> {
     let key_name: String = rand::thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
         .take(12)
@@ -26,28 +27,14 @@ pub fn generate_key(directory: &Path) -> PathBuf {
         .collect();
     let key_path = directory.join(key_name);
 
-    match KeyPair::generate_rsa(2048, SignatureHash::SHA2_512) {
-        Some(KeyPair::RSA { key, hash }) => {
-            let public_key = String::from_utf8(key.public_key_to_pem().unwrap()).unwrap();
+    let private_key = PrivateKey::random(&mut rand::thread_rng(), Algorithm::Ed25519)?;
+    std::fs::write(&key_path, private_key.to_openssh(LineEnding::LF)?)?;
+    std::fs::write(
+        &key_path.with_extension("pub"),
+        private_key.public_key().to_openssh()?,
+    )?;
 
-            std::fs::write(&key_path, key.private_key_to_pem().unwrap()).unwrap();
-            std::fs::write(
-                &key_path.with_extension("pub"),
-                format!(
-                    "ssh-rsa {}\n",
-                    public_key
-                        .split("\n")
-                        .filter(|s| !s.starts_with("-"))
-                        .collect::<Vec<&str>>()
-                        .join("")
-                ),
-            )
-            .unwrap();
-        }
-        _ => panic!(""),
-    };
-
-    key_path
+    Ok(key_path)
 }
 
 /// Download and extract sshdog.
