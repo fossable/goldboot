@@ -8,6 +8,7 @@ use ssh_key::LineEnding;
 use ssh_key::PrivateKey;
 use std::io::Read;
 use std::path::PathBuf;
+use std::thread::sleep;
 use std::{
     io::{BufRead, BufReader, Cursor},
     net::TcpStream,
@@ -40,7 +41,7 @@ pub fn generate_key(directory: &Path) -> Result<PathBuf> {
 /// Download and extract sshdog.
 pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u8>> {
     let url = format!(
-        "https://github.com/fossable/sshdog/releases/download/v0.2.0/sshdog_0.2.0_{}_{}.tar.gz",
+        "https://github.com/fossable/sshdog/releases/download/v0.2.1/sshdog_0.2.1_{}_{}.tar.gz",
         os_category, arch,
     )
     .to_lowercase();
@@ -127,6 +128,7 @@ impl SshConnection {
     }
 
     pub fn upload(&self, source: &[u8], dest: &str) -> Result<()> {
+        debug!(bytes = source.len(), dest, "Uploading file with scp");
         let mut channel =
             self.session
                 .scp_send(Path::new(dest), 0o700, source.len().try_into()?, None)?;
@@ -142,7 +144,7 @@ impl SshConnection {
 
     /// Run a command on the VM with the given environment.
     pub fn exec_env(&mut self, cmdline: &str, env: Vec<(&str, &str)>) -> Result<i32> {
-        debug!("Executing command: '{}'", cmdline);
+        debug!(cmdline, environment = ?env, "Executing command over ssh");
 
         let mut channel = self.session.channel_session()?;
 
@@ -159,6 +161,7 @@ impl SshConnection {
             let mut line = String::new();
             match stdout.read_line(&mut line) {
                 Ok(0) => break,
+                // TODO part of some span like goldboot::foundry::fabricator::exe
                 Ok(_) => debug!(
                     "(fabricator) {}",
                     line.strip_suffix("\r\n")

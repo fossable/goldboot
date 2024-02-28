@@ -10,7 +10,9 @@ timedatectl set-ntp true
 date
 
 # Configure Pacman mirrors
-echo "${GB_MIRRORLIST:?}" >/etc/pacman.d/mirrorlist
+if [ ${#GB_MIRRORLIST} -gt 0 ]; then
+	echo "${GB_MIRRORLIST}" >/etc/pacman.d/mirrorlist
+fi
 
 # Create partitions
 parted --script -a optimal -- /dev/vda \

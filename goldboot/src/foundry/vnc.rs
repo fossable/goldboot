@@ -101,7 +101,7 @@ pub enum VncCmd {
     /// Input the tab key.
     Tab,
 
-    /// Input the given text characters with a half-second delay between each.
+    /// Input the given text characters with a short delay between each.
     Type(String),
 
     /// Wait the given amount of seconds.
@@ -288,7 +288,7 @@ impl VncConnection {
                                     }
                                 }
                             }
-                            std::thread::sleep(Duration::from_millis(100));
+                            std::thread::sleep(Duration::from_millis(50));
                         }
                     }
                     VncCmd::Wait(duration) => {
