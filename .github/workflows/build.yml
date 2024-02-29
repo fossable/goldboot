@@ -7,15 +7,13 @@ on:
 
 jobs:
   build-linux:
-    name: Build Linux
-    runs-on: ubuntu-22.04
+    name: Build / ubuntu-latest / x86_64
+    runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
         run: |
-          #sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y libudev-dev libgtk-4-dev jq
-          #sudo apt-get install -y libudev-dev:arm64 libgtk-4-dev:arm64 openssl-dev:arm64
 
       - name: Install rust
         uses: actions-rs/toolchain@v1
@@ -67,7 +65,7 @@ jobs:
           path: goldboot-linux-x86_64.gb
 
   build-macos:
-    name: Build macOS
+    name: Build / macos-latest / x86_64
     runs-on: macos-latest
     steps:
       - name: Install rust
@@ -101,7 +99,7 @@ jobs:
           path: target/release/goldboot-registry
 
   build-windows:
-    name: Build Windows
+    name: Build / windows-latest / x86_64
     runs-on: windows-latest
     steps:
       - name: Install rust
@@ -136,8 +134,8 @@ jobs:
 
   test-x86_64:
     if: github.event_name != 'pull_request'
-    name: Test ${{ matrix.profile }} x86_64
-    runs-on: ubuntu-22.04
+    name: Test / ubuntu-latest / x86_64 / ${{ matrix.mold }} (x86_64)
+    runs-on: ubuntu-latest
     needs: build-linux
     strategy:
       fail-fast: false

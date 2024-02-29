@@ -51,7 +51,7 @@ impl Prompt for ArchLinux {
 impl DefaultSource for ArchLinux {
     fn default_source(&self) -> ImageSource {
         ImageSource::Iso {
-            url: "http://mirror.fossable.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso".to_string(),
+            url: "https://mirrors.edge.kernel.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso".to_string(),
             checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
         }
     }
