@@ -67,15 +67,13 @@ pub struct Debian {
 
     #[serde(flatten)]
     pub hostname: Option<Hostname>,
-    pub root_password: Option<RootPassword>,
+    pub root_password: RootPassword,
 }
 
 impl Default for Debian {
     fn default() -> Self {
         Self {
-            root_password: Some(RootPassword {
-                plaintext: "root".to_string(),
-            }),
+            root_password: RootPassword::Plaintext("root".to_string()),
             edition: DebianEdition::default(),
             hostname: Some(Hostname::default()),
         }

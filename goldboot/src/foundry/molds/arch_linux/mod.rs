@@ -1,9 +1,9 @@
 use super::{CastImage, DefaultSource};
 use crate::cli::prompt::Prompt;
+use crate::foundry::fabricators::Fabricate;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
 use crate::foundry::qemu::{OsCategory, QemuBuilder};
-use crate::foundry::sources::iso::IsoSource;
 use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
@@ -25,15 +25,13 @@ pub struct ArchLinux {
     pub hostname: Option<Hostname>,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
     pub packages: Option<ArchLinuxPackages>,
-    pub root_password: Option<RootPassword>,
+    pub root_password: RootPassword,
 }
 
 impl Default for ArchLinux {
     fn default() -> Self {
         Self {
-            root_password: Some(RootPassword {
-                plaintext: "root".to_string(),
-            }),
+            root_password: RootPassword::Plaintext("root".to_string()),
             packages: None,
             mirrorlist: None,
             hostname: Some(Hostname {
@@ -81,18 +79,22 @@ impl CastImage for ArchLinux {
         // Run install script
         info!("Running base installation");
         match ssh.upload_exec(
-            include_bytes!("install.sh"),
+            include_bytes!("bootstrap.sh"),
             vec![
                 // ("GB_MIRRORLIST", &self.format_mirrorlist()),
-                // ("GB_ROOT_PASSWORD", &self.root_password),
+                ("GB_ROOT_PASSWORD", &self.root_password.to_string()),
             ],
         ) {
             Ok(0) => debug!("Installation completed successfully"),
             _ => bail!("Installation failed"),
         }
 
-        // Run provisioners
-        // self.provisioners.run(&mut ssh)?;
+        // Run remaining fabricators
+        if let Some(fabricators) = &worker.element.fabricators {
+            for fabricator in fabricators {
+                fabricator.run(&mut ssh)?;
+            }
+        }
 
         // Shutdown
         ssh.shutdown("poweroff")?;
@@ -169,6 +171,7 @@ fn fetch_latest_iso() -> Result<ImageSource> {
     bail!("Failed to request latest ISO");
 }
 
+// TODO we can validate package names early
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ArchLinuxPackages {
     packages: Vec<String>,

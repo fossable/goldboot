@@ -121,9 +121,18 @@ impl SshConnection {
     }
 
     pub fn upload_exec(&mut self, source: &[u8], env: Vec<(&str, &str)>) -> Result<i32> {
-        self.upload(source, "/tmp/tmp.script")?;
-        let exit = self.exec_env("/tmp/tmp.script", env)?;
-        self.exec("rm -f /tmp/tmp.script")?;
+        let id: String = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(12)
+            .map(char::from)
+            .collect();
+        let path = format!("/tmp/gb_{id}");
+
+        self.upload(source, &path)?;
+        let exit = self.exec_env(&path, env)?;
+
+        // Attempt to cleanup, but don't fail if we can't
+        _ = self.exec(&format!("rm -f {path}"));
         Ok(exit)
     }
 

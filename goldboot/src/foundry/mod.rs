@@ -1,6 +1,6 @@
 use self::{fabricators::Fabricator, molds::ImageMold, sources::ImageSource};
-use crate::cli::progress::ProgressBar;
 use crate::foundry::molds::CastImage;
+use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 
 use anyhow::Result;
 use byte_unit::Byte;
@@ -188,14 +188,28 @@ impl Foundry {
         };
 
         // Convert into final immutable image
-        ImageHandle::convert(
-            &final_qcow,
-            self.name.clone(),
-            ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
-            self.password.clone(),
-            output.unwrap(), // TODO ImageLibrary
-            ProgressBar::Convert.new_empty(),
-        )?;
+        if let Some(output) = output {
+            ImageHandle::convert(
+                &final_qcow,
+                self.name.clone(),
+                ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
+                self.password.clone(),
+                output,
+                ProgressBar::Convert.new_empty(),
+            )?;
+        } else {
+            let tmp = ImageLibrary::open().temporary();
+            ImageHandle::convert(
+                &final_qcow,
+                self.name.clone(),
+                ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
+                self.password.clone(),
+                &tmp,
+                ProgressBar::Convert.new_empty(),
+            )?;
+
+            ImageLibrary::open().add_move(tmp)?;
+        }
 
         Ok(())
     }

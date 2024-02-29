@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
 use dialoguer::{theme::Theme, Password};
@@ -45,7 +47,28 @@ impl Default for UnixAccountProvisioner {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct RootPassword {
-    pub plaintext: String,
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum RootPassword {
+    /// Simple plaintext password
+    Plaintext(String),
+
+    /// Take plaintext password from environment variable
+    PlaintextEnv(String),
+}
+
+impl Display for RootPassword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match &self {
+                RootPassword::Plaintext(password) => format!("plain:{password}"),
+                RootPassword::PlaintextEnv(name) => format!(
+                    "plain:{}",
+                    std::env::var(name).expect("environment variable not found")
+                ),
+            }
+        )
+    }
 }

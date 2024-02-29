@@ -1,6 +1,5 @@
-#!/bin/bash -x
-## Perform a basic Arch Linux install.
-set -e
+#!/bin/bash -e
+
 exec 1>&2
 
 # Synchronize time
@@ -51,7 +50,7 @@ mount --mkdir /dev/vda1 /mnt/boot
 mount
 
 # Bootstrap filesystem
-pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd openssh python python-pip
+pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
 
 # Generate fstab
 genfstab -U /mnt >/mnt/etc/fstab
@@ -74,19 +73,11 @@ fi
 arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 
-# Enable sshd
-systemctl enable sshd.service --root /mnt
-
 # Enable dhcpcd
 systemctl enable dhcpcd.service --root /mnt
 
 # Set root password
 echo "root:${GB_ROOT_PASSWORD:?}" | chpasswd --root /mnt
 
-# Allow root login for subsequent provisioning
-cat <<-EOF >>/mnt/etc/ssh/sshd_config
-	PermitRootLogin yes
-EOF
-
 # Complete
-reboot
+# reboot

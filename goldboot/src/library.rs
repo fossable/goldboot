@@ -3,6 +3,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageHandle;
+use rand::Rng;
 use sha1::Digest;
 use sha2::Sha256;
 use std::{
@@ -22,24 +23,32 @@ pub struct ImageLibrary {
     pub directory: PathBuf,
 }
 
-/// Return the image library path for the current platform.
-fn library_path() -> PathBuf {
-    let path = if cfg!(target_os = "linux") {
-        PathBuf::from("/var/lib/goldboot/images")
-    } else if cfg!(target_os = "macos") {
-        PathBuf::from("/var/lib/goldboot/images")
-    } else {
-        panic!("Unsupported platform");
-    };
-
-    std::fs::create_dir_all(&path).unwrap();
-    path
-}
-
 impl ImageLibrary {
+    pub fn open() -> Self {
+        let directory = if cfg!(target_os = "linux") {
+            PathBuf::from("/var/lib/goldboot/images")
+        } else if cfg!(target_os = "macos") {
+            PathBuf::from("/var/lib/goldboot/images")
+        } else {
+            panic!("Unsupported platform");
+        };
+
+        std::fs::create_dir_all(&directory).expect("failed to create image library");
+        ImageLibrary { directory }
+    }
+
+    pub fn temporary(&self) -> PathBuf {
+        let name: String = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(12)
+            .map(char::from)
+            .collect();
+        self.directory.join(name)
+    }
+
     /// Add an image to the library. The image will be hashed and copied to the
     /// library with the appropriate name.
-    pub fn add(image_path: impl AsRef<Path>) -> Result<()> {
+    pub fn add_copy(&self, image_path: impl AsRef<Path>) -> Result<()> {
         info!("Saving image to library");
 
         let mut hasher = Sha256::new();
@@ -50,13 +59,30 @@ impl ImageLibrary {
         )?;
         let hash = hex::encode(hasher.finalize());
 
-        std::fs::copy(&image_path, library_path().join(format!("{hash}.gb")))?;
+        std::fs::copy(&image_path, self.directory.join(format!("{hash}.gb")))?;
+        Ok(())
+    }
+
+    /// Add an image to the library. The image will be hashed and moved to the
+    /// library with the appropriate name.
+    pub fn add_move(&self, image_path: impl AsRef<Path>) -> Result<()> {
+        info!("Saving image to library");
+
+        let mut hasher = Sha256::new();
+        ProgressBar::Hash.copy(
+            &mut File::open(&image_path)?,
+            &mut hasher,
+            std::fs::metadata(&image_path)?.len(),
+        )?;
+        let hash = hex::encode(hasher.finalize());
+
+        std::fs::rename(&image_path, self.directory.join(format!("{hash}.gb")))?;
         Ok(())
     }
 
     /// Remove an image from the library by ID.
-    pub fn delete(image_id: &str) -> Result<()> {
-        for p in library_path().read_dir()? {
+    pub fn delete(&self, image_id: &str) -> Result<()> {
+        for p in self.directory.read_dir()? {
             let path = p?.path();
             let filename = path.file_name().unwrap().to_str().unwrap();
 
@@ -72,8 +98,8 @@ impl ImageLibrary {
     }
 
     /// Download a goldboot image over HTTP.
-    pub fn download(url: String) -> Result<ImageHandle> {
-        let path = library_path().join("goldboot-linux.gb");
+    pub fn download(&self, url: String) -> Result<ImageHandle> {
+        let path = self.directory.join("goldboot-linux.gb");
 
         let mut rs = reqwest::blocking::get(&url)?;
         if rs.status().is_success() {
@@ -93,7 +119,7 @@ impl ImageLibrary {
 
     /// Find images in the library by ID.
     pub fn find_by_id(image_id: &str) -> Result<ImageHandle> {
-        Ok(ImageLibrary::load()?
+        Ok(Self::load()?
             .into_iter()
             .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
             .ok_or_else(|| anyhow!("Image not found"))?)
@@ -101,7 +127,7 @@ impl ImageLibrary {
 
     /// Find images in the library by name.
     pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>> {
-        Ok(ImageLibrary::load()?
+        Ok(Self::load()?
             .into_iter()
             .filter(|image| image.primary_header.name() == image_name)
             .collect())
@@ -111,7 +137,7 @@ impl ImageLibrary {
     pub fn load() -> Result<Vec<ImageHandle>> {
         let mut images = Vec::new();
 
-        for p in library_path().read_dir()? {
+        for p in Self::open().directory.read_dir()? {
             let path = p?.path();
 
             if let Some(ext) = path.extension() {
