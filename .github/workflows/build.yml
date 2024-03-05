@@ -7,19 +7,24 @@ on:
 
 jobs:
   build-linux:
-    name: Build / ubuntu-latest (x86_64)
+    name: Build / ubuntu-latest (x86_64) / ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf, i686-unknown-linux-gnu, i686-unknown-linux-musl, mips-unknown-linux-gnu, mips64-unknown-linux-gnuabi64, mips64el-unknown-linux-gnuabi64, mipsel-unknown-linux-gnu, powerpc-unknown-linux-gnu, powerpc64-unknown-linux-gnu, powerpc64le-unknown-linux-gnu, arm-unknown-linux-gnueabi, x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl]
     steps:
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev libgtk-4-dev jq
+      # - name: Install dependencies
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y libudev-dev libgtk-4-dev jq
 
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
+          profile: minimal
           override: true
+          target: ${{ matrix.target }}
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,27 +32,29 @@ jobs:
       - name: Run unit tests
         uses: actions-rs/cargo@v1
         with:
+          use_cross: true
           command: test
 
       - name: Build x86_64
         uses: actions-rs/cargo@v1
         with:
+          use_cross: true
           command: build
           args: --release
 
       - uses: actions/upload-artifact@v3
         with:
-          name: goldboot-x86_64-unknown-linux-gnu
+          name: goldboot-${{ matrix.target }}
           path: target/release/goldboot
 
       - uses: actions/upload-artifact@v3
         with:
-          name: goldboot-registry-x86_64-unknown-linux-gnu
+          name: goldboot-registry-${{ matrix.target }}
           path: target/release/goldboot-registry
 
       - uses: actions/upload-artifact@v3
         with:
-          name: goldboot-linux-x86_64-unknown-linux-gnu
+          name: goldboot-linux-${{ matrix.target }}
           path: target/release/goldboot-linux
 
       # - name: Build goldboot-linux image x86_64
@@ -151,7 +158,14 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: goldboot-x86_64-unknown-linux-gnu
-          path: goldboot/bin/linux-x86_64
+          path: goldboot/bin/linux-amd64
+
+      # TODO temporary
+      - name: Copy goldboot-x86_64-unknown-linux-gnu
+        uses: actions/download-artifact@v3
+        with:
+          name: goldboot-x86_64-unknown-linux-gnu
+          path: goldboot/bin/linux-arm64
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
