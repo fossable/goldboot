@@ -12,8 +12,8 @@ repository = "https://github.com/fossable/goldboot"
 [dependencies]
 axum = "0.6.20"
 reqwest = { version = "0.11.22", features = ["stream"] }
-rustls = "0.21.8"
-rustls-pemfile = "1.0.3"
+rustls = "0.23.1"
+rustls-pemfile = "2.1.1"
 tokio = { version = "1.34.0", features = ["full"] }
 goldboot = { path="../goldboot", version = "0.0.1" }
 anyhow = "1.0.76"
