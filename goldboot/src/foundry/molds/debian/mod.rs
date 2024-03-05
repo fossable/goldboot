@@ -22,8 +22,8 @@ use super::{CastImage, DefaultSource};
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub enum DebianEdition {
-    #[default]
     Bullseye,
+    #[default]
     Bookworm,
     Trixie,
     Sid,
@@ -88,11 +88,8 @@ impl Prompt for Debian {
 }
 
 impl DefaultSource for Debian {
-    fn default_source(&self) -> ImageSource {
-        ImageSource::Iso {
-            url: "http://mirror.fossable.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso".to_string(),
-            checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
-        }
+    fn default_source(&self, arch: ImageArch) -> Result<ImageSource> {
+        fetch_debian_iso(DebianEdition::default(), arch)
     }
 }
 

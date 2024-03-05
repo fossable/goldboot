@@ -35,7 +35,7 @@ impl Prompt for Android {
 }
 
 impl DefaultSource for Android {
-    fn default_source(&self) -> ImageSource {
+    fn default_source(&self, arch: ImageArch) -> Result<ImageSource> {
         todo!()
     }
 }

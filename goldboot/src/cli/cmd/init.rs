@@ -49,7 +49,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
 
                 for m in mold {
                     foundry.alloy.push(ImageElement {
-                        source: m.default_source(),
+                        source: m.default_source(foundry.arch)?,
                         mold: m,
                         fabricators: None,
                         pref_size: None,
@@ -110,7 +110,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
 
                     let mold = &molds[choice_index];
                     foundry.alloy.push(ImageElement {
-                        source: mold.default_source(),
+                        source: mold.default_source(foundry.arch)?,
                         mold: mold.to_owned(),
                         fabricators: None,
                         pref_size: None,

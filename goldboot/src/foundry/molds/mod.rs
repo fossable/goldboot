@@ -29,7 +29,7 @@ pub trait CastImage {
 
 #[enum_dispatch(ImageMold)]
 pub trait DefaultSource {
-    fn default_source(&self) -> ImageSource;
+    fn default_source(&self, arch: ImageArch) -> Result<ImageSource>;
 }
 
 /// Represents a "base configuration" that users can modify and use to build
