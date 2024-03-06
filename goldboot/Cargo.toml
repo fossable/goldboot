@@ -54,7 +54,7 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ubyte = "0.10.4"
 url = { version = "2.4.1", features = ["serde"] }
-validator = { version = "0.16.1", features = ["derive"] }
+validator = { version = "0.17.0", features = ["derive"] }
 vnc = "0.4.0"
 whoami = "1.4.1"
 zstd = "0.13.0"
