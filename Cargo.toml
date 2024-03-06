@@ -6,5 +6,4 @@ members = [
     "goldboot",
     "goldboot-image",
     "goldboot-macros",
-    "goldboot-registry",
 ]

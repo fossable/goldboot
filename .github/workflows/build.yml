@@ -49,11 +49,6 @@ jobs:
           name: goldboot-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/goldboot
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: goldboot-registry-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/goldboot-registry
-
       # - uses: actions/upload-artifact@v3
       #   with:
       #     name: goldboot-linux-${{ matrix.target }}
@@ -102,11 +97,6 @@ jobs:
           name: goldboot-x86_64-apple-darwin
           path: target/release/goldboot
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: goldboot-registry-x86_64-apple-darwin
-          path: target/release/goldboot-registry
-
   build-windows:
     name: Build / windows-latest (x86_64)
     runs-on: windows-latest
@@ -135,11 +125,6 @@ jobs:
         with:
           name: goldboot-x86_64-pc-windows-msvc
           path: target/release/goldboot
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: goldboot-registry-x86_64-pc-windows-msvc
-          path: target/release/goldboot-registry
 
   build-docker:
     if: github.event_name != 'pull_request'

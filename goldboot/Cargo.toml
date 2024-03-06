@@ -10,12 +10,19 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
+anyhow = "1.0.76"
+axum = { version = "0.7.4", optional = true }
 block-utils = { version = "0.11.1", optional = true }
+byte-unit = "5.1.2"
 chrono = "0.4.31"
 clap = { version = "4.4.7", features = ["derive", "string"] }
 console = "0.15.7"
 dialoguer = "0.11.0"
+enum_dispatch = "0.3.12"
+fatfs = "0.3.6"
+flate2 = "1.0.28"
 fossable = "0.1.2"
+fscommon = "0.1.1"
 gdk4 = { version = "0.8.0", optional = true }
 gdk-pixbuf = { version = "0.19.2", optional = true }
 glib-macros = { version = "0.19.2", optional = true }
@@ -29,37 +36,36 @@ rand = "0.8.5"
 regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["stream", "blocking", "json"] }
 ron = "0.8.1"
+rustls = { version = "0.23.1", features = ["ring"] }
+serde_json = "1.0.108"
 serde = { version = "1.0.190", features = ["derive"] }
 serde_win_unattend = "0.1.0"
+serde_yaml = "0.9.27"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] } # TODO russh
+ssh-key = { version = "0.6.4", features = ["ed25519"] }
 strum = { version = "0.26.1", features = ["derive"] }
+tar = "0.4.40"
 tempfile = "3.10.0"
+tokio = { version = "1.36.0", features = ["full"], optional = true }
+toml = "0.8.8"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ubyte = "0.10.4"
 url = { version = "2.4.1", features = ["serde"] }
 validator = { version = "0.16.1", features = ["derive"] }
 vnc = "0.4.0"
 whoami = "1.4.1"
 zstd = "0.13.0"
-enum_dispatch = "0.3.12"
-serde_json = "1.0.108"
-toml = "0.8.8"
-serde_yaml = "0.9.27"
-anyhow = "1.0.76"
-byte-unit = "5.1.2"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-fatfs = "0.3.6"
-flate2 = "1.0.28"
-tar = "0.4.40"
-fscommon = "0.1.1"
-ssh-key = { version = "0.6.4", features = ["ed25519"] }
 
 [dev-dependencies]
 
 [features]
 default = ["cast"]
+
+# Support for registry server
+registry = ["dep:axum", "dep:tokio"]
 
 # Support for the graphical UI
 gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils"]

@@ -19,14 +19,11 @@ jobs:
           ls -l
           mkdir release
           cp goldboot-x86_64-unknown-linux-gnu/goldboot release/goldboot-x86_64-unknown-linux-gnu
-          cp goldboot-registry-x86_64-unknown-linux-gnu/goldboot-registry release/goldboot-registry-x86_64-unknown-linux-gnu
           cp goldboot-linux-x86_64-unknown-linux-gnu/goldboot-linux release/goldboot-linux-x86_64-unknown-linux-gnu
 
           cp goldboot-x86_64-apple-darwin/goldboot release/goldboot-x86_64-apple-darwin
-          cp goldboot-registry-x86_64-apple-darwin/goldboot-registry release/goldboot-registry-x86_64-apple-darwin
 
           cp goldboot-x86_64-pc-windows-msvc/goldboot release/goldboot-x86_64-pc-windows-msvc
-          cp goldboot-registry-x86_64-pc-windows-msvc/goldboot-registry release/goldboot-registry-x86_64-pc-windows-msvc
 
       - name: Create release
         uses: softprops/action-gh-release@v1
