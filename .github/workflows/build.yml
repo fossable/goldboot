@@ -35,13 +35,14 @@ jobs:
         with:
           use_cross: true
           command: test
+          args: --target ${{ matrix.target }}
 
       - name: Build x86_64
         uses: actions-rs/cargo@v1
         with:
           use_cross: true
           command: build
-          args: --release
+          args: --release --target ${{ matrix.target }}
 
       - uses: actions/upload-artifact@v3
         with:
