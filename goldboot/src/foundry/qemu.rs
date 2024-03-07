@@ -5,10 +5,7 @@ use anyhow::Result;
 use goldboot_image::ImageArch;
 use rand::Rng;
 use std::collections::HashMap;
-use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::Seek;
-use std::io::SeekFrom;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{

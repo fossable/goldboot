@@ -38,12 +38,13 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<Image
         _ => bail!("Unsupported architecture"),
     };
     let version = match edition {
-        DebianEdition::Bullseye => "11.2.0",
+        DebianEdition::Bullseye => "archive/11.9.0",
+        DebianEdition::Bookworm => "release/12.5.0",
         _ => bail!("Unsupported edition"),
     };
 
     let rs = reqwest::blocking::get(format!(
-        "https://cdimage.debian.org/cdimage/archive/{version}/{arch}/iso-cd/SHA256SUMS"
+        "https://cdimage.debian.org/cdimage/{version}/{arch}/iso-cd/SHA256SUMS"
     ))?;
     if rs.status().is_success() {
         for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
@@ -51,9 +52,11 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<Image
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {
                     return Ok(ImageSource::Iso {
-						url: format!("https://cdimage.debian.org/cdimage/archive/{version}/{arch}/iso-cd/{filename}"),
-						checksum: Some(format!("sha256:{hash}")),
-					});
+                        url: format!(
+                            "https://cdimage.debian.org/cdimage/{version}/{arch}/iso-cd/{filename}"
+                        ),
+                        checksum: Some(format!("sha256:{hash}")),
+                    });
                 }
             }
         }
@@ -97,6 +100,7 @@ impl CastImage for Debian {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
+            .prepare_ssh()?
             .start()?;
 
         // Start HTTP
@@ -105,14 +109,25 @@ impl CastImage for Debian {
         // Send boot command
         #[rustfmt::skip]
 		qemu.vnc.run(vec![
-			wait!(10),
+            // Wait for boot
+			wait!(5),
+            // Trigger unattended install
 			input!("aa"),
-			wait_screen!("53471d73e98f0109ce3262d9c45c522d7574366b"),
+            // Wait for preseed URL to be prompted
+            match self.edition {
+                DebianEdition::Bullseye => wait_screen!("53471d73e98f0109ce3262d9c45c522d7574366b"),
+                DebianEdition::Bookworm => wait_screen!("67036623af4f429c0249bcc9883247717c0ca308"),
+                DebianEdition::Trixie => todo!(),
+                DebianEdition::Sid => todo!(),
+            },
 			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
-			wait_screen!("97354165fd270a95fd3da41ef43c35bf24b7c09b"),
-			// enter!(&self.root_password),
-			// enter!(&self.root_password),
-			wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
+            // Wait for login prompt
+            match self.edition {
+                DebianEdition::Bullseye => wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
+                DebianEdition::Bookworm => wait_screen!("53b2a08a1832fa89203adf0f7d9fc53e3095d5e7"),
+                DebianEdition::Trixie => todo!(),
+                DebianEdition::Sid => todo!(),
+            },
 		])?;
 
         // Wait for SSH
