@@ -15,7 +15,7 @@ use crate::{
         sources::ImageSource,
         Foundry, FoundryWorker,
     },
-    input, wait, wait_screen,
+    input, wait, wait_screen, wait_screen_rect,
 };
 
 use super::{CastImage, DefaultSource};
@@ -110,7 +110,7 @@ impl CastImage for Debian {
         #[rustfmt::skip]
 		qemu.vnc.run(vec![
             // Wait for boot
-			wait!(5),
+			wait_screen_rect!("3ca91aab36b952606e7a16247c455f608c0f3021", 100, 100, 500, 500),
             // Trigger unattended install
 			input!("aa"),
             // Wait for preseed URL to be prompted
@@ -128,6 +128,9 @@ impl CastImage for Debian {
                 DebianEdition::Trixie => todo!(),
                 DebianEdition::Sid => todo!(),
             },
+            // Login as root
+            enter!("root"),
+            enter!("r00tme"),
 		])?;
 
         // Wait for SSH

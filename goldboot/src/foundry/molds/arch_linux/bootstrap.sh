@@ -2,6 +2,9 @@
 
 exec 1>&2
 
+# Don't block forever if we don't have enough entropy
+ln -sf /dev/urandom /dev/random
+
 # Synchronize time
 timedatectl set-ntp true
 
