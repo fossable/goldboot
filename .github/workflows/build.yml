@@ -146,25 +146,25 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: goldboot-x86_64-unknown-linux-gnu
-          path: goldboot/bin/linux-amd64
+          path: goldboot/linux-amd64
 
       - name: Copy goldboot-aarch64-unknown-linux-gnu
         uses: actions/download-artifact@v3
         with:
           name: goldboot-aarch64-unknown-linux-gnu
-          path: goldboot/bin/linux-arm64
+          path: goldboot/linux-arm64
 
       # - name: Copy goldboot-armv7-unknown-linux-gnu
       #   uses: actions/download-artifact@v3
       #   with:
       #     name: goldboot-armv7-unknown-linux-gnu
-      #     path: goldboot/bin/linux-armv7
+      #     path: goldboot/linux-armv7
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           context: goldboot
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64 #,linux/arm/v7
           push: true
           tags: fossable/goldboot:latest
 

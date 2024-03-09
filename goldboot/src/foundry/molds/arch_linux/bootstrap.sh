@@ -52,13 +52,8 @@ mount --mkdir /dev/vda1 /mnt/boot
 # Display mounts before install
 mount
 
-# We need to wait for pacman-init to finish updating the keyring
-while ! systemctl show pacman-init.service | grep SubState=exited; do
-    sleep 5
-done
-
 # Bootstrap filesystem
-pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
+pacstrap -K /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
 
 # Generate fstab
 genfstab -U /mnt >/mnt/etc/fstab
