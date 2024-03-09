@@ -178,12 +178,17 @@ jobs:
       matrix:
         mold: [ArchLinux, Debian]
     steps:
+      # - name: Increase free space
+      #   uses: easimon/maximize-build-space@master
+      #   with:
+      #     remove-dotnet: 'true'
+      #     remove-android: 'true'
+      #     remove-haskell: 'true'
+
       - name: Increase free space
-        uses: easimon/maximize-build-space@master
-        with:
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       - name: Install goldboot
         uses: actions/download-artifact@v3
