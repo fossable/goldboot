@@ -55,10 +55,10 @@ while [ $(timedatectl show --property=NTPSynchronized --value) != "yes" ]; do
 done
 
 # Wait for reflector to complete
-while systemctl is-active reflector.service; do
-	sleep 5
-done
-systemctl status reflector.service
+# while systemctl is-active reflector.service; do
+# 	sleep 5
+# done
+# systemctl status reflector.service
 
 # Wait for keyring refresh to complete
 while systemctl is-active archlinux-keyring-wkd-sync.timer; do
@@ -73,7 +73,7 @@ done
 systemctl status pacman-init-service
 
 # Bootstrap filesystem
-pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
+pacstrap -K -M /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
 
 # Generate fstab
 genfstab -U /mnt >/mnt/etc/fstab

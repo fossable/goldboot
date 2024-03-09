@@ -297,14 +297,38 @@ impl VncConnection {
                     }
                     VncCmd::WaitScreen(hash) => {
                         debug!("Waiting for screen hash to equal: {}", &hash);
+
+                        // Track the screen hash over time because we should
+                        // exit if nothing happens for a really long time.
+                        let mut running_hash = String::new();
+                        let mut running_count = 0;
+                        let mut total_count = 0;
+
                         loop {
+                            total_count += 1;
+                            running_count += 1;
+
                             std::thread::sleep(Duration::from_millis(
                                 rand::thread_rng().gen_range(500..1000),
                             ));
-                            if self.screenshot()?.hash() == hash {
+
+                            let screenshot = self.screenshot()?;
+                            if screenshot.hash() == hash {
+                                debug!(total_count, "Finished screen wait");
+
                                 // Don't continue immediately
                                 std::thread::sleep(Duration::from_secs(1));
                                 break;
+                            } else if screenshot.hash() == running_hash {
+                                // TODO configurable
+                                if running_count > 600 {
+                                    // Write out the screen that's frozen
+                                    screenshot.write_png(&Path::new("screenshots/frozen.png"))?;
+                                    bail!("Screen has not changed in 600 sec");
+                                }
+                            } else {
+                                running_hash = screenshot.hash();
+                                running_count = 0;
                             }
                         }
                     }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::{io::Write, net::TcpListener};
+use std::{collections::HashMap, io::Write, net::TcpListener};
 use tracing::info;
 
 /// Minimal HTTP server for serving files to virtual machines
@@ -18,6 +18,7 @@ impl HttpServer {
 
             for stream in listener.incoming() {
                 let mut stream = stream.unwrap();
+                info!(bytes = data.len(), "Serving file over HTTP");
 
                 stream
                     .write(
@@ -31,5 +32,13 @@ impl HttpServer {
         });
 
         Ok(Self { port })
+    }
+
+    /// Serve a file with the given replacements.
+    pub fn serve_file_replace(
+        data: &'static [u8],
+        replace: HashMap<String, String>,
+    ) -> Result<Self> {
+        todo!()
     }
 }
