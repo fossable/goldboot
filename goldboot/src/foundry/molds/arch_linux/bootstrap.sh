@@ -52,6 +52,11 @@ mount --mkdir /dev/vda1 /mnt/boot
 # Display mounts before install
 mount
 
+# We need to wait for pacman-init to finish updating the keyring
+while ! systemctl show pacman-init.service | grep SubState=exited; do
+    sleep 5
+done
+
 # Bootstrap filesystem
 pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
 
@@ -82,5 +87,3 @@ systemctl enable dhcpcd.service --root /mnt
 # Set root password
 echo "root:${GB_ROOT_PASSWORD:?}" | chpasswd --root /mnt
 
-# Complete
-# reboot

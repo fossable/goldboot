@@ -248,7 +248,7 @@ impl QemuBuilder {
             arch: worker.arch,
             debug: worker.debug,
             os_category,
-            record: worker.debug,
+            record: worker.record,
             ssh_port,
             ssh_private_key,
             ssh_host_key,

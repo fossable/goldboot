@@ -131,6 +131,7 @@ impl Foundry {
         FoundryWorker {
             arch: self.arch,
             debug: self.debug,
+            record: self.record,
             end_time: None,
             memory: self.memory.clone().unwrap_or(String::from("4G")),
             ovmf_path,
@@ -221,6 +222,8 @@ pub struct FoundryWorker {
     pub arch: ImageArch,
 
     pub debug: bool,
+
+    pub record: bool,
 
     pub element: ImageElement,
 

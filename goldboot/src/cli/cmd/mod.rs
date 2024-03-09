@@ -23,6 +23,10 @@ pub enum Commands {
         #[clap(long, num_args = 0)]
         read_password: bool,
 
+        /// Disable virtual machine acceleration even when available
+        #[clap(long, num_args = 0)]
+        no_accel: bool,
+
         /// The optional output destination (defaults to image library)
         #[clap(long)]
         output: Option<String>,

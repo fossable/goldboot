@@ -97,34 +97,35 @@ jobs:
           name: goldboot-x86_64-apple-darwin
           path: target/release/goldboot
 
-  build-windows:
-    name: Build / windows-latest (x86_64)
-    runs-on: windows-latest
-    steps:
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+  # TODO aws-lc-sys build is failing
+  # build-windows:
+  #   name: Build / windows-latest (x86_64)
+  #   runs-on: windows-latest
+  #   steps:
+  #     - name: Install rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly
+  #         override: true
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+  #     - name: Run unit tests
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test
 
-      - name: Build x86_64
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+  #     - name: Build x86_64
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: build
+  #         args: --release
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: goldboot-x86_64-pc-windows-msvc
-          path: target/release/goldboot
+  #     - uses: actions/upload-artifact@v3
+  #       with:
+  #         name: goldboot-x86_64-pc-windows-msvc
+  #         path: target/release/goldboot
 
   build-docker:
     if: github.event_name != 'pull_request'
@@ -153,11 +154,11 @@ jobs:
           name: goldboot-aarch64-unknown-linux-gnu
           path: goldboot/bin/linux-arm64
 
-      - name: Copy goldboot-armv7-unknown-linux-gnu
-        uses: actions/download-artifact@v3
-        with:
-          name: goldboot-armv7-unknown-linux-gnu
-          path: goldboot/bin/linux-armv7
+      # - name: Copy goldboot-armv7-unknown-linux-gnu
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: goldboot-armv7-unknown-linux-gnu
+      #     path: goldboot/bin/linux-armv7
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2

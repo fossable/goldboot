@@ -33,6 +33,7 @@ pub fn main() -> Result<()> {
                 record: _,
                 debug,
                 read_password: _,
+                no_accel: _,
                 output: _,
                 path: _,
             } => {

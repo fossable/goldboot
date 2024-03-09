@@ -10,6 +10,7 @@ pub fn run(cmd: super::Commands) -> Result<()> {
             record,
             debug,
             read_password,
+            no_accel,
             output,
             path,
         } => {
