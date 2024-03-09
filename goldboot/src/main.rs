@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use goldboot::cli::cmd::Commands;
-use std::env;
+use std::{env, process::ExitCode};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -21,7 +21,7 @@ pub fn build_headless_debug() -> bool {
     return true;
 }
 
-pub fn main() -> Result<()> {
+pub fn main() -> ExitCode {
     // Parse command line options before we configure logging so we can set the
     // default level
     let command_line = CommandLine::parse();

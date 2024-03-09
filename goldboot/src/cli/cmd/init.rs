@@ -1,9 +1,9 @@
-use anyhow::Result;
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use goldboot_image::ImageArch;
-
+use std::process::ExitCode;
 use strum::IntoEnumIterator;
+use tracing::error;
 
 use crate::foundry::molds::DefaultSource;
 use crate::foundry::ImageElement;
@@ -21,7 +21,7 @@ fn print_banner() {
     }
 }
 
-pub fn run(cmd: super::Commands) -> Result<()> {
+pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Init {
             name,
@@ -42,18 +42,22 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                     foundry.name = name;
                 } else {
                     // Set name equal to directory name
-                    if let Some(name) = std::env::current_dir()?.file_name() {
+                    if let Some(name) = std::env::current_dir().unwrap().file_name() {
                         foundry.name = name.to_str().unwrap().to_string();
                     }
                 }
 
                 for m in mold {
-                    foundry.alloy.push(ImageElement {
-                        source: m.default_source(foundry.arch)?,
-                        mold: m,
-                        fabricators: None,
-                        pref_size: None,
-                    });
+                    if let Ok(source) = m.default_source(foundry.arch) {
+                        foundry.alloy.push(ImageElement {
+                            source,
+                            mold: m,
+                            fabricators: None,
+                            pref_size: None,
+                        });
+                    } else {
+                        return ExitCode::FAILURE;
+                    }
                 }
 
                 // Generate QEMU flags for this hardware
@@ -75,14 +79,16 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                 foundry.name = Input::with_theme(&theme)
                     .with_prompt("Enter image name")
                     .default(
-                        std::env::current_dir()?
+                        std::env::current_dir()
+                            .unwrap()
                             .file_name()
                             .unwrap()
                             .to_str()
                             .unwrap()
                             .to_string(),
                     )
-                    .interact()?;
+                    .interact()
+                    .unwrap();
 
                 // Prompt image architecture
                 {
@@ -91,7 +97,8 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                         .with_prompt("Choose image architecture")
                         .default(0)
                         .items(&architectures)
-                        .interact()?;
+                        .interact()
+                        .unwrap();
 
                     foundry.arch = architectures[choice_index];
                 }
@@ -106,20 +113,26 @@ pub fn run(cmd: super::Commands) -> Result<()> {
                     let choice_index = Select::with_theme(&theme)
                         .with_prompt("Choose image mold")
                         .items(&molds)
-                        .interact()?;
+                        .interact()
+                        .unwrap();
 
                     let mold = &molds[choice_index];
-                    foundry.alloy.push(ImageElement {
-                        source: mold.default_source(foundry.arch)?,
-                        mold: mold.to_owned(),
-                        fabricators: None,
-                        pref_size: None,
-                    });
+                    if let Ok(source) = mold.default_source(foundry.arch) {
+                        foundry.alloy.push(ImageElement {
+                            source,
+                            mold: mold.to_owned(),
+                            fabricators: None,
+                            pref_size: None,
+                        });
+                    } else {
+                        return ExitCode::FAILURE;
+                    }
 
                     if !mold.alloy()
                         || !Confirm::with_theme(&theme)
                             .with_prompt("Do you want to add another OS for multibooting?")
-                            .interact()?
+                            .interact()
+                            .unwrap()
                     {
                         break;
                     }
@@ -127,8 +140,13 @@ pub fn run(cmd: super::Commands) -> Result<()> {
             }
 
             // Finally write out the config
-            config_path.write(&foundry)?;
-            Ok(())
+            match config_path.write(&foundry) {
+                Err(err) => {
+                    error!("Failed to write config file");
+                    ExitCode::FAILURE
+                }
+                _ => ExitCode::SUCCESS,
+            }
         }
         _ => panic!(),
     }

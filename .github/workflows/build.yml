@@ -44,12 +44,12 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: goldboot-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/goldboot
 
-      # - uses: actions/upload-artifact@v3
+      # - uses: actions/upload-artifact@v4
       #   with:
       #     name: goldboot-linux-${{ matrix.target }}
       #     path: target/release/goldboot-linux
@@ -63,7 +63,7 @@ jobs:
       #     mv goldboot.json.tmp goldboot.json
       #     target/release/goldboot build --output goldboot-linux-x86_64.gb
 
-      # - uses: actions/upload-artifact@v3
+      # - uses: actions/upload-artifact@v4
       #   with:
       #     name: goldboot-linux-x86_64.gb
       #     path: goldboot-linux-x86_64.gb
@@ -92,7 +92,7 @@ jobs:
           command: build
           args: --release
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: goldboot-x86_64-apple-darwin
           path: target/release/goldboot
@@ -122,7 +122,7 @@ jobs:
   #         command: build
   #         args: --release
 
-  #     - uses: actions/upload-artifact@v3
+  #     - uses: actions/upload-artifact@v4
   #       with:
   #         name: goldboot-x86_64-pc-windows-msvc
   #         path: target/release/goldboot
@@ -143,19 +143,19 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Copy goldboot-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: goldboot-x86_64-unknown-linux-gnu
           path: goldboot/linux-amd64
 
       - name: Copy goldboot-aarch64-unknown-linux-gnu
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: goldboot-aarch64-unknown-linux-gnu
           path: goldboot/linux-arm64
 
       # - name: Copy goldboot-armv7-unknown-linux-gnu
-      #   uses: actions/download-artifact@v3
+      #   uses: actions/download-artifact@v4
       #   with:
       #     name: goldboot-armv7-unknown-linux-gnu
       #     path: goldboot/linux-armv7
@@ -191,7 +191,7 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       - name: Install goldboot
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: goldboot-x86_64-unknown-linux-gnu
           path: /home/runner/.local/bin
@@ -214,7 +214,7 @@ jobs:
 
       - name: Store debug output
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Debug output
           path: './screenshots'

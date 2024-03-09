@@ -8,9 +8,6 @@ ln -sf /dev/urandom /dev/random
 # Synchronize time
 timedatectl set-ntp true
 
-# Display current time. If this is wrong, pacman keys might fail to import
-date
-
 # Configure Pacman mirrors
 if [ ${#GB_MIRRORLIST} -gt 0 ]; then
 	echo "${GB_MIRRORLIST}" >/etc/pacman.d/mirrorlist
@@ -52,8 +49,31 @@ mount --mkdir /dev/vda1 /mnt/boot
 # Display mounts before install
 mount
 
+# Wait for time sync
+while [ $(timedatectl show --property=NTPSynchronized --value) != "yes" ]; do
+	sleep 5
+done
+
+# Wait for reflector to complete
+while systemctl is-active reflector.service; do
+	sleep 5
+done
+systemctl status reflector.service
+
+# Wait for keyring refresh to complete
+while systemctl is-active archlinux-keyring-wkd-sync.timer; do
+	sleep 5
+done
+systemctl status archlinux-keyring-wkd-sync.timer
+
+# Wait for pacman-init to complete
+while systemctl is-active pacman-init.service; do                                                                                                                                                             │
+	sleep 5                                                                                                                                                                                                                       │
+done
+systemctl status pacman-init-service
+
 # Bootstrap filesystem
-pacstrap -K /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
+pacstrap /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
 
 # Generate fstab
 genfstab -U /mnt >/mnt/etc/fstab
