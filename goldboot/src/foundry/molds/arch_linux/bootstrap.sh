@@ -61,10 +61,10 @@ done
 # systemctl status reflector.service
 
 # Wait for keyring refresh to complete
-while systemctl is-active archlinux-keyring-wkd-sync.timer; do
-	sleep 5
-done
-systemctl status archlinux-keyring-wkd-sync.timer
+# while systemctl is-active archlinux-keyring-wkd-sync.timer; do
+# 	sleep 5
+# done
+# systemctl status archlinux-keyring-wkd-sync.timer
 
 # Wait for pacman-init to complete
 while systemctl is-active pacman-init.service; do                                                                                                                                                             │

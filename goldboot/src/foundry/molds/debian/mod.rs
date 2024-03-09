@@ -99,6 +99,7 @@ impl DefaultSource for Debian {
 impl CastImage for Debian {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+            .vga("cirrus")
             .source(&worker.element.source)?
             .prepare_ssh()?
             .start()?;
@@ -110,21 +111,21 @@ impl CastImage for Debian {
         #[rustfmt::skip]
 		qemu.vnc.run(vec![
             // Wait for boot
-			wait_screen_rect!("3ca91aab36b952606e7a16247c455f608c0f3021", 100, 100, 500, 500),
+			wait_screen_rect!("f6852e8b6e072d15270b2b215bbada3da30fd733", 100, 100, 400, 400),
             // Trigger unattended install
 			input!("aa"),
             // Wait for preseed URL to be prompted
             match self.edition {
-                DebianEdition::Bullseye => wait_screen!("53471d73e98f0109ce3262d9c45c522d7574366b"),
-                DebianEdition::Bookworm => wait_screen!("67036623af4f429c0249bcc9883247717c0ca308"),
+                DebianEdition::Bullseye => todo!(),
+                DebianEdition::Bookworm => wait_screen!("6ee7873098bceb5a2124db82dae6abdae214ce7e"),
                 DebianEdition::Trixie => todo!(),
                 DebianEdition::Sid => todo!(),
             },
 			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
             // Wait for login prompt
             match self.edition {
-                DebianEdition::Bullseye => wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
-                DebianEdition::Bookworm => wait_screen!("53b2a08a1832fa89203adf0f7d9fc53e3095d5e7"),
+                DebianEdition::Bullseye => todo!(),
+                DebianEdition::Bookworm => wait_screen!("2eb1ef517849c86a322ba60bb05386decbf00ba5"),
                 DebianEdition::Trixie => todo!(),
                 DebianEdition::Sid => todo!(),
             },

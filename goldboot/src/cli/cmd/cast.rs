@@ -55,7 +55,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // Run the build finally
             match foundry.run(output) {
                 Err(err) => {
-                    error!("Failed");
+                    error!(error = %err, "Failed to cast image");
                     ExitCode::FAILURE
                 }
                 _ => ExitCode::SUCCESS,

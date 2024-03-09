@@ -123,6 +123,7 @@ pub struct QemuArgs {
     pub smbios: Option<String>,
     pub smp: String,
     pub usbdevice: Vec<String>,
+    pub vga: String,
     pub vnc: Vec<String>,
 }
 
@@ -187,6 +188,9 @@ impl Into<Vec<String>> for QemuArgs {
             cmdline.push(device.to_string());
         }
 
+        cmdline.push(String::from("-vga"));
+        cmdline.push(self.vga.to_string());
+
         trace!("QEMU cmdline: {:?}", &cmdline);
         cmdline
     }
@@ -244,6 +248,7 @@ impl QemuBuilder {
                 smp: String::from("4,sockets=1,cores=4,threads=1"),
                 usbdevice: vec![],
                 vnc: vec![format!("127.0.0.1:{}", worker.vnc_port % 5900)],
+                vga: String::from("std"),
             },
             arch: worker.arch,
             debug: worker.debug,
@@ -277,6 +282,12 @@ impl QemuBuilder {
         // TODO validate
         // arg.split(',')
         self.args.drive.push(arg.to_string());
+        self
+    }
+
+    /// Update -vga
+    pub fn vga(mut self, arg: &str) -> Self {
+        self.args.vga = arg.to_string();
         self
     }
 
