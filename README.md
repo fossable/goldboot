@@ -51,31 +51,19 @@ Proceed at your own risk!**
 ![Lines of code](https://img.shields.io/tokei/lines/github/fossable/goldboot)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
 
-## `goldboot`
+If computer programs could reproduce sexually, `goldboot` is what you would get
+if [`docker`](https://www.docker.com) and [`packer`](https://www.packer.io) were
+mixed together.
 
-`goldboot` is a command-line utility similar in nature to
-[Packer](https://github.com/hashicorp/packer) that builds machine images for
-both servers and workstations alike.
+More practically, `goldboot` is a command-line tool that builds machine images for
+real hardware instead of containers or virtual machines.
 
 These machine images (also known as _golden images_) contain your operating
 system(s), applications, software patches, and configuration all rolled into one
 easily deployable package.
 
-The CLI is designed to run locally or in the cloud from a CI pipeline.
-
-## `goldboot-linux`
-
-The golden images that `goldboot` produces can be deployed through a bootable
-Linux USB stick with a
-[graphical user interface](https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/select_image.png).
-
-The `goldboot` command can create a bootable USB stick and include images on it.
-
-## `goldboot-registry`
-
-There's also an optional HTTP server that hosts goldboot images over the
-network. `goldboot-linux` is capable of downloading images from a registry and
-applying it to the local machine.
+Like Docker images, your `goldboot` images can be stored in a registry and pulled
+onto real hardware.
 
 ## Platform Support Matrix
 
@@ -83,57 +71,102 @@ The following table shows planned support (nothing here is fully complete yet).
 
 | OS Name                                                            | Testing                                                                                                                                                                                                                             | Provisioners | Multiboot |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------- |
-| ![Alpine](/.github/images/templates/AlpineLinux.png) Alpine Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg)         | Yes          | Yes       |
-| ![Arch Linux](/.github/images/templates/ArchLinux.png) Arch Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes          | Yes       |
-| ![Debian](/.github/images/templates/Debian.png) Debian             | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg)         | Yes          | Yes       |
-| ![macOS](/.github/images/templates/MacOs.png) macOS                | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | No        |
-| ![Pop!_OS](/.github/images/templates/pop_os.png) Pop!\_OS          | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | Yes       |
-| ![Steam Deck](/.github/images/templates/steam_deck.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg)                                                                                                                    | No           | Yes       |
-| ![Steam OS](/.github/images/templates/steam_os.png) Steam OS       | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg)                                                                                                                      | Yes          | Yes       |
-| ![Windows 10](/.github/images/templates/Windows10.png) Windows 10  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg)                                                                                                                    | Yes          | No        |
+| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png) Alpine Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg)         | Yes          | Yes       |
+| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) Arch Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes          | Yes       |
+| ![Debian](goldboot/src/foundry/molds/debian/icon.png) Debian             | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg)         | Yes          | Yes       |
+| ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) macOS                | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | No        |
+| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png) Pop!\_OS          | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | Yes       |
+| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg)                                                                                                                    | No           | Yes       |
+| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png) Steam OS       | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg)                                                                                                                      | Yes          | Yes       |
+| ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) Windows 10  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg)                                                                                                                    | Yes          | No        |
 
-## Getting Started
+## Installation
 
-Let's build a basic Arch Linux image for simplicity.
+Docker is currently the easiest way to run `goldboot`, but eventually there will
+also be binary releases and distro packages.
 
-First, create a directory which can later be added to version control:
-
-```sh
-mkdir Test
-cd Test
+```
+alias goldboot="docker run fossable/goldboot"
 ```
 
-Initialize the directory and choose the `ArchLinux` base template to start with:
+#### Github actions
+
+Building golden images with CI is common practice, so there's also a [Github
+action](https://github.com/fossable/goldboot-action) to make it easy:
+
+```yml
+steps:
+  - name: Checkout
+    uses: actions/checkout@v4
+
+  - name: Build goldboot image
+    uses: fossable/goldboot-action@main
+    with:
+      config-path: goldboot.json
+      output-path: image.gb
+
+  - name: Save image artifact
+    uses: actions/upload-artifact@v3
+    with:
+      name: my_image.gb
+      path: image.gb
+```
+
+## Your first golden image
+
+Let's build a basic ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png)
+image to prove we're _real_ Linux users.
+
+First, create a directory to hold our configuration (which can later be tracked
+in version control):
 
 ```sh
-goldboot init --name Test --template ArchLinux
+mkdir Test && cd Test
+```
+
+Initialize the directory and choose `ArchLinux` to start with:
+
+```sh
+goldboot init \
+    --name Test \
+		--mold ArchLinux \
+		--size 10G \
+		--output json
 ```
 
 This will create `goldboot.json` which contains configuration options that can
-be tweaked to suit your needs.
-
-For example, we can create scripts to customize the image:
-
-```sh
-# Example provisioner script
-echo 'pacman -Syu firefox' >configure.sh
-```
-
-And add it to the goldboot config:
+be tweaked to suit your needs. For example:
 
 ```json
-"provisioners": [
-	{
-		"type": "shell",
-		"script": "configure.sh"
-	}
-]
+{
+  "alloy": [
+    {
+      "mold": {
+        "ArchLinux": {
+          "hostname": "YeahIUseArch",
+          "root_password": {
+            "plaintext": "123456"
+          }
+        }
+      },
+      "source": {
+        "Iso": {
+          "url": "https://mirrors.edge.kernel.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso",
+          "checksum": "sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155"
+        }
+      }
+    }
+  ],
+  "arch": "Amd64",
+  "name": "Test",
+  "size": "10G"
+}
 ```
 
-Now, build the image:
+There are many ways to customize the image, but for now just build it:
 
 ```sh
-goldboot build
+goldboot build .
 ```
 
 Once the build succeeds, the image will be saved to the system's library

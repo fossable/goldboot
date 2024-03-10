@@ -173,6 +173,13 @@ jobs:
           push: true
           tags: fossable/goldboot:latest
 
+      - name: Update Dockerhub readme
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: fossable/goldboot
+
   test-x86_64:
     if: github.event_name != 'pull_request'
     name: Test / ubuntu-latest (x86_64) / ${{ matrix.mold }} (x86_64)
