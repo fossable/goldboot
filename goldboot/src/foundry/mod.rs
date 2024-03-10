@@ -120,12 +120,17 @@ impl Foundry {
 
         // Unpack included firmware if one isn't given
         let ovmf_path = if let Some(path) = self.ovmf_path.clone() {
+            PathBuf::from(path)
+        } else if let Some(path) = crate::foundry::ovmf::find() {
             path
-        } else {
+        } else if cfg!(feature = "include_ovmf") {
             let path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
 
-            crate::foundry::ovmf::write_to(self.arch, &path).unwrap();
-            path
+            #[cfg(feature = "include_ovmf")]
+            crate::foundry::ovmf::write(self.arch, &path).unwrap();
+            PathBuf::from(path)
+        } else {
+            panic!("No OVMF firmware found");
         };
 
         FoundryWorker {
@@ -247,7 +252,7 @@ pub struct FoundryWorker {
     /// The VM port for VNC
     pub vnc_port: u16,
 
-    pub ovmf_path: String,
+    pub ovmf_path: PathBuf,
 }
 
 impl FoundryWorker {

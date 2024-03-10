@@ -5,8 +5,10 @@ use anyhow::bail;
 use anyhow::Result;
 use goldboot_image::ImageArch;
 use std::path::Path;
+use std::path::PathBuf;
 
-pub fn write_to(arch: ImageArch, path: impl AsRef<Path>) -> Result<()> {
+#[cfg(feature = "include_ovmf")]
+pub fn write(arch: ImageArch, path: impl AsRef<Path>) -> Result<()> {
     match &arch {
         ImageArch::Amd64 => {
             std::fs::write(
@@ -29,4 +31,9 @@ pub fn write_to(arch: ImageArch, path: impl AsRef<Path>) -> Result<()> {
         _ => bail!("Unsupported architecture"),
     }
     Ok(())
+}
+
+pub fn find() -> Option<PathBuf> {
+    // TODO
+    None
 }

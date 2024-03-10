@@ -217,7 +217,7 @@ impl QemuBuilder {
 
         Self {
             args: QemuArgs {
-                bios: worker.ovmf_path.clone(),
+                bios: worker.ovmf_path.display().to_string(),
                 boot: String::from("once=d"),
                 cpu: None,
                 device: vec![String::from("virtio-net,netdev=user.0")],

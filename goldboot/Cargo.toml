@@ -62,7 +62,7 @@ zstd = "0.13.0"
 [dev-dependencies]
 
 [features]
-default = ["cast"]
+default = ["cast", "include_ovmf"]
 
 # Support for registry server
 registry = ["dep:axum", "dep:tokio"]
@@ -72,3 +72,6 @@ gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-u
 
 # Support for casting images
 cast = []
+
+# Bundled OVMF firmware
+include_ovmf = []

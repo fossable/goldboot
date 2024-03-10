@@ -4,7 +4,7 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-RUN apk add --no-cache qemu-system-aarch64 qemu-system-arm qemu-system-x86_64
+RUN apk add --no-cache qemu-system-aarch64 qemu-system-arm qemu-system-x86_64 ovmf
 
 COPY ${TARGETOS}-${TARGETARCH}${TARGETVARIANT} /usr/bin/goldboot
 

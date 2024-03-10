@@ -67,10 +67,10 @@ done
 # systemctl status archlinux-keyring-wkd-sync.timer
 
 # Wait for pacman-init to complete
-# while systemctl is-active pacman-init.service; do
-# 	sleep 5                                                                                                                                                                                                                       │
-# done
-# systemctl status pacman-init.service
+while systemctl is-active pacman-init.service; do
+	sleep 5
+done
+systemctl status pacman-init.service
 
 # Bootstrap filesystem
 pacstrap -K -M /mnt base linux linux-firmware efibootmgr grub dhcpcd ${GB_PACKAGES}
