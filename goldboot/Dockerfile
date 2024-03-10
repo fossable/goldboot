@@ -10,4 +10,4 @@ COPY ${TARGETOS}-${TARGETARCH}${TARGETVARIANT}/goldboot /usr/bin/goldboot
 RUN chmod +x /usr/bin/goldboot
 
 WORKDIR /root
-CMD ["/usr/bin/goldboot"]
+ENTRYPOINT ["/usr/bin/goldboot"]
