@@ -11,7 +11,8 @@ repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
 anyhow = "1.0.76"
-aws-lc-rs = { version = "1", features = ["bindgen"]}
+# It seems the next LTS will have a clang version new enough for bindgen
+# aws-lc-rs = { version = "1", features = ["bindgen"]}
 axum = { version = "0.7.4", optional = true }
 block-utils = { version = "0.11.1", optional = true }
 byte-unit = "5.1.2"
@@ -37,7 +38,7 @@ rand = "0.8.5"
 regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["stream", "blocking", "json"] }
 ron = "0.8.1"
-rustls = { version = "0.23.1", features = ["ring"] }
+rustls = { version = "0.22.2" }
 serde_json = "1.0.108"
 serde = { version = "1.0.190", features = ["derive"] }
 serde_win_unattend = "0.1.0"

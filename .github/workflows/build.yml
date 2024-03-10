@@ -32,11 +32,6 @@ jobs:
           override: true
           target: ${{ matrix.target }}
 
-      - name: Install LLVM and Clang for bindgen
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "17"
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
