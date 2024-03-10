@@ -7,6 +7,7 @@ use goldboot_image::ImageArch;
 use std::path::Path;
 use std::path::PathBuf;
 
+// TODO use build script to download these from: https://github.com/retrage/edk2-nightly
 #[cfg(feature = "include_ovmf")]
 pub fn write(arch: ImageArch, path: impl AsRef<Path>) -> Result<()> {
     match &arch {

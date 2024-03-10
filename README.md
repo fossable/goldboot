@@ -44,6 +44,7 @@ deployed to real hardware.
 
 **Warning: this tool is totally unfinshed and should be used for testing only!
 Proceed at your own risk!**
+<hr>
 
 ![License](https://img.shields.io/github/license/goldboot/goldboot)
 ![build](https://github.com/goldboot/goldboot/actions/workflows/build.yml/badge.svg)
@@ -85,8 +86,8 @@ The following table shows planned support (nothing here is fully complete yet).
 Docker is currently the easiest way to run `goldboot`, but eventually there will
 also be binary releases and distro packages.
 
-```
-alias goldboot="docker run fossable/goldboot"
+```sh
+alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 ```
 
 #### Github actions
@@ -128,10 +129,10 @@ Initialize the directory and choose `ArchLinux` to start with:
 
 ```sh
 goldboot init \
-    --name Test \
-		--mold ArchLinux \
-		--size 10G \
-		--output json
+  --name Test \
+  --mold ArchLinux \
+  --size 10G \
+  --output json
 ```
 
 This will create `goldboot.json` which contains configuration options that can
