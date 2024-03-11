@@ -1277,7 +1277,7 @@ dependencies = [
  "sha2",
  "ssh-key",
  "ssh2",
- "strum 0.26.1",
+ "strum 0.26.2",
  "tar",
  "tempfile",
  "tokio",
@@ -1306,7 +1306,7 @@ dependencies = [
  "serde",
  "sha1",
  "sha2",
- "strum 0.26.1",
+ "strum 0.26.2",
  "tempfile",
  "test-env-log",
  "tracing",
@@ -3100,9 +3100,9 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.26.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "723b93e8addf9aa965ebe2d11da6d7540fa2283fcea14b3371ff055f7ba13f5f"
+checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
 dependencies = [
  "strum_macros 0.26.1",
 ]
