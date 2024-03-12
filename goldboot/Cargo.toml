@@ -10,7 +10,7 @@ homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
 
 [dependencies]
-anyhow = "1.0.76"
+anyhow = "1.0.81"
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
 axum = { version = "0.7.4", optional = true }
