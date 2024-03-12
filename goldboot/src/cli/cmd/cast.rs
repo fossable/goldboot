@@ -14,7 +14,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             output,
             path,
         } => {
-            let config_path = match FoundryConfig::from_dir(path.unwrap_or(".".to_string())) {
+            let config_path = match FoundryConfig::from_dir(path) {
                 Some(p) => {
                     debug!("Loading config from {}", p);
                     p

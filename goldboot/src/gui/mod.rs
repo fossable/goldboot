@@ -33,7 +33,9 @@ fn load_gui() {
 fn load_css() {
     // Load the CSS file and add it to the provider
     let provider = gtk::CssProvider::new();
-    provider.load_from_data(include_bytes!("../res/style.css"));
+    provider.load_from_bytes(&glib::Bytes::from_static(include_bytes!(
+        "resources/style.css"
+    )));
 
     // Add the provider to the default screen
     gtk::StyleContext::add_provider_for_display(

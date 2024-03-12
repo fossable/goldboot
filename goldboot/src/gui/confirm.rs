@@ -7,7 +7,7 @@ pub fn init(window: &'static ApplicationWindow, image_id: String, device_id: Str
     let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
     {
-        let logo = load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
+        let logo = load_png(include_bytes!("resources/logo-512.png").to_vec(), 1603, 512);
         container.append(&logo);
     }
     {
@@ -35,9 +35,9 @@ pub fn init(window: &'static ApplicationWindow, image_id: String, device_id: Str
             gdk::Key::Escape => std::process::exit(0),
             _ => {}
         }
-        gtk::Inhibit(false)
+        glib::Propagation::Proceed
     });
-    window.add_controller(&controller);
+    window.add_controller(controller);
 
     window.set_child(Some(&container));
 }

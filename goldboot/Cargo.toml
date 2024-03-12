@@ -25,12 +25,13 @@ fatfs = "0.3.6"
 flate2 = "1.0.28"
 fossable = "0.1.2"
 fscommon = "0.1.1"
-gdk4 = { version = "0.8.0", optional = true }
+gdk4 = { version = "0.8.1", optional = true }
 gdk-pixbuf = { version = "0.19.2", optional = true }
 glib-macros = { version = "0.19.2", optional = true }
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
 goldboot-macros = { path="../goldboot-macros", version = "0.0.1" }
-gtk4 = { version = "0.8.0", optional = true }
+gtk4 = { version = "0.8.1", optional = true, features = ["v4_12"] }
+glib = { version = "0.19.2", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
 png = "0.17.10"
@@ -70,7 +71,7 @@ default = ["cast", "include_ovmf"]
 registry = ["dep:axum", "dep:tokio"]
 
 # Support for the graphical UI
-gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils"]
+gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils", "dep:glib"]
 
 # Support for casting images
 cast = []

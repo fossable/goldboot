@@ -1257,6 +1257,7 @@ dependencies = [
  "fscommon",
  "gdk-pixbuf",
  "gdk4",
+ "glib",
  "glib-macros",
  "goldboot-image",
  "goldboot-macros",

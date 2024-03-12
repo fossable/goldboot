@@ -11,7 +11,7 @@ pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
     let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
     {
-        let logo = load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
+        let logo = load_png(include_bytes!("resources/logo-512.png").to_vec(), 1603, 512);
         container.append(&logo);
     }
     {
@@ -63,18 +63,26 @@ fn create_device_row(device: &block_utils::Device) -> gtk::Box {
 
     // Device icon
     let device_image = match device.media_type {
-        block_utils::MediaType::SolidState => {
-            load_png(Resources::get("ssd.png").unwrap().data.to_vec(), 32, 32)
-        }
-        block_utils::MediaType::Rotational => {
-            load_png(Resources::get("hdd.png").unwrap().data.to_vec(), 32, 32)
-        }
-        block_utils::MediaType::NVME => {
-            load_png(Resources::get("nvme.png").unwrap().data.to_vec(), 32, 32)
-        }
-        block_utils::MediaType::Ram => {
-            load_png(Resources::get("ram.png").unwrap().data.to_vec(), 32, 32)
-        }
+        block_utils::MediaType::SolidState => load_png(
+            include_bytes!("resources/select_device/ssd.png").to_vec(),
+            32,
+            32,
+        ),
+        block_utils::MediaType::Rotational => load_png(
+            include_bytes!("resources/select_device/hdd.png").to_vec(),
+            32,
+            32,
+        ),
+        block_utils::MediaType::NVME => load_png(
+            include_bytes!("resources/select_device/nvme.png").to_vec(),
+            32,
+            32,
+        ),
+        block_utils::MediaType::Ram => load_png(
+            include_bytes!("resources/select_device/ram.png").to_vec(),
+            32,
+            32,
+        ),
         _ => panic!(),
     };
     row.append(&device_image);

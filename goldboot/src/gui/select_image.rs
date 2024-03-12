@@ -1,8 +1,10 @@
 use crate::gui::load_png;
+use crate::library::ImageLibrary;
 use gdk4 as gdk;
+use gdk_pixbuf::glib::ControlFlow;
 use gdk_pixbuf::PixbufLoader;
 use glib::clone;
-use goldboot::{image::ImageHandle, library::ImageLibrary};
+use goldboot_image::ImageHandle;
 use gtk::glib;
 use gtk4 as gtk;
 use gtk4::{prelude::*, EventControllerKey};
@@ -13,7 +15,7 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
     let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
     {
-        let logo = load_png(include_bytes!("../res/logo-512.png").to_vec(), 1603, 512);
+        let logo = load_png(include_bytes!("resources/logo-512.png").to_vec(), 1603, 512);
         container.append(&logo);
     }
     {
@@ -76,15 +78,15 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
                 let dialog_controller = EventControllerKey::new();
 
                 let dialog = gtk::Dialog::builder().child(&content).modal(true).build();
-                dialog.add_controller(&dialog_controller);
+                dialog.add_controller(dialog_controller);
                 dialog.show();
             }
             gdk::Key::Escape => std::process::exit(0),
             _ => {}
         }
-        gtk::Inhibit(false)
+        glib::Propagation::Proceed
     });
-    window.add_controller(&controller);
+    window.add_controller(controller);
 
     window.set_child(Some(&container));
     window.show();
@@ -94,17 +96,18 @@ fn create_image_row(image: &ImageHandle) -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
     row.add_css_class("listRow");
 
-    if let Some(config) = &image.config {
-        if let Some(resource) =
-            Resources::get(&format!("{}.png", config.get_template_bases().unwrap()[0]))
-        {
-            let image = load_png(resource.data.to_vec(), 32, 32);
-            image.add_css_class("listIcon");
-            row.append(&image);
-        }
-    } else {
-        // TODO encrypted
-    }
+    // TODO dynamic resource
+    // if let Some(config) = &image.config {
+    //     if let Some(resource) =
+    //         Resources::get(&format!("{}.png", config.get_template_bases().unwrap()[0]))
+    //     {
+    //         let image = load_png(resource.data.to_vec(), 32, 32);
+    //         image.add_css_class("listIcon");
+    //         row.append(&image);
+    //     }
+    // } else {
+    //     // TODO encrypted
+    // }
 
     // Image name
     let image_name = gtk::Label::new(Some(&image.primary_header.name()));

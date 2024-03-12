@@ -33,7 +33,7 @@ pub enum Commands {
 
         /// The context directory (containing a goldboot config file)
         #[clap(long)]
-        path: Option<String>,
+        path: String,
     },
 
     /// Manage local images
