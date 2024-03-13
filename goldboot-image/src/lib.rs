@@ -179,7 +179,7 @@ pub struct PrimaryHeader {
 
 impl PrimaryHeader {
     pub fn name(&self) -> String {
-        unsafe { CStr::from_ptr(self.name.as_ptr() as *const i8) }
+        unsafe { CStr::from_ptr(self.name.as_ptr() as *const std::ffi::c_char) }
             .to_string_lossy()
             .into_owned()
     }
