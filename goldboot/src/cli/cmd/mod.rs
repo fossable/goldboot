@@ -32,7 +32,7 @@ pub enum Commands {
         output: Option<String>,
 
         /// The context directory (containing a goldboot config file)
-        #[clap(long)]
+        #[clap(index = 1)]
         path: String,
     },
 

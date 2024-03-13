@@ -9,6 +9,11 @@ pub mod gui;
 pub mod library;
 pub mod registry;
 
+/// Build info
+pub mod built_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
+
 /// Find a random open TCP port in the given range.
 pub fn find_open_port(lower: u16, upper: u16) -> u16 {
     let mut rand = rand::thread_rng();

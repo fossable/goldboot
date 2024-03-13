@@ -1,9 +1,6 @@
 use crate::gui::load_png;
 use crate::library::ImageLibrary;
 use gdk4 as gdk;
-use gdk_pixbuf::glib::ControlFlow;
-use gdk_pixbuf::PixbufLoader;
-use glib::clone;
 use goldboot_image::ImageHandle;
 use gtk::glib;
 use gtk4 as gtk;
@@ -13,13 +10,29 @@ use ubyte::ToByteUnit;
 
 pub fn init(window: &'static gtk::ApplicationWindow) {
     let container = gtk::Box::new(gtk::Orientation::Vertical, 5);
-
+    if crate::built_info::PROFILE == "debug" {
+        let version = gtk::Label::new(Some(&format!(
+            "goldboot v{}-{} ({})",
+            crate::built_info::PKG_VERSION,
+            if crate::built_info::GIT_DIRTY.unwrap() {
+                format!(
+                    "{}_dirty",
+                    crate::built_info::GIT_COMMIT_HASH_SHORT.unwrap()
+                )
+            } else {
+                format!("{}", crate::built_info::GIT_COMMIT_HASH_SHORT.unwrap())
+            },
+            built::util::strptime(crate::built_info::BUILT_TIME_UTC),
+        )));
+        version.add_css_class("versionLabel");
+        container.append(&version);
+    }
     {
         let logo = load_png(include_bytes!("resources/logo-512.png").to_vec(), 1603, 512);
         container.append(&logo);
     }
     {
-        let prompt = gtk::Label::new(Some("Select an image below to apply"));
+        let prompt = gtk::Label::new(Some("Select an available image below"));
         prompt.add_css_class("promptLabel");
         container.append(&prompt);
     }

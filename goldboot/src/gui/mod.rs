@@ -1,3 +1,5 @@
+use std::process::ExitCode;
+
 use gdk4 as gdk;
 use gtk4 as gtk;
 use gtk4::prelude::*;
@@ -7,16 +9,16 @@ pub mod confirm;
 pub mod select_device;
 pub mod select_image;
 
-fn load_gui() {
+pub fn load_gui(fullscreen: bool) -> ExitCode {
     let app = gtk::Application::builder()
         .application_id("org.goldboot.Gui")
         .build();
 
     app.connect_startup(|_| load_css());
-    app.connect_activate(|app| {
+    app.connect_activate(move |app| {
         let window = gtk::ApplicationWindow::builder()
             .application(app)
-            .fullscreened(true)
+            .fullscreened(fullscreen)
             .title("goldboot")
             .build();
 
@@ -28,6 +30,7 @@ fn load_gui() {
     });
 
     app.run();
+    ExitCode::SUCCESS
 }
 
 fn load_css() {

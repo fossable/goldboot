@@ -221,7 +221,7 @@ jobs:
           goldboot init --output json --mold ${{ matrix.mold }} --size 16G
           goldboot cast --record
           fallocate -l 16GiB disk.raw
-          goldboot write --confirm --image ${{ matrix.mold }} --output disk.raw
+          # goldboot write --confirm --image ${{ matrix.mold }} --output disk.raw
 
       - name: Store debug output
         if: always()

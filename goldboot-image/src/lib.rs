@@ -10,6 +10,7 @@ use rand::Rng;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::ffi::CStr;
 use std::{
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
@@ -177,8 +178,10 @@ pub struct PrimaryHeader {
 }
 
 impl PrimaryHeader {
-    pub fn name(&self) -> &str {
-        std::str::from_utf8(&self.name).unwrap()
+    pub fn name(&self) -> String {
+        unsafe { CStr::from_ptr(self.name.as_ptr() as *const i8) }
+            .to_string_lossy()
+            .into_owned()
     }
 }
 

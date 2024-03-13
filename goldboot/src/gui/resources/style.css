@@ -9,7 +9,9 @@ list {
 	opacity: 0.75;
 	margin-left: 100px;
 	margin-right: 100px;
-	border-color: #c8ab37; border-style: solid; border-width: 1px;
+	border-color: #c8ab37;
+	border-style: solid;
+	border-width: 3px;
 }
 
 box.listRow {
@@ -22,6 +24,11 @@ box.listRow {
 label.promptLabel {
 	color: #aea79f;
 	font-weight: bold;
+}
+
+label.versionLabel {
+	color: #aea79f;
+	font-family: monospace;
 }
 
 label.listEntry {

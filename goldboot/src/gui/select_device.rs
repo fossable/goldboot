@@ -1,10 +1,6 @@
 use crate::gui::load_png;
-use glib::clone;
-use gtk::glib;
 use gtk4 as gtk;
 use gtk4::prelude::*;
-use std::error::Error;
-use tracing::info;
 use ubyte::ToByteUnit;
 
 pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
@@ -45,6 +41,7 @@ pub fn init(window: &'static gtk::ApplicationWindow, image_id: String) {
         let hotkeys = gtk::Box::new(gtk::Orientation::Horizontal, 5);
         container.append(&hotkeys);
 
+        // TODO back
         let escape = gtk::Label::new(Some("[Esc] Quit"));
         escape.add_css_class("hotkeyLabel");
         hotkeys.append(&escape);
