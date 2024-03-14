@@ -121,7 +121,7 @@ impl CastImage for Debian {
                 DebianEdition::Trixie => todo!(),
                 DebianEdition::Sid => todo!(),
             },
-			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
+			enter!(format!("http://{}:{}/preseed.cfg", http.address, http.port)),
             // Wait for login prompt
             match self.edition {
                 DebianEdition::Bullseye => todo!(),

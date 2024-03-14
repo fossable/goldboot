@@ -221,7 +221,7 @@ jobs:
           goldboot init --output json --mold ${{ matrix.mold }} --size 16G
           goldboot cast --record --output ${{ matrix.mold }}.gb .
           fallocate -l 16GiB disk.raw
-          goldboot write --confirm --image ${{ matrix.mold }}.gb --output disk.raw
+          goldboot write --confirm --output disk.raw ${{ matrix.mold }}.gb
 
           # TODO try to boot image with qemu
 

@@ -5,6 +5,7 @@ use tracing::info;
 /// Minimal HTTP server for serving files to virtual machines
 pub struct HttpServer {
     pub port: u16,
+    pub address: String,
 }
 
 impl HttpServer {
@@ -31,7 +32,10 @@ impl HttpServer {
             }
         });
 
-        Ok(Self { port })
+        Ok(Self {
+            port,
+            address: String::from("10.0.2.2"),
+        })
     }
 
     /// Serve a file with the given replacements.

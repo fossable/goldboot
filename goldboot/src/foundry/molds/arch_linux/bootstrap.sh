@@ -1,12 +1,31 @@
-#!/bin/bash -e
+#!/bin/bash
 
-exec 1>&2
+set -e
+set -x
 
 # Don't block forever if we don't have enough entropy
 ln -sf /dev/urandom /dev/random
 
 # Synchronize time
 timedatectl set-ntp true
+
+# Wait for time sync
+while [ $(timedatectl show --property=NTPSynchronized --value) != "yes" ]; do
+	sleep 5
+done
+
+# Wait for pacman-init to complete
+while ! systemctl show pacman-init.service | grep SubState=exited; do
+    sleep 5
+done
+
+# Use a wrapper to run the install
+pacman -Sy --noconfirm --noprogressbar archinstall curl
+archinstall --config <(curl "http://${GB_HTTP_HOST:?}:${GB_HTTP_PORT:?}/config.json") #--creds
+
+exit
+exec 1>&2
+
 
 # Configure Pacman mirrors
 if [ ${#GB_MIRRORLIST} -gt 0 ]; then
@@ -49,10 +68,6 @@ mount --mkdir /dev/vda1 /mnt/boot
 # Display mounts before install
 mount
 
-# Wait for time sync
-while [ $(timedatectl show --property=NTPSynchronized --value) != "yes" ]; do
-	sleep 5
-done
 
 # Wait for reflector to complete
 # while systemctl is-active reflector.service; do

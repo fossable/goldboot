@@ -1,6 +1,8 @@
 use super::{CastImage, DefaultSource};
 use crate::cli::prompt::Prompt;
 use crate::foundry::fabricators::Fabricate;
+use crate::foundry::http::HttpServer;
+use crate::foundry::molds::arch_linux::archinstall::ArchinstallConfig;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
 use crate::foundry::qemu::{OsCategory, QemuBuilder};
@@ -18,6 +20,8 @@ use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use tracing::{debug, info};
 use validator::Validate;
+
+mod archinstall;
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
@@ -65,6 +69,10 @@ impl CastImage for ArchLinux {
             .prepare_ssh()?
             .start()?;
 
+        // Start HTTP
+        let archinstall = serde_json::to_vec(&ArchinstallConfig::from(self))?;
+        let http = HttpServer::serve_file(Box::leak(Box::new(archinstall)))?;
+
         // Send boot command
         #[rustfmt::skip]
 		qemu.vnc.run(vec![
@@ -82,8 +90,8 @@ impl CastImage for ArchLinux {
         match ssh.upload_exec(
             include_bytes!("bootstrap.sh"),
             vec![
-                // ("GB_MIRRORLIST", &self.format_mirrorlist()),
-                ("GB_ROOT_PASSWORD", &self.root_password.to_string()),
+                ("GB_HTTP_HOST", &http.address),
+                ("GB_HTTP_PORT", &format!("{}", &http.port)),
             ],
         ) {
             Ok(0) => debug!("Installation completed successfully"),
