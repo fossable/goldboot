@@ -44,8 +44,8 @@ pub enum Commands {
 
     /// Write images to storage
     Write {
-        /// The ID of the image to write
-        #[clap(long)]
+        /// The ID or path of the image to write
+        #[clap(index = 1)]
         image: String,
 
         /// The output destination

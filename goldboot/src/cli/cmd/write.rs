@@ -1,5 +1,6 @@
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm};
+use goldboot_image::ImageHandle;
 use std::{path::Path, process::ExitCode};
 use tracing::error;
 
@@ -17,7 +18,17 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 ..ColorfulTheme::default()
             };
 
-            let image = ImageLibrary::find_by_id(&image).unwrap();
+            let image_handle = if Path::new(&image).exists() {
+                match ImageHandle::open(&image) {
+                    Ok(image_handle) => image_handle,
+                    Err(_) => return ExitCode::FAILURE,
+                }
+            } else {
+                match ImageLibrary::find_by_id(&image) {
+                    Ok(image_handle) => image_handle,
+                    Err(_) => return ExitCode::FAILURE,
+                }
+            };
 
             if Path::new(&output).exists() && !confirm {
                 if !Confirm::with_theme(&theme)
@@ -31,9 +42,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
 
             // TODO special case for GBL; select images to include
 
-            match image.write(output, ProgressBar::Write.new_empty()) {
+            match image_handle.write(output, ProgressBar::Write.new_empty()) {
                 Err(err) => {
-                    error!("Failed to write image");
+                    error!(error = %err, "Failed to write image");
                     ExitCode::FAILURE
                 }
                 _ => ExitCode::SUCCESS,
