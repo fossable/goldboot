@@ -34,6 +34,9 @@ pub enum Commands {
         /// The context directory (containing a goldboot config file)
         #[clap(index = 1)]
         path: String,
+        // The image will be run as a virtual machine for testing
+        // #[clap(long, num_args = 0)]
+        // virtual: bool
     },
 
     /// Manage local images

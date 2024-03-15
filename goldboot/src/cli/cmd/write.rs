@@ -18,7 +18,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 ..ColorfulTheme::default()
             };
 
-            let image_handle = if Path::new(&image).exists() {
+            let mut image_handle = if Path::new(&image).exists() {
                 match ImageHandle::open(&image) {
                     Ok(image_handle) => image_handle,
                     Err(_) => return ExitCode::FAILURE,
@@ -29,6 +29,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     Err(_) => return ExitCode::FAILURE,
                 }
             };
+            if image_handle.load(None).is_err() {
+                return ExitCode::FAILURE;
+            }
 
             if Path::new(&output).exists() && !confirm {
                 if !Confirm::with_theme(&theme)

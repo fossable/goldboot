@@ -45,6 +45,9 @@ impl Qcow3 {
 
     /// Allocate a new qcow3 file.
     pub fn create(path: impl AsRef<Path>, size: u64) -> Result<Self> {
+        let path = path.as_ref();
+
+        debug!(path = ?path, "Creating qcow storage");
         let status = Command::new("qemu-img")
             .args([
                 "create",
@@ -52,7 +55,7 @@ impl Qcow3 {
                 "qcow2",
                 "-o",
                 "cluster_size=65536",
-                &path.as_ref().to_string_lossy().to_string(),
+                &path.to_string_lossy().to_string(),
                 &format!("{size}"),
             ])
             .stdout(Stdio::null())
