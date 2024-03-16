@@ -105,7 +105,9 @@ impl CastImage for Debian {
             .start()?;
 
         // Start HTTP
-        let http = HttpServer::serve_file(include_bytes!("preseed.cfg"))?;
+        let http = HttpServer::new()?
+            .file("preseed.cfg", include_bytes!("preseed.cfg"))?
+            .serve();
 
         // Send boot command
         #[rustfmt::skip]

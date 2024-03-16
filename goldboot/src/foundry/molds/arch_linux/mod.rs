@@ -4,6 +4,7 @@ use crate::cli::prompt::PromptNew;
 use crate::foundry::fabricators::Fabricate;
 use crate::foundry::http::HttpServer;
 use crate::foundry::molds::arch_linux::archinstall::ArchinstallConfig;
+use crate::foundry::molds::arch_linux::archinstall::ArchinstallCredentials;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
 use crate::foundry::qemu::{OsCategory, QemuBuilder};
@@ -71,9 +72,17 @@ impl CastImage for ArchLinux {
             .prepare_ssh()?
             .start()?;
 
+        // Generate an archinstall config
+        let archinstall_config = ArchinstallConfig::from(self);
+        debug!(archinstall = ?archinstall_config, "Preparing archinstall config");
+
+        let archinstall_creds = ArchinstallCredentials::from(self);
+
         // Start HTTP
-        let archinstall = serde_json::to_vec(&ArchinstallConfig::from(self))?;
-        let http = HttpServer::serve_file(Box::leak(Box::new(archinstall)))?;
+        let http = HttpServer::new()?
+            .file("config.json", serde_json::to_vec(&archinstall_config)?)?
+            .file("creds.json", serde_json::to_vec(&archinstall_creds)?)?
+            .serve();
 
         // Send boot command
         #[rustfmt::skip]

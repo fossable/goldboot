@@ -160,7 +160,6 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         // TODO show some kind of banner
                         mold.prompt(&foundry, Box::new(ColorfulTheme::default()))
                             .unwrap();
-                        break;
                     }
 
                     if let Ok(source) = mold.default_source(foundry.arch) {

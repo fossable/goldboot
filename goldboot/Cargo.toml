@@ -13,7 +13,7 @@ repository = "https://github.com/goldboot/goldboot/"
 anyhow = "1.0.76"
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
-axum = { version = "0.7.4", optional = true }
+axum = { version = "0.7.4" }
 block-utils = { version = "0.11.1", optional = true }
 built = { version = "0.7", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
@@ -52,7 +52,7 @@ ssh-key = { version = "0.6.4", features = ["ed25519"] }
 strum = { version = "0.26.1", features = ["derive"] }
 tar = "0.4.40"
 tempfile = "3.10.0"
-tokio = { version = "1.36.0", features = ["full"], optional = true }
+tokio = { version = "1.36.0", features = ["full"] }
 toml = "0.8.8"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
@@ -63,6 +63,7 @@ vnc = "0.4.0"
 whoami = "1.4.1"
 zstd = "0.13.0"
 uuid = { version = "1.7.0", features = ["v4"] }
+tower-http = { version = "0.5.2", features = ["fs", "trace"] }
 
 [dev-dependencies]
 
@@ -73,7 +74,7 @@ built = { version = "0.7", features = ["cargo-lock", "dependency-tree", "git2", 
 default = ["cast", "include_ovmf"]
 
 # Support for registry server
-registry = ["dep:axum", "dep:tokio"]
+registry = []
 
 # Support for the graphical UI
 gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils", "dep:glib"]

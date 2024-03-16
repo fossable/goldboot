@@ -4,6 +4,41 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::foundry::options::hostname::Hostname;
+use crate::foundry::options::unix_account::RootPassword;
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ArchinstallCredentials {
+    #[serde(rename = "!root-password")]
+    pub root_password: String,
+    #[serde(
+        rename = "!encryption-password",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub encryption_password: Option<String>,
+    #[serde(rename = "!users", skip_serializing_if = "Option::is_none")]
+    pub users: Option<Vec<User>>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct User {
+    pub username: String,
+    #[serde(rename = "!password")]
+    pub password: String,
+    pub sudo: bool,
+}
+
+impl From<&super::ArchLinux> for ArchinstallCredentials {
+    fn from(value: &super::ArchLinux) -> Self {
+        match &value.root_password {
+            RootPassword::Plaintext(root_password) => Self {
+                root_password: root_password.to_string(),
+                encryption_password: None,
+                users: None,
+            },
+            _ => todo!(),
+        }
+    }
+}
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AudioConfig {
@@ -79,6 +114,12 @@ pub struct Profile {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiskEncryption {
+    pub partitions: Vec<String>,
+    pub encryption_type: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArchinstallConfig {
     #[serde(rename = "additional-repositories")]
     pub additional_repositories: Vec<Value>,
@@ -88,6 +129,8 @@ pub struct ArchinstallConfig {
     pub bootloader: String,
     pub config_version: String,
     pub debug: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_encryption: Option<DiskEncryption>,
     pub dry_run: bool,
     pub disk_config: DiskLayoutConfiguration,
     pub hostname: String,
@@ -121,42 +164,74 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
             archinstall_language: "English".to_string(),
             audio_config: None,
             bootloader: "grub".to_string(),
-            config_version: "2.5.2".to_string(),
+            config_version: "2.6.0".to_string(),
             debug: true,
+            disk_encryption: None,
             dry_run: false,
             disk_config: DiskLayoutConfiguration {
                 config_type: "manual_partitioning".to_string(),
                 device_modifications: vec![DeviceModification {
                     device: "/dev/vda".to_string(),
-                    partitions: vec![PartitionModification {
-                        flags: vec!["Boot".to_string()],
-                        fs_type: "fat32".to_string(),
-                        size: Size {
-                            sector_size: SectorSize {
+                    partitions: vec![
+                        PartitionModification {
+                            flags: vec!["Boot".to_string()],
+                            fs_type: "fat32".to_string(),
+                            size: Size {
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
+                                unit: "MiB".to_string(),
                                 value: 512,
-                                unit: "B".to_string(),
                             },
-                            unit: "MiB".to_string(),
-                            value: 512,
-                        },
-                        mount_options: vec![],
-                        mountpoint: "/boot".to_string(),
-                        start: Size {
-                            sector_size: SectorSize {
-                                value: 512,
-                                unit: "B".to_string(),
+                            mount_options: vec![],
+                            mountpoint: "/boot".to_string(),
+                            start: Size {
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
+                                unit: "MiB".to_string(),
+                                value: 1,
                             },
-                            unit: "MiB".to_string(),
-                            value: 1,
+                            status: "create".to_string(),
+                            type_field: "primary".to_string(),
+                            dev_path: "/dev/vda1".to_string(),
+                            partn: 1,
+                            partuuid: "".to_string(),
+                            uuid: Uuid::new_v4().to_string(),
+                            obj_id: Uuid::new_v4().to_string(),
                         },
-                        status: "create".to_string(),
-                        type_field: "primary".to_string(),
-                        dev_path: "/dev/vda1".to_string(),
-                        partn: 1,
-                        partuuid: "".to_string(),
-                        uuid: Uuid::new_v4().to_string(),
-                        obj_id: Uuid::new_v4().to_string(),
-                    }],
+                        PartitionModification {
+                            flags: vec![],
+                            fs_type: "ext4".to_string(),
+                            size: Size {
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
+                                unit: "MiB".to_string(),
+                                value: 5120,
+                            },
+                            mount_options: vec![],
+                            mountpoint: "/".to_string(),
+                            start: Size {
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
+                                unit: "MiB".to_string(),
+                                value: 513,
+                            },
+                            status: "create".to_string(),
+                            type_field: "primary".to_string(),
+                            dev_path: "/dev/vda2".to_string(),
+                            partn: 2,
+                            partuuid: "".to_string(),
+                            uuid: Uuid::new_v4().to_string(),
+                            obj_id: Uuid::new_v4().to_string(),
+                        },
+                    ],
                     wipe: false,
                 }],
             },
@@ -187,7 +262,7 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
             sys_encoding: "utf-8".to_string(),
             sys_language: "en_US".to_string(),
             timezone: "UTC".to_string(),
-            version: "2.5.2".to_string(),
+            version: "2.6.0".to_string(),
         }
     }
 }
