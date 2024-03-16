@@ -1,5 +1,6 @@
 use super::{CastImage, DefaultSource};
 use crate::cli::prompt::Prompt;
+use crate::cli::prompt::PromptNew;
 use crate::foundry::fabricators::Fabricate;
 use crate::foundry::http::HttpServer;
 use crate::foundry::molds::arch_linux::archinstall::ArchinstallConfig;
@@ -49,7 +50,8 @@ impl Default for ArchLinux {
 // TODO proc macro
 impl Prompt for ArchLinux {
     fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
-        todo!()
+        self.root_password = RootPassword::prompt_new(_foundry, _theme)?;
+        Ok(())
     }
 }
 

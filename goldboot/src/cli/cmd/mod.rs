@@ -1,4 +1,4 @@
-use crate::foundry::{molds::ImageMold, FoundryConfig};
+use crate::foundry::{molds::ImageMold, FoundryConfigPath};
 
 pub mod cast;
 pub mod image;
@@ -71,11 +71,11 @@ pub enum Commands {
         mold: Vec<ImageMold>,
 
         #[clap(long, default_value_t, value_enum)]
-        output: FoundryConfig,
+        format: FoundryConfigPath,
 
         /// The total image size
         #[clap(long)]
-        size: String,
+        size: Option<String>,
 
         // #[clap(long, num_args = 0)]
         // list: bool,

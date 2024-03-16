@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::{cli::prompt::Prompt, foundry::Foundry};
+use crate::{
+    cli::prompt::{Prompt, PromptNew},
+    foundry::Foundry,
+};
 use anyhow::Result;
 use dialoguer::{theme::Theme, Password};
 use serde::{Deserialize, Serialize};
@@ -55,6 +58,16 @@ pub enum RootPassword {
 
     /// Take plaintext password from environment variable
     PlaintextEnv(String),
+}
+
+impl PromptNew for RootPassword {
+    fn prompt_new(_: &Foundry, theme: Box<dyn Theme>) -> Result<Self> {
+        Ok(RootPassword::Plaintext(
+            Password::with_theme(&*theme)
+                .with_prompt("Root password")
+                .interact()?,
+        ))
+    }
 }
 
 impl Display for RootPassword {

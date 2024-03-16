@@ -87,10 +87,8 @@ pub struct Foundry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ovmf_path: Option<String>,
 
-    /// The encryption password. This value can alternatively be specified on
-    /// the command line and will be cleared before the config is included in
-    /// an image file.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// The encryption password
+    #[serde(skip_serializing)]
     pub password: Option<String>,
 
     /// Whether screenshots will be generated during the run for debugging
@@ -275,58 +273,58 @@ impl FoundryWorker {
 /// Represents a foundry configuration file. This mainly helps sort out the various
 /// supported config formats.
 #[derive(Clone, Debug, EnumIter)]
-pub enum FoundryConfig {
+pub enum FoundryConfigPath {
     Json(PathBuf),
     Ron(PathBuf),
     Toml(PathBuf),
     Yaml(PathBuf),
 }
 
-impl Default for FoundryConfig {
+impl Default for FoundryConfigPath {
     fn default() -> Self {
-        FoundryConfig::Ron(PathBuf::from("./goldboot.ron"))
+        FoundryConfigPath::Ron(PathBuf::from("./goldboot.ron"))
     }
 }
 
-static VARIANTS: OnceLock<Vec<FoundryConfig>> = OnceLock::new();
+static VARIANTS: OnceLock<Vec<FoundryConfigPath>> = OnceLock::new();
 
-impl ValueEnum for FoundryConfig {
+impl ValueEnum for FoundryConfigPath {
     fn value_variants<'a>() -> &'a [Self] {
         VARIANTS.get_or_init(|| {
             vec![
-                FoundryConfig::Json(PathBuf::from("./goldboot.json")),
-                FoundryConfig::Ron(PathBuf::from("./goldboot.ron")),
-                FoundryConfig::Toml(PathBuf::from("./goldboot.toml")),
-                FoundryConfig::Yaml(PathBuf::from("./goldboot.yaml")),
+                FoundryConfigPath::Json(PathBuf::from("./goldboot.json")),
+                FoundryConfigPath::Ron(PathBuf::from("./goldboot.ron")),
+                FoundryConfigPath::Toml(PathBuf::from("./goldboot.toml")),
+                FoundryConfigPath::Yaml(PathBuf::from("./goldboot.yaml")),
             ]
         })
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         match *self {
-            FoundryConfig::Json(_) => Some(PossibleValue::new("json")),
-            FoundryConfig::Ron(_) => Some(PossibleValue::new("ron")),
-            FoundryConfig::Toml(_) => Some(PossibleValue::new("toml")),
-            FoundryConfig::Yaml(_) => Some(PossibleValue::new("yaml")),
+            FoundryConfigPath::Json(_) => Some(PossibleValue::new("json")),
+            FoundryConfigPath::Ron(_) => Some(PossibleValue::new("ron")),
+            FoundryConfigPath::Toml(_) => Some(PossibleValue::new("toml")),
+            FoundryConfigPath::Yaml(_) => Some(PossibleValue::new("yaml")),
         }
     }
 }
 
-impl FoundryConfig {
+impl FoundryConfigPath {
     /// Check for a foundry configuration file in the given directory.
-    pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfig> {
+    pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfigPath> {
         let path = path.as_ref();
 
         if path.join("goldboot.json").exists() {
-            Some(FoundryConfig::Json(path.join("goldboot.json")))
+            Some(FoundryConfigPath::Json(path.join("goldboot.json")))
         } else if path.join("goldboot.ron").exists() {
-            Some(FoundryConfig::Ron(path.join("goldboot.ron")))
+            Some(FoundryConfigPath::Ron(path.join("goldboot.ron")))
         } else if path.join("goldboot.toml").exists() {
-            Some(FoundryConfig::Toml(path.join("goldboot.toml")))
+            Some(FoundryConfigPath::Toml(path.join("goldboot.toml")))
         } else if path.join("goldboot.yaml").exists() {
-            Some(FoundryConfig::Yaml(path.join("goldboot.yaml")))
+            Some(FoundryConfigPath::Yaml(path.join("goldboot.yaml")))
         } else if path.join("goldboot.yml").exists() {
-            Some(FoundryConfig::Yaml(path.join("goldboot.yml")))
+            Some(FoundryConfigPath::Yaml(path.join("goldboot.yml")))
         } else {
             None
         }
@@ -357,13 +355,13 @@ impl FoundryConfig {
     }
 }
 
-impl Display for FoundryConfig {
+impl Display for FoundryConfigPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let path = match self {
-            FoundryConfig::Json(path) => path,
-            FoundryConfig::Ron(path) => path,
-            FoundryConfig::Toml(path) => path,
-            FoundryConfig::Yaml(path) => path,
+            FoundryConfigPath::Json(path) => path,
+            FoundryConfigPath::Ron(path) => path,
+            FoundryConfigPath::Toml(path) => path,
+            FoundryConfigPath::Yaml(path) => path,
         }
         .to_string_lossy();
         path.fmt(f)

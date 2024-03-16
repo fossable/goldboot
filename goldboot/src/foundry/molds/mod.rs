@@ -1,16 +1,16 @@
-//! Templates are the central concept that make it easy to define images.
-
-use std::{fmt::Display, sync::OnceLock};
-
 use super::sources::ImageSource;
+use crate::cli::prompt::Prompt;
+use crate::foundry::Foundry;
 use crate::foundry::FoundryWorker;
 use anyhow::Result;
 use arch_linux::ArchLinux;
 use clap::ValueEnum;
 use debian::Debian;
+use dialoguer::theme::Theme;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
+use std::{fmt::Display, sync::OnceLock};
 use strum::{EnumIter, IntoEnumIterator};
 
 pub mod arch_linux;

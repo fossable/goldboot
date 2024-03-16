@@ -1,4 +1,4 @@
-use crate::foundry::{Foundry, FoundryConfig};
+use crate::foundry::{Foundry, FoundryConfigPath};
 use std::process::ExitCode;
 use tracing::debug;
 use tracing::error;
@@ -14,7 +14,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             output,
             path,
         } => {
-            let config_path = match FoundryConfig::from_dir(path) {
+            let config_path = match FoundryConfigPath::from_dir(path) {
                 Some(p) => {
                     debug!("Loading config from {}", p);
                     p
