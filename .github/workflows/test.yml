@@ -26,6 +26,7 @@ jobs:
         # toolchain
         toolchain: [stable, beta]
     steps:
+      - run: apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -69,6 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ubuntu / stable / minimal-versions
     steps:
+      - run: apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -132,6 +134,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ubuntu / stable / coverage
     steps:
+      - run: apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true

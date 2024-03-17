@@ -1,3 +1,7 @@
+use axum::{routing::get, Router};
+
+pub mod api;
+pub mod extract;
 pub mod media;
 
 pub struct RegistryTokenPermissions {
@@ -22,4 +26,21 @@ pub struct RegistryToken {
 
     /// The token's associated permissions
     pub permissions: RegistryTokenPermissions,
+}
+
+#[derive(Clone)]
+pub struct RegistryState {}
+
+pub async fn run(address: String, port: u16) {
+    let state = RegistryState {};
+
+    let app = Router::new()
+        .route("/image/list", get(api::image::list))
+        .route("/image/info/:image_id", get(api::image::info))
+        .with_state(state);
+
+    let listener = tokio::net::TcpListener::bind(format!("{address}:{port}"))
+        .await
+        .unwrap();
+    axum::serve(listener, app).await.unwrap();
 }

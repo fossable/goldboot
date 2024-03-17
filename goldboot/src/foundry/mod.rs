@@ -94,6 +94,9 @@ pub struct Foundry {
     /// Whether screenshots will be generated during the run for debugging
     pub record: bool,
 
+    /// Whether the image is public
+    pub public: bool,
+
     pub size: String,
 }
 
@@ -198,6 +201,7 @@ impl Foundry {
                 self.name.clone(),
                 ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
                 self.password.clone(),
+                self.public,
                 output,
                 ProgressBar::Convert.new_empty(),
             )?;
@@ -208,6 +212,7 @@ impl Foundry {
                 self.name.clone(),
                 ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
                 self.password.clone(),
+                self.public,
                 &tmp,
                 ProgressBar::Convert.new_empty(),
             )?;

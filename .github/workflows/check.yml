@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     name: nightly / doc
     steps:
+      - run: apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -99,7 +100,7 @@ jobs:
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
-        msrv: ["1.59.0"]
+        msrv: ["1.70.0"]
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v4

@@ -175,6 +175,12 @@ pub struct PrimaryHeader {
 
     /// The size of the directory in bytes
     pub directory_size: u32,
+
+    /// Whether the image is public
+    pub public: u8,
+
+    /// Extra space for the future
+    pub reserved: [u8; 64],
 }
 
 impl PrimaryHeader {
@@ -182,6 +188,10 @@ impl PrimaryHeader {
         unsafe { CStr::from_ptr(self.name.as_ptr() as *const std::ffi::c_char) }
             .to_string_lossy()
             .into_owned()
+    }
+
+    pub fn is_public(&self) -> bool {
+        return self.public == 1u8;
     }
 }
 
@@ -447,6 +457,7 @@ impl ImageHandle {
         name: String,
         config: Vec<u8>,
         password: Option<String>,
+        public: bool,
         dest: impl AsRef<Path>,
         progress: F,
     ) -> Result<ImageHandle> {
@@ -485,7 +496,9 @@ impl ImageHandle {
             } else {
                 HeaderEncryptionType::None
             },
+            public: if public { 1u8 } else { 0u8 },
             name: [0u8; 64],
+            reserved: [0u8; 64],
         };
 
         primary_header.name[0..name.len()].copy_from_slice(&name.clone().as_bytes()[..]);
@@ -792,6 +805,7 @@ mod tests {
             String::from("Test"),
             vec![],
             None,
+            true,
             tmp.path().join("small.gb"),
             |_, _| {},
         )?;
@@ -830,6 +844,7 @@ mod tests {
             String::from("Test"),
             vec![],
             Some(String::from("1234")),
+            true,
             tmp.path().join("small.gb"),
             |_, _| {},
         )?;
