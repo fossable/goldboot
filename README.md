@@ -66,25 +66,29 @@ easily deployable package.
 Like Docker images, your `goldboot` images can be stored in a registry and pulled
 onto real hardware.
 
-## Platform Support Matrix
+## Examples
 
-The following table shows planned support (nothing here is fully complete yet).
+The [goldboot-examples](https://github.com/fossable/goldboot-examples) repo contains example
+configurations of all supported OS types and system architectures. They are built on a weekly
+schedule against the latest version of `goldboot`.
 
-| OS Name                                                            | Testing                                                                                                                                                                                                                             | Provisioners | Multiboot |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------- |
-| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png) Alpine Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_alpine_aarch64.yml/badge.svg)         | Yes          | Yes       |
-| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) Arch Linux  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_arch_linux_aarch64.yml/badge.svg) | Yes          | Yes       |
-| ![Debian](goldboot/src/foundry/molds/debian/icon.png) Debian             | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_x86_64.yml/badge.svg) ![aarch64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_debian_aarch64.yml/badge.svg)         | Yes          | Yes       |
-| ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) macOS                | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_mac_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | No        |
-| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png) Pop!\_OS          | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_pop_os_x86_64.yml/badge.svg)                                                                                                                        | Yes          | Yes       |
-| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) Steam Deck | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_deck_x86_64.yml/badge.svg)                                                                                                                    | No           | Yes       |
-| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png) Steam OS       | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_steam_os_x86_64.yml/badge.svg)                                                                                                                      | Yes          | Yes       |
-| ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) Windows 10  | ![x86_64](https://github.com/goldboot/goldboot/workflows/.github/workflows/test_windows_10_x86_64.yml/badge.svg)                                                                                                                    | Yes          | No        |
+| Linux | Windows | macos |
+| ----- | ------- | ----- |
+| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png)         ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Alpine-x86_64/badge.svg)    | ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Windows10-x86_64/badge.svg) | ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Macos-x86_64/badge.svg) |
+| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/ArchLinux-x86_64/badge.svg) | |
+| ![Debian](goldboot/src/foundry/molds/debian/icon.png)         ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Debian-x86_64/badge.svg)    | |
+| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png)        ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Pop!_OS-x86_64/badge.svg)   | |
+| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/SteamDeck-x86_64/badge.svg) | |
+| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png)     ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/SteamOs-x86_64/badge.svg)   | |
 
 ## Installation
 
 <details>
-<summary>General</summary>
+<summary>Docker</summary>
+
+![Docker Pulls](https://img.shields.io/docker/pulls/fossable/goldboot)
+![Docker Image Size](https://img.shields.io/docker/image-size/fossable/goldboot)
+![Docker Stars](https://img.shields.io/docker/stars/fossable/goldboot)
 
 #### Install from DockerHub
 
@@ -94,7 +98,23 @@ alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 </details>
 
 <details>
+<summary>Crates.io</summary>
+
+![Crates.io Total Downloads](https://img.shields.io/crates/d/goldboot)
+
+#### Install from crates.io
+
+```sh
+cargo install goldboot
+```
+</details>
+
+<details>
 <summary>Arch Linux</summary>
+
+![AUR Votes](https://img.shields.io/aur/votes/goldboot)
+![AUR Version](https://img.shields.io/aur/version/goldboot)
+![AUR Last Modified](https://img.shields.io/aur/last-modified/goldboot)
 
 #### Install from the AUR
 
@@ -107,6 +127,8 @@ alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 
 <details>
 <summary>Github Actions</summary>
+
+#### Running on Github actions
 
 Building golden images with CI is common practice, so there's also a [Github
 action](https://github.com/fossable/goldboot-action) to make it easy:
