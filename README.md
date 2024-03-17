@@ -83,12 +83,28 @@ The following table shows planned support (nothing here is fully complete yet).
 
 ## Installation
 
-Docker is currently the easiest way to run `goldboot`, but eventually there will
-also be binary releases and distro packages.
+<details>
+<summary>General</summary>
+
+### Install from DockerHub
 
 ```sh
 alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 ```
+</details>
+
+<details>
+<summary>Arch Linux</summary>
+
+### Install from the AUR
+
+```sh
+  cd /tmp
+  curl https://aur.archlinux.org/cgit/aur.git/snapshot/goldboot.tar.gz | tar xf -
+  makepkg -si
+```
+</details>
+
 
 #### Github actions
 
@@ -132,7 +148,7 @@ goldboot init \
   --name Test \
   --mold ArchLinux \
   --size 10G \
-  --output json
+  --format json
 ```
 
 This will create `goldboot.json` which contains configuration options that can
