@@ -6,6 +6,7 @@
 # - os-check: runs the test suite on mac and windows
 # - coverage: runs the test suite and collects coverage information
 # See check.yml for information about how the concurrency cancellation and workflow triggering works
+name: test
 permissions:
   contents: read
 on:
@@ -15,10 +16,10 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-name: test
 jobs:
   required:
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ubuntu / ${{ matrix.toolchain }}
     strategy:
       matrix:
@@ -26,7 +27,7 @@ jobs:
         # toolchain
         toolchain: [stable, beta]
     steps:
-      - run: apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -68,9 +69,10 @@ jobs:
     # https://github.com/jonhoo/fantoccini/blob/fde336472b712bc7ebf5b4e772023a7ba71b2262/Cargo.toml#L47-L49.
     # This action is run on ubuntu with the stable toolchain, as it is not expected to fail
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ubuntu / stable / minimal-versions
     steps:
-      - run: apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -87,6 +89,7 @@ jobs:
   os-check:
     # run cargo test on mac and windows
     runs-on: ${{ matrix.os }}
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ${{ matrix.os }} / stable
     strategy:
       fail-fast: false
@@ -132,9 +135,10 @@ jobs:
     #
     # for lots of more discussion
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ubuntu / stable / coverage
     steps:
-      - run: apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true

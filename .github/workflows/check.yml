@@ -5,6 +5,7 @@
 # - doc: checks that the code can be documented without errors
 # - hack: check combinations of feature flags
 # - msrv: check that the msrv specified in the crate is correct
+name: check
 permissions:
   contents: read
 # This configuration allows maintainers of this repo to create a branch and pull request based on
@@ -19,10 +20,10 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-name: check
 jobs:
   fmt:
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: stable / fmt
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +37,7 @@ jobs:
         run: cargo fmt --check
   clippy:
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ${{ matrix.toolchain }} / clippy
     permissions:
       contents: read
@@ -64,9 +66,10 @@ jobs:
     # https://doc.rust-lang.org/beta/unstable-book/language-features/doc-cfg.html which allows an
     # API be documented as only available in some specific platforms.
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: nightly / doc
     steps:
-      - run: apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango-1.0-0
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -80,6 +83,7 @@ jobs:
     # cargo-hack checks combinations of feature flags to ensure that features are all additive
     # which is required for feature unification
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ubuntu / stable / features
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +100,7 @@ jobs:
   msrv:
     # check that we can build using the minimal rust version that is specified by this crate
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
     # we use a matrix here just because env can't be used in job names
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:

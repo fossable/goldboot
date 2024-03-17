@@ -1,7 +1,7 @@
+name: release
 permissions:
   pull-requests: write
   contents: write
-
 on:
   push:
     branches:

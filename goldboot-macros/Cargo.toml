@@ -3,6 +3,9 @@ name = "goldboot-macros"
 version = "0.0.1"
 edition = "2021"
 rust-version = "1.70"
+description = "Supporting macros for goldboot"
+license = "AGPL-3.0-only"
+authors = ["Tyler Cook"]
 
 [lib]
 proc-macro = true
