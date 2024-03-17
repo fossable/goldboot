@@ -8,6 +8,7 @@ authors = ["Tyler Cook"]
 readme = "README.md"
 homepage = "https://goldboot.org"
 repository = "https://github.com/goldboot/goldboot/"
+rust-version = "1.59"
 
 [dependencies]
 anyhow = "1.0.76"

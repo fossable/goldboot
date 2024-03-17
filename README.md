@@ -86,7 +86,7 @@ The following table shows planned support (nothing here is fully complete yet).
 <details>
 <summary>General</summary>
 
-### Install from DockerHub
+#### Install from DockerHub
 
 ```sh
 alias goldboot="docker run --rm -v .:/root fossable/goldboot"
@@ -96,7 +96,7 @@ alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 <details>
 <summary>Arch Linux</summary>
 
-### Install from the AUR
+#### Install from the AUR
 
 ```sh
   cd /tmp
@@ -105,8 +105,8 @@ alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 ```
 </details>
 
-
-#### Github actions
+<details>
+<summary>Github Actions</summary>
 
 Building golden images with CI is common practice, so there's also a [Github
 action](https://github.com/fossable/goldboot-action) to make it easy:
@@ -128,6 +128,7 @@ steps:
       name: my_image.gb
       path: image.gb
 ```
+</details>
 
 ## Your first golden image
 
