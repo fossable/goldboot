@@ -74,12 +74,12 @@ schedule against the latest version of `goldboot`.
 
 | Linux | Windows | macos |
 | ----- | ------- | ----- |
-| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png)         ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Alpine-x86_64/badge.svg)    | ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Windows10-x86_64/badge.svg) | ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Macos-x86_64/badge.svg) |
-| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/ArchLinux-x86_64/badge.svg) | |
-| ![Debian](goldboot/src/foundry/molds/debian/icon.png)         ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Debian-x86_64/badge.svg)    | |
-| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png)        ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/Pop!_OS-x86_64/badge.svg)   | |
-| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/SteamDeck-x86_64/badge.svg) | |
-| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png)     ![x86_64](https://github.com/goldboot/goldboot-examples/workflows/SteamOs-x86_64/badge.svg)   | |
+| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)    | ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
+| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) | |
+| ![Debian](goldboot/src/foundry/molds/debian/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)    | |
+| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png)        ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)   | |
+| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) | |
+| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png)     ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)   | |
 
 ## Installation
 
