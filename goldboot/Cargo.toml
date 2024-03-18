@@ -36,6 +36,7 @@ gtk4 = { version = "0.8.1", optional = true, features = ["v4_12"] }
 glib = { version = "0.19.2", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
+openssl = { version = "0.10", features = ["vendored"] }
 png = "0.17.10"
 rand = "0.8.5"
 regex = "1.10.2"

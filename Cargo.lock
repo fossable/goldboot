@@ -1309,6 +1309,7 @@ dependencies = [
  "gtk4",
  "hex",
  "indicatif",
+ "openssl",
  "png",
  "rand",
  "regex",
