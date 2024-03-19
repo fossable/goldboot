@@ -2,14 +2,12 @@ use std::collections::HashMap;
 
 use axum::{
     async_trait,
-    extract::{rejection::JsonRejection, FromRequest, MatchedPath, Path, Request},
+    extract::{FromRequest, Path, Request},
     http::StatusCode,
-    response::IntoResponse,
-    RequestPartsExt,
 };
 use tracing::error;
 
-use crate::library::ImageLibrary;
+use goldboot::library::ImageLibrary;
 
 use super::RegistryState;
 

@@ -1,20 +1,20 @@
 [package]
-name = "goldboot"
-description = "A command-line application for building goldboot images"
-version = "0.0.2"
-edition = "2021"
-license = "AGPL-3.0-only"
 authors = ["Tyler Cook"]
-readme = "README.md"
+description = "A command-line application for building goldboot images"
+edition = "2021"
 homepage = "https://goldboot.org"
+license = "AGPL-3.0-only"
+name = "goldboot"
+readme = "README.md"
 repository = "https://github.com/goldboot/goldboot/"
-rust-version = "1.70"
+rust-version = "1.74"
+version = "0.0.2"
 
 [dependencies]
 anyhow = "1.0.76"
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
-axum = { version = "0.7.4" }
+axum = { version = "0.7.4", optional = true }
 block-utils = { version = "0.11.1", optional = true }
 built = { version = "0.7", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
@@ -23,10 +23,10 @@ clap = { version = "4.4.7", features = ["derive", "string"] }
 console = "0.15.7"
 dialoguer = "0.11.0"
 enum_dispatch = "0.3.12"
-fatfs = "0.3.6"
+fatfs = { version = "0.3.6", optional = true }
 flate2 = "1.0.28"
 fossable = "0.1.2"
-fscommon = "0.1.1"
+fscommon = { version = "0.1.1", optional = true }
 gdk4 = { version = "0.8.1", optional = true }
 gdk-pixbuf = { version = "0.19.2", optional = true }
 glib-macros = { version = "0.19.2", optional = true }
@@ -37,7 +37,7 @@ glib = { version = "0.19.2", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
 openssl = { version = "0.10", features = ["vendored"] }
-png = "0.17.10"
+png = { version = "0.17.10", optional = true }
 rand = "0.8.5"
 regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["stream", "blocking", "json"] }
@@ -45,7 +45,7 @@ ron = "0.8.1"
 rustls = { version = "0.22.2" }
 serde_json = "1.0.108"
 serde = { version = "1.0.190", features = ["derive"] }
-serde_win_unattend = "0.1.0"
+serde_win_unattend = { version = "0.1.0", optional = true }
 serde_yaml = "0.9.27"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
@@ -61,7 +61,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ubyte = "0.10.4"
 url = { version = "2.4.1", features = ["serde"] }
 validator = { version = "0.17.0", features = ["derive"] }
-vnc = "0.4.0"
+vnc = { version = "0.4.0", optional = true }
 whoami = "1.4.1"
 zstd = "0.13.0"
 uuid = { version = "1.7.0", features = ["v4"] }
@@ -82,7 +82,7 @@ registry = []
 gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils", "dep:glib"]
 
 # Support for casting images
-cast = []
+cast = ["dep:fatfs", "dep:fscommon", "dep:png", "dep:vnc", "dep:serde_win_unattend", "dep:axum"]
 
 # Bundled OVMF firmware
 include_ovmf = []

@@ -1371,6 +1371,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "goldboot-registry"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "goldboot",
+ "goldboot-image",
+ "reqwest",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "graphene-rs"
 version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
