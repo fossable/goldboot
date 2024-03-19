@@ -60,6 +60,12 @@ pub enum RootPassword {
     PlaintextEnv(String),
 }
 
+impl Default for RootPassword {
+    fn default() -> Self {
+        Self::Plaintext("root".to_string())
+    }
+}
+
 impl PromptNew for RootPassword {
     fn prompt_new(_: &Foundry, theme: Box<dyn Theme>) -> Result<Self> {
         Ok(RootPassword::Plaintext(

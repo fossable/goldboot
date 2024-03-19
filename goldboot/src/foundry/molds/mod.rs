@@ -3,9 +3,7 @@ use crate::cli::prompt::Prompt;
 use crate::foundry::Foundry;
 use crate::foundry::FoundryWorker;
 use anyhow::Result;
-use arch_linux::ArchLinux;
 use clap::ValueEnum;
-use debian::Debian;
 use dialoguer::theme::Theme;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
@@ -13,6 +11,11 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, sync::OnceLock};
 use strum::{EnumIter, IntoEnumIterator};
 
+use alpine_linux::AlpineLinux;
+use arch_linux::ArchLinux;
+use debian::Debian;
+
+pub mod alpine_linux;
 pub mod arch_linux;
 pub mod debian;
 
@@ -37,7 +40,7 @@ pub trait DefaultSource {
 #[enum_dispatch]
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
 pub enum ImageMold {
-    // AlpineLinux,
+    AlpineLinux,
     ArchLinux,
     // Artix,
     // BedrockLinux,
@@ -80,6 +83,7 @@ impl ImageMold {
     /// Supported system architectures
     pub fn architectures(&self) -> Vec<ImageArch> {
         match self {
+            ImageMold::AlpineLinux(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             ImageMold::ArchLinux(_) => vec![ImageArch::Amd64],
             ImageMold::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
         }
@@ -99,6 +103,7 @@ impl Display for ImageMold {
             f,
             "{}",
             match self {
+                ImageMold::AlpineLinux(_) => "AlpineLinux",
                 ImageMold::ArchLinux(_) => "ArchLinux",
                 ImageMold::Debian(_) => "Debian",
             }

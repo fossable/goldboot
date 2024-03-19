@@ -235,11 +235,7 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
                     wipe: false,
                 }],
             },
-            hostname: value
-                .hostname
-                .clone()
-                .unwrap_or(Hostname::default())
-                .to_string(),
+            hostname: value.hostname.hostname.clone(),
             kernels: vec!["linux".to_string()],
             keyboard_layout: "us".to_string(),
             mirror_region: "Worldwide".to_string(),

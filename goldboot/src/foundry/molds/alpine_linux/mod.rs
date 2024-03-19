@@ -1,70 +1,62 @@
-use crate::{
-    build::BuildWorker, cache::*, provisioners::*, qemu::QemuArgs, sources::*, templates::*,
-};
+use anyhow::Result;
+use dialoguer::theme::Theme;
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use std::fmt::Display;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
-/// Template for Alpine Linux images (https://www.alpinelinux.org).
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct AlpineTemplate {
+use crate::{
+    cli::prompt::{Prompt, PromptNew},
+    enter,
+    foundry::{
+        options::{hostname::Hostname, unix_account::RootPassword},
+        qemu::{OsCategory, QemuBuilder},
+        sources::ImageSource,
+        Foundry, FoundryWorker,
+    },
+    wait, wait_screen_rect,
+};
+
+use super::{CastImage, DefaultSource};
+
+/// Produces [Alpine Linux](https://www.alpinelinux.org) images.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+pub struct AlpineLinux {
     pub edition: AlpineEdition,
+    #[serde(flatten)]
+    pub hostname: Hostname,
     pub release: AlpineRelease,
-
-    pub source: Option<AlpineSource>,
-    pub provisioners: Option<Vec<AlpineProvisioner>>,
+    pub root_password: RootPassword,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum AlpineSource {
-    Iso(IsoSource),
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum AlpineProvisioner {
-    Ansible(AnsibleProvisioner),
-    Hostname(HostnameProvisioner),
-    User(UnixAccountProvisioners),
-    Partition(PartitionProvisioner),
-    Executable(ExecutableProvisioner),
-}
-
-impl Default for AlpineTemplate {
-    fn default() -> Self {
-        Self {
-            edition: AlpineEdition::Standard,
-            release: AlpineRelease::V3_16,
-            source: None,
-            provisioners: None,
-        }
+impl DefaultSource for AlpineLinux {
+    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
+        Ok(ImageSource::Iso {
+            url: "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-standard-3.19.1-x86_64.iso".to_string(),
+            checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
+        })
     }
 }
 
-impl BuildTemplate for AlpineTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<()> {
-        let mut qemuargs = QemuArgs::new(&context);
+// TODO proc macro
+impl Prompt for AlpineLinux {
+    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+        self.root_password = RootPassword::prompt_new(_foundry, _theme)?;
+        Ok(())
+    }
+}
 
-        let iso = self.iso.unwrap_or_else(|| {
-            fetch_latest_iso(self.edition, self.release, context.config.arch).unwrap()
-        });
-
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs
-            .drive
-            .push(format!("file={},media=cdrom", iso.download()?));
-
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
+impl CastImage for AlpineLinux {
+    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+            .source(&worker.element.source)?
+            .prepare_ssh()?
+            .start()?;
 
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.boot_command(vec![
+		qemu.vnc.run(vec![
 			// Initial wait
 			wait!(30),
 			// Root login
@@ -92,17 +84,15 @@ iface eth0 inet dhcp
 			wait_screen_rect!("6d7b9fc9229c4f4ae8bc84f0925d8479ccd3e7d2", 668, 0, 1024, 100),
 			// Remount root partition
 			enter!("mount -t ext4 /dev/vda3 /mnt"),
-			// Configure SSH
-			enter!("echo 'PermitRootLogin yes' >>/mnt/etc/ssh/sshd_config"),
 			// Reboot into installation
 			enter!("apk add efibootmgr; efibootmgr -n 0003; reboot"),
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
+        let mut ssh = qemu.ssh("root")?;
 
         // Run provisioners
-        self.provisioners.run(&mut ssh)?;
+        // TODO
 
         // Shutdown
         ssh.shutdown("poweroff")?;
@@ -111,52 +101,45 @@ iface eth0 inet dhcp
     }
 }
 
-impl Prompt for AlpineLinux {
-    fn prompt(
-        &mut self,
-        config: &BuildConfig,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<()> {
-        // Prompt edition
-        {
-            let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
-            let edition_index = dialoguer::Select::with_theme(&theme)
-                .with_prompt("Choose an edition")
-                .default(0)
-                .items(&editions)
-                .interact()?;
-
-            self.edition = editions[edition_index];
-        }
-
-        // Prompt mirror list
-        // TODO
-
-        self.validate()?;
-        Ok(())
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Display, Default)]
 pub enum AlpineEdition {
+    #[default]
     Standard,
     Extended,
     RaspberryPi,
     Xen,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
+impl PromptNew for AlpineEdition {
+    fn prompt_new(
+        foundry: &crate::foundry::Foundry,
+        theme: Box<dyn dialoguer::theme::Theme>,
+    ) -> Result<Self> {
+        let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
+        let edition_index = dialoguer::Select::with_theme(&*theme)
+            .with_prompt("Choose an edition")
+            .default(0)
+            .items(&editions)
+            .interact()?;
+
+        Ok(editions[edition_index])
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Default)]
 pub enum AlpineRelease {
+    #[default]
     Edge,
+    #[serde(rename = "v3.19")]
+    V3_19,
+    #[serde(rename = "v3.18")]
+    V3_18,
     #[serde(rename = "v3.17")]
     V3_17,
     #[serde(rename = "v3.16")]
     V3_16,
     #[serde(rename = "v3.15")]
     V3_15,
-    #[deprecated]
-    #[serde(rename = "v3.14")]
-    V3_14,
 }
 
 impl Display for AlpineRelease {
@@ -166,6 +149,9 @@ impl Display for AlpineRelease {
             "{}",
             match &self {
                 AlpineRelease::Edge => "Edge",
+                AlpineRelease::V3_19 => "v3.19",
+                AlpineRelease::V3_18 => "v3.18",
+                AlpineRelease::V3_17 => "v3.17",
                 AlpineRelease::V3_16 => "v3.16",
                 AlpineRelease::V3_15 => "v3.15",
             }
@@ -173,29 +159,29 @@ impl Display for AlpineRelease {
     }
 }
 
-fn fetch_latest_iso(
-    edition: AlpineEdition,
-    release: AlpineRelease,
-    arch: Architecture,
-) -> Result<IsoSource> {
-    let arch = match arch {
-        Architecture::amd64 => "x86_64",
-        Architecture::arm64 => "aarch64",
-        _ => bail!("Unsupported architecture"),
-    };
+// fn fetch_latest_iso(
+//     edition: AlpineEdition,
+//     release: AlpineRelease,
+//     arch: Architecture,
+// ) -> Result<IsoSource> {
+//     let arch = match arch {
+//         Architecture::amd64 => "x86_64",
+//         Architecture::arm64 => "aarch64",
+//         _ => bail!("Unsupported architecture"),
+//     };
 
-    let edition = match edition {
-        AlpineEdition::Standard => "standard",
-        AlpineEdition::Extended => "extended",
-        AlpineEdition::Xen => "virt",
-        AlpineEdition::RaspberryPi => "rpi",
-    };
+//     let edition = match edition {
+//         AlpineEdition::Standard => "standard",
+//         AlpineEdition::Extended => "extended",
+//         AlpineEdition::Xen => "virt",
+//         AlpineEdition::RaspberryPi => "rpi",
+//     };
 
-    let url = format!("https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/{arch}/alpine-{edition}-3.16.0-{arch}.iso");
+//     let url = format!("https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/{arch}/alpine-{edition}-3.16.0-{arch}.iso");
 
-    // Download checksum
-    let rs = reqwest::blocking::get(format!("{url}.sha256"))?;
-    let checksum = if rs.status().is_success() { None } else { None };
+//     // Download checksum
+//     let rs = reqwest::blocking::get(format!("{url}.sha256"))?;
+//     let checksum = if rs.status().is_success() { None } else { None };
 
-    Ok(IsoSource { url, checksum })
-}
+//     Ok(IsoSource { url, checksum })
+// }

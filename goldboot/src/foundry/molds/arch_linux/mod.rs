@@ -26,26 +26,14 @@ use validator::Validate;
 mod archinstall;
 
 /// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ArchLinux {
     #[serde(flatten)]
-    pub hostname: Option<Hostname>,
+    pub hostname: Hostname,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
+    #[serde(flatten)]
     pub packages: Option<ArchLinuxPackages>,
     pub root_password: RootPassword,
-}
-
-impl Default for ArchLinux {
-    fn default() -> Self {
-        Self {
-            root_password: RootPassword::Plaintext("root".to_string()),
-            packages: None,
-            mirrorlist: None,
-            hostname: Some(Hostname {
-                hostname: "ArchLinux".to_string(),
-            }),
-        }
-    }
 }
 
 // TODO proc macro
