@@ -33,7 +33,7 @@ glib-macros = { version = "0.19.2", optional = true }
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
 goldboot-macros = { path="../goldboot-macros", version = "0.0.1" }
 gtk4 = { version = "0.8.1", optional = true, features = ["v4_12"] }
-glib = { version = "0.19.2", optional = true }
+glib = { version = "0.19.3", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
 openssl = { version = "0.10", features = ["vendored"] }
