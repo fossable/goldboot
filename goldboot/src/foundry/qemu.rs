@@ -5,8 +5,8 @@ use anyhow::Result;
 use goldboot_image::ImageArch;
 use rand::Rng;
 use std::collections::HashMap;
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Cursor, Write};
 use std::path::PathBuf;
 use std::{
     process::{Child, Command},
@@ -110,6 +110,7 @@ impl QemuProcess {
 #[derive(Debug)]
 pub struct QemuArgs {
     pub bios: String,
+    pub blockdev: Vec<String>,
     pub boot: String,
     pub cpu: Option<String>,
     pub device: Vec<String>,
@@ -183,6 +184,11 @@ impl Into<Vec<String>> for QemuArgs {
             cmdline.push(vnc.to_string());
         }
 
+        for blockdev in &self.blockdev {
+            cmdline.push(String::from("-blockdev"));
+            cmdline.push(blockdev.to_string());
+        }
+
         for device in &self.device {
             cmdline.push(String::from("-device"));
             cmdline.push(device.to_string());
@@ -218,6 +224,7 @@ impl QemuBuilder {
         Self {
             args: QemuArgs {
                 bios: worker.ovmf_path.display().to_string(),
+                blockdev: vec![],
                 boot: String::from("once=d"),
                 cpu: None,
                 device: vec![String::from("virtio-net,netdev=user.0")],
@@ -232,8 +239,13 @@ impl QemuBuilder {
                 // Add the output image as a drive
                 // TODO nvme?
                 drive: vec![format!(
-                    "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-                    worker.qcow_path.display()
+                    "file={},if={},cache=writeback,discard=ignore,format=qcow2",
+                    worker.qcow_path.display(),
+                    match os_category {
+                        OsCategory::Darwin => "virtio",
+                        OsCategory::Linux => "virtio",
+                        OsCategory::Windows => "ide",
+                    },
                 )],
 
                 // This seems to be necessary for the EFI variables to persist
@@ -299,8 +311,7 @@ impl QemuBuilder {
             .take(12)
             .map(char::from)
             .collect();
-        // let fs_path = self.temp.join(fs_name);
-        let fs_path = format!("/tmp/{}", fs_name);
+        let fs_path = self.temp.join(fs_name);
 
         let fs_size: u64 = files.values().map(|c| c.len() as u64).sum();
 
@@ -309,7 +320,7 @@ impl QemuBuilder {
             fs_size, "Formatting FAT filesystem"
         );
         {
-            let mut fs_file = OpenOptions::new()
+            let fs_file = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
@@ -322,7 +333,7 @@ impl QemuBuilder {
                 fatfs::FormatVolumeOptions::new(),
             )?;
 
-            let mut fs_file = OpenOptions::new()
+            let fs_file = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
@@ -335,9 +346,96 @@ impl QemuBuilder {
                 file.write_all(content)?;
             }
         }
+
+        // Wrap filesystem in MBR partition
+        // {
+        //     let mut mbr = mbrman::MBR::new_from(
+        //         &mut Cursor::new(std::fs::read(&fs_path)?),
+        //         512u32,
+        //         [0xff; 4],
+        //     )?;
+
+        //     let free_partition_number = mbr
+        //         .iter()
+        //         .find(|(i, p)| p.is_unused())
+        //         .map(|(i, _)| i)
+        //         .expect("no more places available");
+        //     let sectors = mbr
+        //         .get_maximum_partition_size()
+        //         .expect("no more space available");
+        //     let starting_lba = mbr
+        //         .find_optimal_place(sectors)
+        //         .expect("could not find a place to put the partition");
+
+        //     mbr[free_partition_number] = mbrman::MBRPartitionEntry {
+        //         boot: mbrman::BOOT_INACTIVE,     // boot flag
+        //         first_chs: mbrman::CHS::empty(), // first CHS address (only useful for old computers)
+        //         sys: 0x0c,                       // extended partition with LBA
+        //         last_chs: mbrman::CHS::empty(),  // last CHS address (only useful for old computers)
+        //         starting_lba,                    // the sector where the partition starts
+        //         sectors,                         // the number of sectors in that partition
+        //     };
+
+        //     let mut f = File::create(&fs_path)?;
+        //     mbr.write_into(&mut f)?;
+        // }
+
         self.args.drive.push(format!(
             "file={},if=virtio,cache=writeback,discard=ignore,format=raw",
-            fs_path //.display()
+            fs_path.display()
+        ));
+        Ok(self)
+    }
+
+    /// Create a temporary FAT filesystem with the given contents and append it
+    /// to the invocation.
+    pub fn floppy_files(mut self, files: HashMap<String, Vec<u8>>) -> Result<Self> {
+        let fs_name: String = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(12)
+            .map(char::from)
+            .collect();
+        let fs_path = self.temp.join(fs_name);
+
+        let fs_size: u64 = files.values().map(|c| c.len() as u64).sum();
+
+        debug!(
+            fs_path = ?fs_path,
+            fs_size, "Formatting FAT filesystem"
+        );
+        {
+            let fs_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(&fs_path)?;
+            // Add a buffer of extra space
+            fs_file.set_len(fs_size + 32000)?;
+
+            fatfs::format_volume(
+                fscommon::BufStream::new(fs_file),
+                fatfs::FormatVolumeOptions::new(),
+            )?;
+
+            let fs_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(&fs_path)?;
+            let fs = fatfs::FileSystem::new(fs_file, fatfs::FsOptions::new())?;
+            let root_dir = fs.root_dir();
+
+            for (path, content) in &files {
+                let mut file = root_dir.create_file(path)?;
+                file.write_all(content)?;
+            }
+        }
+
+        // TODO dynamic f0
+        self.args.device.push("floppy,drive=f0".to_string());
+        self.args.blockdev.push(format!(
+            "driver=file,node-name=f0,filename={}",
+            fs_path.display()
         ));
         Ok(self)
     }

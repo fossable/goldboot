@@ -57,7 +57,14 @@ pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u
     for entry in archive.entries()? {
         let mut entry = entry?;
 
-        if entry.path()?.to_string_lossy().to_string() == "sshdog" {
+        if entry
+            .path()?
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
+            == "sshdog"
+        {
             let mut content = Vec::new();
             entry.read_to_end(&mut content)?;
             return Ok(content);

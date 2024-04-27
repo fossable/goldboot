@@ -1,57 +1,64 @@
-use crate::{
-    build::BuildWorker,
-    cache::{MediaCache, MediaFormat},
-    qemu::QemuArgs,
-    templates::*,
-};
+use std::collections::HashMap;
+
+use anyhow::Result;
+use dialoguer::theme::Theme;
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use serde_win_unattend::*;
+use tracing::debug;
 use validator::Validate;
 
-use super::*;
+use crate::{
+    cli::prompt::Prompt,
+    enter,
+    foundry::{
+        options::hostname::Hostname,
+        qemu::{OsCategory, QemuBuilder},
+        sources::ImageSource,
+        Foundry, FoundryWorker,
+    },
+    wait,
+};
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/Windows10/"]
-struct Resources;
+use super::{CastImage, DefaultSource};
 
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct Windows10 {
+    #[serde(flatten)]
+    pub hostname: Hostname,
+
     username: String,
 
     password: String,
-
-    hostname: String,
-
-    pub ansible: Option<Vec<AnsibleProvisioner>>,
 }
 
-impl Default for Windows10 {
-    fn default() -> Self {
-        Self {
-            id: TemplateId::Windows10,
-            username: String::from("admin"),
-            password: String::from("admin"),
-            hostname: String::from("goldboot"),
-            iso: IsoContainer {
-                url: String::from("<ISO URL>"),
-                checksum: String::from("<ISO HASH>"),
-            },
-            general: GeneralContainer {
-                base: TemplateBase::Windows10,
-                storage_size: String::from("40 GiB"),
-                ..Default::default()
-            },
-            provisioners: ProvisionersContainer::default(),
-        }
+// TODO proc macro
+impl Prompt for Windows10 {
+    fn prompt(&mut self, _foundry: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
+        // Prompt for minimal install
+        if dialoguer::Confirm::with_theme(&*theme).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
+
+		}
+        Ok(())
     }
 }
 
-impl Windows10Template {
-    fn create_unattended(&self) -> UnattendXml {
-        UnattendXml {
+impl DefaultSource for Windows10 {
+    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
+        // TODO? https://github.com/pbatard/Fido
+        Ok(ImageSource::Iso {
+            url: "<TODO>.iso".to_string(),
+            checksum: Some("sha256:<TODO>".to_string()),
+        })
+    }
+}
+
+impl CastImage for Windows10 {
+    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+        let unattended = UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
             settings: vec![Settings {
-                pass: "specialize",
+                pass: "specialize".into(),
                 component: vec![Component {
                     name: "Microsoft-Windows-Shell-Setup".into(),
                     processorArchitecture: "amd64".into(),
@@ -59,77 +66,48 @@ impl Windows10Template {
                     language: "neutral".into(),
                     versionScope: "nonSxS".into(),
                     ComputerName: Some(ComputerName {
-                        value: self.hostname.clone(),
+                        value: self.hostname.hostname.clone(),
                     }),
                     DiskConfiguration: None,
                     ImageInstall: None,
                 }],
             }],
-        }
-    }
-}
+        };
+        let unattended_xml = format!(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n{}",
+            quick_xml::se::to_string(&unattended)?
+        );
+        debug!(xml = unattended_xml, "Generated Autounattend.xml");
 
-impl Template for Windows10Template {
-    fn build(&self, context: &BuildWorker) -> Result<()> {
-        let mut qemuargs = QemuArgs::new(&context);
-
-        qemuargs.drive.push(format!(
-            "file={},if=ide,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-            "file={},media=cdrom",
-            MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
-        ));
-
-        // Write the Autounattend.xml file
-        //self.create_unattended().write(&context)?;
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Windows)
+            .source(&worker.element.source)?
+            .floppy_files(HashMap::from([(
+                "Autounattend.xml".to_string(),
+                // unattended_xml.as_bytes().to_vec(),
+                include_bytes!("/tmp/Test.xml").into(),
+            )]))?
+            .prepare_ssh()?
+            .start()?;
 
         // Copy powershell scripts
         //if let Some(resource) = Resources::get("configure_winrm.ps1") {
         //    std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
         //}
 
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
-
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.boot_command(vec![
+		qemu.vnc.run(vec![
+            // Initial wait
 			wait!(4),
 			enter!(),
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
-
-        // Run provisioners
-        self.provisioners.run(&mut ssh)?;
+        // let mut ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
 
         // Shutdown
-        ssh.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
+        // ssh.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
         qemu.shutdown_wait()?;
-        Ok(())
-    }
-}
-
-impl Prompt for Windows10 {
-    fn prompt(&mut self, config: &BuildConfig, theme: Box<dyn Theme>) -> Result<()> {
-        // Prompt for installation media
-        {
-            let iso_url: String = dialoguer::Input::with_theme(&*theme)
-                .with_prompt("Enter the installation ISO URL")
-                .interact()?;
-        }
-
-        // Prompt for minimal install
-        if dialoguer::Confirm::with_theme(theme).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
-
-		}
-
-        // Prompt provisioners
-        self.provisioners.prompt(config, theme)?;
-
         Ok(())
     }
 }

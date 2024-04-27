@@ -14,10 +14,12 @@ use strum::{EnumIter, IntoEnumIterator};
 use alpine_linux::AlpineLinux;
 use arch_linux::ArchLinux;
 use debian::Debian;
+use windows_10::Windows10;
 
 pub mod alpine_linux;
 pub mod arch_linux;
 pub mod debian;
+pub mod windows_10;
 
 /// "Casting" is the process of generating an immutable goldboot image from raw
 /// configuration data.
@@ -73,7 +75,7 @@ pub enum ImageMold {
     // TrueNas,
     // Ubuntu,
     // VoidLinux,
-    // Windows10,
+    Windows10,
     // Windows11,
     // Windows7,
     // Zorin,
@@ -86,6 +88,7 @@ impl ImageMold {
             ImageMold::AlpineLinux(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             ImageMold::ArchLinux(_) => vec![ImageArch::Amd64],
             ImageMold::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            ImageMold::Windows10(_) => vec![ImageArch::Amd64],
         }
     }
 
@@ -106,6 +109,7 @@ impl Display for ImageMold {
                 ImageMold::AlpineLinux(_) => "AlpineLinux",
                 ImageMold::ArchLinux(_) => "ArchLinux",
                 ImageMold::Debian(_) => "Debian",
+                ImageMold::Windows10(_) => "Windows10",
             }
         )
     }
