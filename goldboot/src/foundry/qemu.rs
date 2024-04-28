@@ -313,7 +313,9 @@ impl QemuBuilder {
             .collect();
         let fs_path = self.temp.join(fs_name);
 
-        let fs_size: u64 = files.values().map(|c| c.len() as u64).sum();
+        // Add a buffer of extra space
+        let mut fs_size: u64 = files.values().map(|c| c.len() as u64).sum();
+        fs_size += 32000;
 
         debug!(
             fs_path = ?fs_path,
@@ -325,8 +327,7 @@ impl QemuBuilder {
                 .write(true)
                 .create(true)
                 .open(&fs_path)?;
-            // Add a buffer of extra space
-            fs_file.set_len(fs_size + 32000)?;
+            fs_file.set_len(fs_size)?;
 
             fatfs::format_volume(
                 fscommon::BufStream::new(fs_file),
@@ -347,39 +348,6 @@ impl QemuBuilder {
             }
         }
 
-        // Wrap filesystem in MBR partition
-        // {
-        //     let mut mbr = mbrman::MBR::new_from(
-        //         &mut Cursor::new(std::fs::read(&fs_path)?),
-        //         512u32,
-        //         [0xff; 4],
-        //     )?;
-
-        //     let free_partition_number = mbr
-        //         .iter()
-        //         .find(|(i, p)| p.is_unused())
-        //         .map(|(i, _)| i)
-        //         .expect("no more places available");
-        //     let sectors = mbr
-        //         .get_maximum_partition_size()
-        //         .expect("no more space available");
-        //     let starting_lba = mbr
-        //         .find_optimal_place(sectors)
-        //         .expect("could not find a place to put the partition");
-
-        //     mbr[free_partition_number] = mbrman::MBRPartitionEntry {
-        //         boot: mbrman::BOOT_INACTIVE,     // boot flag
-        //         first_chs: mbrman::CHS::empty(), // first CHS address (only useful for old computers)
-        //         sys: 0x0c,                       // extended partition with LBA
-        //         last_chs: mbrman::CHS::empty(),  // last CHS address (only useful for old computers)
-        //         starting_lba,                    // the sector where the partition starts
-        //         sectors,                         // the number of sectors in that partition
-        //     };
-
-        //     let mut f = File::create(&fs_path)?;
-        //     mbr.write_into(&mut f)?;
-        // }
-
         self.args.drive.push(format!(
             "file={},if=virtio,cache=writeback,discard=ignore,format=raw",
             fs_path.display()
@@ -390,6 +358,8 @@ impl QemuBuilder {
     /// Create a temporary FAT filesystem with the given contents and append it
     /// to the invocation.
     pub fn floppy_files(mut self, files: HashMap<String, Vec<u8>>) -> Result<Self> {
+        const FLOPPY_SIZE: u64 = 1474560;
+
         let fs_name: String = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(12)
@@ -398,6 +368,9 @@ impl QemuBuilder {
         let fs_path = self.temp.join(fs_name);
 
         let fs_size: u64 = files.values().map(|c| c.len() as u64).sum();
+        if fs_size > FLOPPY_SIZE {
+            bail!("Too large for floppy drive");
+        }
 
         debug!(
             fs_path = ?fs_path,
@@ -409,12 +382,14 @@ impl QemuBuilder {
                 .write(true)
                 .create(true)
                 .open(&fs_path)?;
-            // Add a buffer of extra space
-            fs_file.set_len(fs_size + 32000)?;
+
+            fs_file.set_len(FLOPPY_SIZE)?;
 
             fatfs::format_volume(
                 fscommon::BufStream::new(fs_file),
-                fatfs::FormatVolumeOptions::new(),
+                fatfs::FormatVolumeOptions::new()
+                    .fat_type(fatfs::FatType::Fat12)
+                    .sectors_per_track(18),
             )?;
 
             let fs_file = OpenOptions::new()

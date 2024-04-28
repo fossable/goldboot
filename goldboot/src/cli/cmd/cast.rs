@@ -46,7 +46,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // Fully verify config before proceeding
             match foundry.validate() {
                 Err(err) => {
-                    error!("Failed to validate config file");
+                    error!(error = %err, "Failed to validate config file");
                     return ExitCode::FAILURE;
                 }
                 _ => debug!("Validated config file"),
