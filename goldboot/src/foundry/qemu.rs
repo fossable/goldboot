@@ -65,6 +65,7 @@ pub fn mimic_hardware() {}
 pub struct QemuProcess {
     pub arch: ImageArch,
     pub process: Child,
+    pub tpm_process: Option<Child>,
     pub ssh_port: u16,
     pub private_key: PathBuf,
     pub host_key: PathBuf,
@@ -75,6 +76,10 @@ pub struct QemuProcess {
 impl Drop for QemuProcess {
     fn drop(&mut self) {
         self.process.kill().unwrap_or_default();
+
+        if let Some(mut tpm_process) = self.tpm_process {
+            tpm_process.kill().unwrap_or_default();
+        }
     }
 }
 
@@ -112,6 +117,7 @@ pub struct QemuArgs {
     pub bios: String,
     pub blockdev: Vec<String>,
     pub boot: String,
+    pub chardev: Vec<String>,
     pub cpu: Option<String>,
     pub device: Vec<String>,
     pub display: String,
@@ -123,6 +129,7 @@ pub struct QemuArgs {
     pub netdev: Vec<String>,
     pub smbios: Option<String>,
     pub smp: String,
+    pub tpmdev: Vec<String>,
     pub usbdevice: Vec<String>,
     pub vga: String,
     pub vnc: Vec<String>,
@@ -189,6 +196,16 @@ impl Into<Vec<String>> for QemuArgs {
             cmdline.push(blockdev.to_string());
         }
 
+        for chardev in &self.chardev {
+            cmdline.push(String::from("-chardev"));
+            cmdline.push(chardev.to_string());
+        }
+
+        for tpmdev in &self.tpmdev {
+            cmdline.push(String::from("-tpmdev"));
+            cmdline.push(tpmdev.to_string());
+        }
+
         for device in &self.device {
             cmdline.push(String::from("-device"));
             cmdline.push(device.to_string());
@@ -225,6 +242,8 @@ impl QemuBuilder {
             args: QemuArgs {
                 bios: worker.ovmf_path.display().to_string(),
                 blockdev: vec![],
+                chardev: vec![],
+                tpmdev: vec![],
                 boot: String::from("once=d"),
                 cpu: None,
                 device: vec![String::from("virtio-net,netdev=user.0")],
@@ -432,8 +451,31 @@ impl QemuBuilder {
         ]))?)
     }
 
+    /// Enable TPM emulation.
+    pub fn enable_tpm(mut self) -> Result<Self> {
+        self.args
+            .chardev
+            .push(format!("socket,id=chrtpm,path={:?}/tpm.sock", self.temp));
+        self.args
+            .tpmdev
+            .push("emulator,id=tpm0,chardev=chrtpm".into());
+        self.args.device.push("tpm-tis,tpmdev=tpm0".into());
+        Ok(self)
+    }
+
     pub fn start(self) -> Result<QemuProcess> {
         info!(args = ?self.args, "Spawning new qemu process");
+
+        // Start the TPM emulator if one was requested
+        let tpm_process = if self.args.tpmdev.len() > 0 {
+            Some(
+                Command::new("swtpm")
+                    .args(vec!["socket", "tpmstate"])
+                    .spawn()?,
+            )
+        } else {
+            None
+        };
 
         // Start the VM
         let cmdline: Vec<String> = self.args.into();
@@ -466,12 +508,13 @@ impl QemuBuilder {
         }?;
         Ok(QemuProcess {
             arch: self.arch,
-            os_category: self.os_category,
+            process,
+            tpm_process,
+            ssh_port: self.ssh_port,
             private_key: self.ssh_private_key,
             host_key: self.ssh_host_key,
-            process,
-            ssh_port: self.ssh_port,
             vnc,
+            os_category: self.os_category,
         })
     }
 }
