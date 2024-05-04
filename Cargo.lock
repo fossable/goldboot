@@ -2981,9 +2981,9 @@ dependencies = [
 
 [[package]]
 name = "serde_win_unattend"
-version = "0.2.0"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46ed99bef95030a4dddac6746c7ade5fa9027f802b2e182a82be3a20893ca87b"
+checksum = "b989ab8e18226bde74f6da5340732350df5f5ea7e5c0005c532a00eef6db0163"
 dependencies = [
  "quick-xml",
  "serde",

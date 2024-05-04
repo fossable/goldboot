@@ -139,7 +139,7 @@ impl Foundry {
             debug: self.debug,
             record: self.record,
             end_time: None,
-            memory: self.memory.clone().unwrap_or(String::from("4G")),
+            memory: self.memory.clone().unwrap_or(String::from("8G")),
             ovmf_path,
             qcow_path: tmp.path().join("image.gb.qcow2"),
             qcow_size: element.size(self.size.clone()),

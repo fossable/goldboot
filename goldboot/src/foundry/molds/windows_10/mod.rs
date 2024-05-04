@@ -60,77 +60,90 @@ impl CastImage for Windows10 {
             settings: vec![
                 Settings {
                     pass: "windowsPE".into(),
-                    component: vec![Component {
-                        name: "Microsoft-Windows-Setup".into(),
-                        processorArchitecture: "amd64".into(),
-                        publicKeyToken: "31bf3856ad364e35".into(),
-                        language: "neutral".into(),
-                        versionScope: "nonSxS".into(),
-                        ComputerName: None,
-                        DiskConfiguration: Some(DiskConfiguration {
-                            WillShowUI: None,
-                            Disk: Disk {
-                                CreatePartitions: CreatePartitions {
-                                    CreatePartition: vec![
-                                        CreatePartition {
-                                            Order: "1".into(),
-                                            Size: Some("100".into()),
-                                            Type: "Primary".into(),
-                                        },
-                                        CreatePartition {
-                                            Order: "2".into(),
-                                            Size: None,
-                                            Type: "Primary".into(),
-                                        },
-                                    ],
-                                },
-                                ModifyPartitions: ModifyPartitions {
-                                    ModifyPartition: vec![
-                                        ModifyPartition {
-                                            Format: "NTFS".into(),
-                                            Label: "System".into(),
-                                            Order: "1".into(),
-                                            PartitionID: "1".into(),
-                                            Extend: None,
-                                            Letter: None,
-                                        },
-                                        ModifyPartition {
-                                            Format: "NTFS".into(),
-                                            Label: "OS".into(),
-                                            Order: "2".into(),
-                                            PartitionID: "2".into(),
-                                            Extend: None,
-                                            Letter: Some("C".into()),
-                                        },
-                                    ],
-                                },
-                                WillWipeDisk: "false".into(),
-                                DiskID: "0".into(),
-                            },
-                        }),
-                        ImageInstall: Some(ImageInstall {
-                            OSImage: OSImage {
-                                InstallTo: Some(InstallTo {
-                                    DiskID: "0".into(),
-                                    PartitionID: "2".into(),
-                                }),
+                    component: vec![
+                        Component {
+                            name: "Microsoft-Windows-International-Core-WinPE".into(),
+                            UILanguage: Some("en-US".into()),
+                            UserLocale: Some("en-US".into()),
+                            SystemLocale: Some("en-US".into()),
+                            InputLocale: Some("en-US".into()),
+                            SetupUILanguage: Some(SetupUILanguage {
+                                UILanguage: "en-US".into(),
+                            }),
+                            ..Default::default()
+                        },
+                        Component {
+                            name: "Microsoft-Windows-Setup".into(),
+                            DiskConfiguration: Some(DiskConfiguration {
                                 WillShowUI: None,
-                                InstallToAvailablePartition: None,
-                            },
-                        }),
-                    }],
+                                Disk: Disk {
+                                    CreatePartitions: CreatePartitions {
+                                        CreatePartition: vec![
+                                            CreatePartition {
+                                                Order: "1".into(),
+                                                Size: Some("100".into()),
+                                                Extend: None,
+                                                Type: "Primary".into(),
+                                            },
+                                            CreatePartition {
+                                                Order: "2".into(),
+                                                Size: None,
+                                                Extend: None,
+                                                Type: "Primary".into(),
+                                            },
+                                        ],
+                                    },
+                                    ModifyPartitions: ModifyPartitions {
+                                        ModifyPartition: vec![
+                                            ModifyPartition {
+                                                Format: "NTFS".into(),
+                                                Label: "System".into(),
+                                                Order: "1".into(),
+                                                PartitionID: "1".into(),
+                                                Letter: None,
+                                            },
+                                            ModifyPartition {
+                                                Format: "NTFS".into(),
+                                                Label: "OS".into(),
+                                                Order: "2".into(),
+                                                PartitionID: "2".into(),
+                                                Letter: Some("C".into()),
+                                            },
+                                        ],
+                                    },
+                                    WillWipeDisk: "false".into(),
+                                    DiskID: "0".into(),
+                                },
+                            }),
+                            ImageInstall: Some(ImageInstall {
+                                OSImage: OSImage {
+                                    InstallTo: Some(InstallTo {
+                                        DiskID: "0".into(),
+                                        PartitionID: "2".into(),
+                                    }),
+                                    WillShowUI: Some("Never".into()),
+                                    InstallToAvailablePartition: None,
+                                },
+                            }),
+                            UserData: Some(UserData {
+                                AcceptEula: "true".into(),
+                                FullName: "test".into(),
+                                Organization: "test".into(),
+                                ProductKey: ProductKey {
+                                    Key: "W269N-WFGWX-YVC9B-4J6C9-T83GX".into(),
+                                    WillShowUI: Some("Never".into()),
+                                },
+                            }),
+                            ..Default::default()
+                        },
+                    ],
                 },
                 Settings {
                     pass: "specialize".into(),
                     component: vec![Component {
                         name: "Microsoft-Windows-Shell-Setup".into(),
-                        processorArchitecture: "amd64".into(),
-                        publicKeyToken: "31bf3856ad364e35".into(),
-                        language: "neutral".into(),
-                        versionScope: "nonSxS".into(),
                         ComputerName: Some(self.hostname.hostname.clone()),
-                        DiskConfiguration: None,
-                        ImageInstall: None,
+                        ..Default::default()
                     }],
                 },
             ],

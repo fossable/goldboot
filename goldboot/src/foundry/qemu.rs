@@ -75,9 +75,12 @@ pub struct QemuProcess {
 
 impl Drop for QemuProcess {
     fn drop(&mut self) {
+        debug!("Stopping Qemu process");
         self.process.kill().unwrap_or_default();
 
-        if let Some(mut tpm_process) = self.tpm_process {
+        // Kill TPM emulator after the Qemu process
+        if let Some(tpm_process) = self.tpm_process.as_mut() {
+            debug!("Stopping TPM emulator");
             tpm_process.kill().unwrap_or_default();
         }
     }
@@ -274,7 +277,7 @@ impl QemuBuilder {
                 // Use the recommended memory amount from the config or use a default
                 memory: worker.memory.clone(),
                 name: String::from("goldboot"),
-                netdev: vec![],
+                netdev: vec!["user,id=user.0".into()],
                 smbios: None,
                 smp: String::from("4,sockets=1,cores=4,threads=1"),
                 usbdevice: vec![],
@@ -319,6 +322,12 @@ impl QemuBuilder {
     /// Update -vga
     pub fn vga(mut self, arg: &str) -> Self {
         self.args.vga = arg.to_string();
+        self
+    }
+
+    /// Update -cpu
+    pub fn cpu(mut self, arg: &str) -> Self {
+        self.args.cpu = Some(arg.to_string());
         self
     }
 
@@ -453,9 +462,11 @@ impl QemuBuilder {
 
     /// Enable TPM emulation.
     pub fn enable_tpm(mut self) -> Result<Self> {
-        self.args
-            .chardev
-            .push(format!("socket,id=chrtpm,path={:?}/tpm.sock", self.temp));
+        // TODO skip if swtpm isn't installed
+        self.args.chardev.push(format!(
+            "socket,id=chrtpm,path={}/tpm.sock",
+            self.temp.display()
+        ));
         self.args
             .tpmdev
             .push("emulator,id=tpm0,chardev=chrtpm".into());
@@ -464,18 +475,24 @@ impl QemuBuilder {
     }
 
     pub fn start(self) -> Result<QemuProcess> {
-        info!(args = ?self.args, "Spawning new qemu process");
-
         // Start the TPM emulator if one was requested
         let tpm_process = if self.args.tpmdev.len() > 0 {
-            Some(
-                Command::new("swtpm")
-                    .args(vec!["socket", "tpmstate"])
-                    .spawn()?,
-            )
+            let args = vec![
+                "socket".to_string(),
+                "--tpmstate".to_string(),
+                format!("dir={}", self.temp.display()),
+                "--ctrl".to_string(),
+                format!("type=unixio,path={}/tpm.sock", self.temp.display()),
+                "--tpm2".to_string(),
+            ];
+
+            info!(args = ?args, "Spawning new TPM emulator process");
+            Some(Command::new("swtpm").args(args).spawn()?)
         } else {
             None
         };
+
+        info!(args = ?self.args, "Spawning new qemu process");
 
         // Start the VM
         let cmdline: Vec<String> = self.args.into();

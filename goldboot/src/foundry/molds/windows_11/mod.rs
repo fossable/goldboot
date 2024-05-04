@@ -39,14 +39,13 @@ impl Prompt for Windows11 {
     }
 }
 
-// TODO proc macro
-impl Prompt for Windows11 {
-    fn prompt(&mut self, _foundry: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        // Prompt for minimal install
-        if dialoguer::Confirm::with_theme(&*theme).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
-
-		}
-        Ok(())
+impl DefaultSource for Windows11 {
+    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
+        // TODO? https://github.com/pbatard/Fido
+        Ok(ImageSource::Iso {
+            url: "<TODO>.iso".to_string(),
+            checksum: Some("sha256:<TODO>".to_string()),
+        })
     }
 }
 
@@ -57,77 +56,106 @@ impl CastImage for Windows11 {
             settings: vec![
                 Settings {
                     pass: "windowsPE".into(),
-                    component: vec![Component {
-                        name: "Microsoft-Windows-Setup".into(),
-                        processorArchitecture: "amd64".into(),
-                        publicKeyToken: "31bf3856ad364e35".into(),
-                        language: "neutral".into(),
-                        versionScope: "nonSxS".into(),
-                        ComputerName: None,
-                        DiskConfiguration: Some(DiskConfiguration {
-                            WillShowUI: None,
-                            Disk: Disk {
-                                CreatePartitions: CreatePartitions {
-                                    CreatePartition: vec![
-                                        CreatePartition {
-                                            Order: "1".into(),
-                                            Size: Some("100".into()),
-                                            Type: "Primary".into(),
-                                        },
-                                        CreatePartition {
-                                            Order: "2".into(),
-                                            Size: None,
-                                            Type: "Primary".into(),
-                                        },
-                                    ],
+                    component: vec![
+                        Component {
+                            name: "Microsoft-Windows-International-Core-WinPE".into(),
+                            UILanguage: Some("en-US".into()),
+                            UserLocale: Some("en-US".into()),
+                            SystemLocale: Some("en-US".into()),
+                            InputLocale: Some("en-US".into()),
+                            SetupUILanguage: Some(SetupUILanguage {
+                                UILanguage: "en-US".into(),
+                            }),
+                            ..Default::default()
+                        },
+                        Component {
+                            name: "Microsoft-Windows-Setup".into(),
+                            RunSynchronous: Some(RunSynchronous {
+                                RunSynchronousCommand: vec![
+                                    RunSynchronousCommand {
+                                    Path: r#"cmd /c reg add "HKLM\SYSTEM\Setup\LabConfig" /v "BypassSecureBootCheck" /t REG_DWORD /d 1"#.into(),
+                                    Description: None,
+                                    Order: "1".into(),
+                                    action: Some("add".into()),
                                 },
-                                ModifyPartitions: ModifyPartitions {
-                                    ModifyPartition: vec![
-                                        ModifyPartition {
-                                            Format: "NTFS".into(),
-                                            Label: "System".into(),
-                                            Order: "1".into(),
-                                            PartitionID: "1".into(),
-                                            Extend: None,
-                                            Letter: None,
-                                        },
-                                        ModifyPartition {
-                                            Format: "NTFS".into(),
-                                            Label: "OS".into(),
-                                            Order: "2".into(),
-                                            PartitionID: "2".into(),
-                                            Extend: None,
-                                            Letter: Some("C".into()),
-                                        },
-                                    ],
+                                    RunSynchronousCommand {
+                                    Path: r#"cmd /c reg add "HKLM\SYSTEM\Setup\LabConfig" /v "BypassTPMCheck" /t REG_DWORD /d 1"#.into(),
+                                    Description: None,
+                                    Order: "2".into(),
+                                    action: Some("add".into()),
                                 },
-                                WillWipeDisk: "false".into(),
-                                DiskID: "0".into(),
-                            },
-                        }),
-                        ImageInstall: Some(ImageInstall {
-                            OSImage: OSImage {
-                                InstallTo: Some(InstallTo {
-                                    DiskID: "0".into(),
-                                    PartitionID: "2".into(),
-                                }),
+                                ],
+                            }),
+                            DiskConfiguration: Some(DiskConfiguration {
                                 WillShowUI: None,
-                                InstallToAvailablePartition: None,
-                            },
-                        }),
-                    }],
+                                Disk: Disk {
+                                    CreatePartitions: CreatePartitions {
+                                        CreatePartition: vec![
+                                            CreatePartition {
+                                                Order: "1".into(),
+                                                Size: Some("512".into()),
+                                                Extend: None,
+                                                Type: "Primary".into(),
+                                            },
+                                            CreatePartition {
+                                                Order: "2".into(),
+                                                Size: None,
+                                                Extend: None,
+                                                Type: "Primary".into(),
+                                            },
+                                        ],
+                                    },
+                                    ModifyPartitions: ModifyPartitions {
+                                        ModifyPartition: vec![
+                                            ModifyPartition {
+                                                Format: "NTFS".into(),
+                                                Label: "System".into(),
+                                                Order: "1".into(),
+                                                PartitionID: "1".into(),
+                                                Letter: None,
+                                            },
+                                            ModifyPartition {
+                                                Format: "NTFS".into(),
+                                                Label: "OS".into(),
+                                                Order: "2".into(),
+                                                PartitionID: "2".into(),
+                                                Letter: Some("C".into()),
+                                            },
+                                        ],
+                                    },
+                                    WillWipeDisk: "false".into(),
+                                    DiskID: "0".into(),
+                                },
+                            }),
+                            ImageInstall: Some(ImageInstall {
+                                OSImage: OSImage {
+                                    InstallTo: Some(InstallTo {
+                                        DiskID: "0".into(),
+                                        PartitionID: "2".into(),
+                                    }),
+                                    WillShowUI: Some("Never".into()),
+                                    InstallToAvailablePartition: None,
+                                },
+                            }),
+                            UserData: Some(UserData {
+                                AcceptEula: "true".into(),
+                                FullName: "test".into(),
+                                Organization: "test".into(),
+                                ProductKey: ProductKey {
+                                    Key: "W269N-WFGWX-YVC9B-4J6C9-T83GX".into(),
+                                    WillShowUI: Some("Never".into()),
+                                },
+                            }),
+                            ..Default::default()
+                        },
+                    ],
                 },
                 Settings {
                     pass: "specialize".into(),
                     component: vec![Component {
                         name: "Microsoft-Windows-Shell-Setup".into(),
-                        processorArchitecture: "amd64".into(),
-                        publicKeyToken: "31bf3856ad364e35".into(),
-                        language: "neutral".into(),
-                        versionScope: "nonSxS".into(),
                         ComputerName: Some(self.hostname.hostname.clone()),
-                        DiskConfiguration: None,
-                        ImageInstall: None,
+                        ..Default::default()
                     }],
                 },
             ],
@@ -144,7 +172,8 @@ impl CastImage for Windows11 {
                 "Autounattend.xml".to_string(),
                 unattended_xml.as_bytes().to_vec(),
             )]))?
-            .prepare_ssh()?
+            .enable_tpm()?
+            // .prepare_ssh()?
             .start()?;
 
         // Copy powershell scripts

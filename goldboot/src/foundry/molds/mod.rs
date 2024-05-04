@@ -15,11 +15,13 @@ use alpine_linux::AlpineLinux;
 use arch_linux::ArchLinux;
 use debian::Debian;
 use windows_10::Windows10;
+use windows_11::Windows11;
 
 pub mod alpine_linux;
 pub mod arch_linux;
 pub mod debian;
 pub mod windows_10;
+pub mod windows_11;
 
 /// "Casting" is the process of generating an immutable goldboot image from raw
 /// configuration data.
@@ -76,7 +78,7 @@ pub enum ImageMold {
     // Ubuntu,
     // VoidLinux,
     Windows10,
-    // Windows11,
+    Windows11,
     // Windows7,
     // Zorin,
 }
@@ -89,6 +91,7 @@ impl ImageMold {
             ImageMold::ArchLinux(_) => vec![ImageArch::Amd64],
             ImageMold::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             ImageMold::Windows10(_) => vec![ImageArch::Amd64],
+            ImageMold::Windows11(_) => vec![ImageArch::Amd64],
         }
     }
 
@@ -110,6 +113,7 @@ impl Display for ImageMold {
                 ImageMold::ArchLinux(_) => "ArchLinux",
                 ImageMold::Debian(_) => "Debian",
                 ImageMold::Windows10(_) => "Windows10",
+                ImageMold::Windows11(_) => "Windows11",
             }
         )
     }
