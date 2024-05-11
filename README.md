@@ -1,63 +1,54 @@
 <p align="center">
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/logo-bg-256.png" />
 </p>
-<hr>
-
-Normal people don't reinstall their OS from scratch very often. When they do,
-the moment they reach that pristine desktop or terminal after a clean
-installation, all hell breaks loose. Settings get changed, applications are
-installed, bloatware is removed, files get downloaded here and there. The system
-is generally altered from its original state into a new "customized" state by a
-manual flurry of mouse clicks and key presses.
-
-If you think about your system like a server, this approach is called _mutable
-infrastructure_, meaning you mutate the state of your system repeatedly until it
-eventually suits your needs. And when something goes awry, you have to make the
-necessary changes to get it back in line.
-
-For normal people, mutable infrastructure works out fine until something major
-breaks or they have to migrate to a new computer altogether. In these cases,
-they probably end up starting over from scratch and have to reapply their
-changes again (and probably differently this time).
-
-Slightly less normal people might have scripts or even use a configuration
-management tool like Ansible or Puppet to automate all of those customizations.
-This is great, but you can't start at a boot prompt and immediately run an
-Ansible playbook. Something (or someone) has to install the OS before the
-automation can be "kicked off". Also, configuration management tools have
-limited scope.
-
-Truly sophisticated computer elites practice _immutable infrastructure_. Meaning
-that, every time they boot their system, its state begins identically to the
-time before. Any changes that are made during the course of runtime vanish on
-reboot. This approach has some real benefits, but requires quite a bit of effort
-from the user.
-
-If you're looking to achieve something close to immutable infrastructure without
-creating a lot of extra work for yourself, you've come to the right place.
-
-In the `goldboot` approach, you choose a starting template containing an
-absolutely minimal install of your favorite OS. Then you create _provisioners_
-which are the scripts that add all of your customizations on top of the
-template. From these pieces, `goldboot` builds a machine image ready to be
-deployed to real hardware.
-
-**Warning: this tool is totally unfinshed and should be used for testing only!
-Proceed at your own risk!**
-<hr>
 
 ![License](https://img.shields.io/github/license/goldboot/goldboot)
 ![build](https://github.com/goldboot/goldboot/actions/workflows/build.yml/badge.svg)
 [![Discord](https://img.shields.io/discord/981695209492606986)](https://discord.gg/Vzr7gT5dsd)
-![Lines of code](https://img.shields.io/tokei/lines/github/fossable/goldboot)
+![GitHub repo size](https://img.shields.io/github/repo-size/fossable/goldboot)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
+<hr>
 
-If computer programs could reproduce sexually, `goldboot` is what you would get
-if [`docker`](https://www.docker.com) and [`packer`](https://www.packer.io) were
-mixed together.
+People usually don't reinstall their OS from scratch very often. When they do,
+chaos ensues the moment they reach that pristine desktop or terminal. Settings
+get changed, applications are installed, bloatware is removed, files are downloaded
+here and there. The system is generally altered from its original state into a new
+"customized" state by a manual flurry of mouse clicks and key presses.
 
-More practically, `goldboot` is a command-line tool that builds machine images for
-real hardware instead of containers or virtual machines.
+This standard approach is like _mutable infrastructure_, meaning you mutate the
+state of your system repeatedly until it eventually suits your needs. And when
+something goes awry, you have to make the necessary changes to get it back in line.
+
+For most people, mutable infrastructure works out fine until something major
+breaks or they have to migrate to a new computer altogether. In these cases,
+they probably end up starting over from scratch and reapply their changes again
+(and probably slightly differently this time).
+
+Sophisticated computer elites probably practice _immutable infrastructure_. Meaning
+that, every time they boot their system, its state begins almost identically to
+the time before. Any changes that are made during the course of runtime vanish on
+reboot. This approach has some real benefits, but requires quite a bit of effort
+from the user.
+
+`goldboot` is a tool that builds machine images for real hardware that can help
+you achieve something close to immutable infrastructure without creating a lot
+of extra work for yourself.
+
+In the `goldboot` approach, you create a declarative configuration file for each
+machine that you want to deploy. Using this configuration, `goldboot` builds an
+image either on your local machine or on a CI platform like Github Actions. The
+resulting image can be deployed to real hardware via a USB drive or through PXE boot.
+
+**Warning: this tool is totally unfinshed and should be used for testing only!
+Proceed at your own risk!**
+<hr>
+<p align="center">
+	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/overview.png" />
+</p>
+
+`goldboot` is approximately what you would get if [`docker`](https://www.docker.com) and [`packer`](https://www.packer.io)
+were mixed together. Instead of building containers or virtual machines, `goldboot`
+builds images for real hardware.
 
 These machine images (also known as _golden images_) contain your operating
 system(s), applications, software patches, and configuration all rolled into one
@@ -65,21 +56,6 @@ easily deployable package.
 
 Like Docker images, your `goldboot` images can be stored in a registry and pulled
 onto real hardware.
-
-## Examples
-
-The [goldboot-examples](https://github.com/fossable/goldboot-examples) repo contains example
-configurations of all supported OS types and system architectures. They are built on a weekly
-schedule against the latest version of `goldboot`.
-
-| Linux | Windows | macos |
-| ----- | ------- | ----- |
-| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)    | ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
-| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) | |
-| ![Debian](goldboot/src/foundry/molds/debian/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)    | |
-| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png)        ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)   | |
-| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) | |
-| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png)     ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)   | |
 
 ## Installation
 
@@ -152,9 +128,24 @@ steps:
 ```
 </details>
 
-## Your first golden image
+## Examples
 
-Let's build a basic ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png)
+The [goldboot-examples](https://github.com/fossable/goldboot-examples) repo contains example
+configurations of all supported OS types and system architectures. They are built on a weekly
+schedule against the latest version of `goldboot`.
+
+| Linux | Windows | macos |
+| ----- | ------- | ----- |
+| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)    | ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
+| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) | |
+| ![Debian](goldboot/src/foundry/molds/debian/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)    | |
+| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png)        ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)   | |
+| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) | |
+| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png)     ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)   | |
+
+## Example walkthrough
+
+Let's build a basic Arch Linux ![ArchLinux](goldboot/src/foundry/molds/arch_linux/icon.png)
 image to prove we're _real_ Linux users.
 
 First, create a directory to hold our configuration (which can later be tracked
@@ -210,19 +201,20 @@ goldboot build .
 ```
 
 Once the build succeeds, the image will be saved to the system's library
-directory. To deploy it to a physical disk, you can use a bootable USB drive:
+directory. To deploy it to a physical disk, you can include the image on a
+new bootable USB drive:
 
 ```sh
 # THIS WILL OVERWRITE /dev/sdX!
-goldboot make_usb --output /dev/sdX --include Test
+goldboot liveusb --output /dev/sdX --include Test
 ```
 
 Once the USB is created, you can use it to boot into the goldboot live
-environment and select an image to write:
+environment and select an image to deploy:
 
 <p align="center">
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/select_image.png" />
 </p>
 
-Once the image has been applied, remove the bootable USB drive and reboot the
+Once the image has been deployed, remove the bootable USB drive and reboot the
 machine.

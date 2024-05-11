@@ -7,7 +7,7 @@ license = "AGPL-3.0-only"
 authors = ["Tyler Cook"]
 readme = "README.md"
 homepage = "https://goldboot.org"
-repository = "https://github.com/fossable/goldboot/"
+repository = "https://github.com/fossable/goldboot"
 rust-version = "1.74"
 
 [dependencies]

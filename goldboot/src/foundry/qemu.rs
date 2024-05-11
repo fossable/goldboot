@@ -301,7 +301,7 @@ impl QemuBuilder {
         match source {
             ImageSource::Iso { url, checksum } => {
                 self.args.drive.push(format!(
-                    "file={},media=cdrom",
+                    "file={},media=cdrom,read-only=on",
                     SourceCache::default()?.get(url.clone(), checksum.clone())?
                 ));
             }
