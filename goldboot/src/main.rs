@@ -65,8 +65,11 @@ pub fn main() -> ExitCode {
         Some(Commands::Registry { .. }) => {
             goldboot::cli::cmd::registry::run(command_line.command.unwrap())
         }
-        Some(Commands::Write { .. }) => {
-            goldboot::cli::cmd::write::run(command_line.command.unwrap())
+        Some(Commands::Deploy { .. }) => {
+            goldboot::cli::cmd::deploy::run(command_line.command.unwrap())
+        }
+        Some(Commands::Liveusb { .. }) => {
+            goldboot::cli::cmd::liveusb::run(command_line.command.unwrap())
         }
         #[cfg(feature = "gui")]
         None => goldboot::gui::load_gui(command_line.fullscreen),

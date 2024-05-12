@@ -280,6 +280,7 @@ impl FoundryWorker {
 #[derive(Clone, Debug, EnumIter)]
 pub enum FoundryConfigPath {
     Json(PathBuf),
+    Python(PathBuf),
     Ron(PathBuf),
     Toml(PathBuf),
     Yaml(PathBuf),
@@ -298,6 +299,7 @@ impl ValueEnum for FoundryConfigPath {
         VARIANTS.get_or_init(|| {
             vec![
                 FoundryConfigPath::Json(PathBuf::from("./goldboot.json")),
+                FoundryConfigPath::Python(PathBuf::from("./goldboot.py")),
                 FoundryConfigPath::Ron(PathBuf::from("./goldboot.ron")),
                 FoundryConfigPath::Toml(PathBuf::from("./goldboot.toml")),
                 FoundryConfigPath::Yaml(PathBuf::from("./goldboot.yaml")),
@@ -308,6 +310,7 @@ impl ValueEnum for FoundryConfigPath {
     fn to_possible_value(&self) -> Option<PossibleValue> {
         match *self {
             FoundryConfigPath::Json(_) => Some(PossibleValue::new("json")),
+            FoundryConfigPath::Python(_) => Some(PossibleValue::new("python")),
             FoundryConfigPath::Ron(_) => Some(PossibleValue::new("ron")),
             FoundryConfigPath::Toml(_) => Some(PossibleValue::new("toml")),
             FoundryConfigPath::Yaml(_) => Some(PossibleValue::new("yaml")),
@@ -320,7 +323,9 @@ impl FoundryConfigPath {
     pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfigPath> {
         let path = path.as_ref();
 
-        if path.join("goldboot.json").exists() {
+        if path.join("goldboot.py").exists() {
+            Some(FoundryConfigPath::Python(path.join("goldboot.py")))
+        } else if path.join("goldboot.json").exists() {
             Some(FoundryConfigPath::Json(path.join("goldboot.json")))
         } else if path.join("goldboot.ron").exists() {
             Some(FoundryConfigPath::Ron(path.join("goldboot.ron")))
@@ -339,6 +344,7 @@ impl FoundryConfigPath {
     pub fn load(&self) -> Result<Foundry> {
         Ok(match &self {
             Self::Json(path) => serde_json::from_slice(&std::fs::read(path)?)?,
+            Self::Python(_) => todo!(),
             Self::Ron(path) => ron::de::from_bytes(&std::fs::read(path)?)?,
             Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path)?)?.as_str())?,
             Self::Yaml(path) => serde_yaml::from_slice(&std::fs::read(path)?)?,
@@ -349,6 +355,7 @@ impl FoundryConfigPath {
     pub fn write(&self, foundry: &Foundry) -> Result<()> {
         match &self {
             Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(foundry)?),
+            Self::Python(_) => todo!(),
             Self::Ron(path) => std::fs::write(
                 path,
                 ron::ser::to_string_pretty(foundry, PrettyConfig::new())?.into_bytes(),
@@ -364,6 +371,7 @@ impl Display for FoundryConfigPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let path = match self {
             FoundryConfigPath::Json(path) => path,
+            FoundryConfigPath::Python(path) => path,
             FoundryConfigPath::Ron(path) => path,
             FoundryConfigPath::Toml(path) => path,
             FoundryConfigPath::Yaml(path) => path,

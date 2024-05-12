@@ -30,14 +30,15 @@ fscommon = { version = "0.1.1", optional = true }
 gdk4 = { version = "0.8.1", optional = true }
 gdk-pixbuf = { version = "0.19.2", optional = true }
 glib-macros = { version = "0.19.2", optional = true }
+glib = { version = "0.19.2", optional = true }
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
 goldboot-macros = { path="../goldboot-macros", version = "0.0.1" }
 gtk4 = { version = "0.8.1", optional = true, features = ["v4_12"] }
-glib = { version = "0.19.2", optional = true }
 hex = "0.4.3"
 indicatif = "0.17.7"
 openssl = { version = "0.10", features = ["vendored"] }
 png = { version = "0.17.10", optional = true }
+pyo3 = { version = "0.21.2", features = ["extension-module"] }
 quick-xml = { version = "0.31.0", features = ["serialize"] }
 rand = "0.8.5"
 regex = "1.10.2"
@@ -57,16 +58,16 @@ tar = "0.4.40"
 tempfile = "3.10.0"
 tokio = { version = "1.36.0", features = ["full"] }
 toml = "0.8.8"
+tower-http = { version = "0.5.2", features = ["fs", "trace"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ubyte = "0.10.4"
 url = { version = "2.4.1", features = ["serde"] }
+uuid = { version = "1.7.0", features = ["v4"] }
 validator = { version = "0.17.0", features = ["derive"] }
 vnc = { version = "0.4.0", optional = true }
 whoami = "1.4.1"
 zstd = "0.13.0"
-uuid = { version = "1.7.0", features = ["v4"] }
-tower-http = { version = "0.5.2", features = ["fs", "trace"] }
 
 [dev-dependencies]
 

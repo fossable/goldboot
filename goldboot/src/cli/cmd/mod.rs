@@ -1,10 +1,11 @@
 use crate::foundry::{molds::ImageMold, FoundryConfigPath};
 
 pub mod cast;
+pub mod deploy;
 pub mod image;
 pub mod init;
+pub mod liveusb;
 pub mod registry;
-pub mod write;
 
 #[derive(clap::Subcommand, Debug)]
 pub enum Commands {
@@ -46,7 +47,7 @@ pub enum Commands {
     },
 
     /// Write images to storage
-    Write {
+    Deploy {
         /// The ID or path of the image to write
         #[clap(index = 1)]
         image: String,
@@ -60,7 +61,7 @@ pub enum Commands {
         confirm: bool,
     },
 
-    /// Initialize the current directory
+    /// Initialize the current directory as a new goldboot project
     Init {
         /// New image name
         #[clap(long)]
@@ -89,6 +90,21 @@ pub enum Commands {
     Registry {
         #[clap(subcommand)]
         command: RegistryCommands,
+    },
+
+    /// Create a bootable live USB
+    Liveusb {
+        /// Destination device path
+        #[clap(long)]
+        dest: String,
+
+        /// Images to include in the live USB
+        #[clap(long, value_enum)]
+        include: Vec<String>,
+
+        /// Do not prompt for confirmation (be extremely careful with this)
+        #[clap(long, num_args = 0)]
+        confirm: bool,
     },
 }
 

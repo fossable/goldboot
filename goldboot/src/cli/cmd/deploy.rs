@@ -8,7 +8,7 @@ use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
-        super::Commands::Write {
+        super::Commands::Deploy {
             image,
             output,
             confirm,
