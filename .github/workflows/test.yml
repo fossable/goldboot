@@ -27,7 +27,7 @@ jobs:
         # toolchain
         toolchain: [stable, beta]
     steps:
-      - run: sudo apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango1.0-dev
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -72,7 +72,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ubuntu / stable / minimal-versions
     steps:
-      - run: sudo apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango1.0-dev
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -138,7 +138,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: ubuntu / stable / coverage
     steps:
-      - run: sudo apt-get install -y libpango-1.0-0
+      - run: sudo apt-get install -y libpango1.0-dev
       - uses: actions/checkout@v4
         with:
           submodules: true

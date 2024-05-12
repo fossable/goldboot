@@ -40,6 +40,7 @@ pub fn generate_key(directory: &Path) -> Result<PathBuf> {
 
 /// Download and extract sshdog.
 pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u8>> {
+    // TODO embed binaries?
     let url = format!(
         "https://github.com/fossable/sshdog/releases/download/v0.2.1/sshdog_0.2.1_{}_{}.tar.gz",
         os_category, arch,
@@ -51,7 +52,7 @@ pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u
     if !response.status().is_success() {
         bail!("Failed to download");
     }
-    let mut uncompressed = flate2::read::GzDecoder::new(response);
+    let uncompressed = flate2::read::GzDecoder::new(response);
     let mut archive = tar::Archive::new(uncompressed);
 
     for entry in archive.entries()? {

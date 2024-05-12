@@ -50,7 +50,6 @@ impl CastImage for Goldboot {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
             .source(&worker.element.source)?
-            .prepare_ssh()?
             .start()?;
 
         // Start HTTP
@@ -73,19 +72,14 @@ impl CastImage for Goldboot {
             // Login as root
             enter!("root"),
             enter!("r00tme"),
+            // Install goldboot
+            enter!(format!("curl https://github.com/fossable/goldboot/releases/download/v0.0.3/goldboot_0.0.3_linux_{}.tar.gz | tar xf - -C /usr/bin goldboot", worker.arch)),
+            // Skip getty login
+            enter!("sed -i 's|ExecStart=.*$|ExecStart=/usr/bin/goldboot|' /usr/lib/systemd/system/getty@.service"),
+            // Stop gracefully
+            enter!("poweroff"),
 		])?;
 
-        // Wait for SSH
-        let mut ssh = qemu.ssh("root")?;
-
-        // Install executable
-        // ssh.upload(
-        //     std::fs::read(&self.executable)?,
-        //     "/mnt/usr/bin/goldboot-linux",
-        // )?;
-
-        // Shutdown
-        ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
         Ok(())
     }

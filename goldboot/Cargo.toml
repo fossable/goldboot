@@ -38,7 +38,8 @@ hex = "0.4.3"
 indicatif = "0.17.7"
 openssl = { version = "0.10", features = ["vendored"] }
 png = { version = "0.17.10", optional = true }
-pyo3 = { version = "0.21.2", features = ["extension-module"] }
+# cross environments need to be updated with python
+# pyo3 = { version = "0.21.2", features = ["extension-module"] }
 quick-xml = { version = "0.31.0", features = ["serialize"] }
 rand = "0.8.5"
 regex = "1.10.2"

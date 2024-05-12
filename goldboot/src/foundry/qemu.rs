@@ -448,6 +448,7 @@ impl QemuBuilder {
         let host_key = std::fs::read(&self.ssh_host_key)?;
         let public_key = std::fs::read(self.ssh_private_key.with_extension("pub"))?;
 
+        self.args.netdev.truncate(0);
         self.args.netdev.push(format!(
             "user,id=user.0,hostfwd=tcp::{}-:{}",
             self.ssh_port, self.ssh_port

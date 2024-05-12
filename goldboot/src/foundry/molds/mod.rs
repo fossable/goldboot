@@ -15,6 +15,7 @@ use alpine_linux::AlpineLinux;
 use arch_linux::ArchLinux;
 use debian::Debian;
 use goldboot::Goldboot;
+use nix::Nix;
 use windows_10::Windows10;
 use windows_11::Windows11;
 
@@ -22,6 +23,7 @@ pub mod alpine_linux;
 pub mod arch_linux;
 pub mod debian;
 pub mod goldboot;
+pub mod nix;
 pub mod windows_10;
 pub mod windows_11;
 
@@ -63,7 +65,7 @@ pub enum ImageMold {
     // MacOs,
     // Manjaro,
     // NetBsd,
-    // NixOs,
+    Nix,
     // OpenBsd,
     // OpenSuse,
     // Oracle,
@@ -93,6 +95,7 @@ impl ImageMold {
             ImageMold::ArchLinux(_) => vec![ImageArch::Amd64],
             ImageMold::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             ImageMold::Goldboot(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            ImageMold::Nix(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             ImageMold::Windows10(_) => vec![ImageArch::Amd64],
             ImageMold::Windows11(_) => vec![ImageArch::Amd64],
         }
@@ -116,6 +119,7 @@ impl Display for ImageMold {
                 ImageMold::ArchLinux(_) => "ArchLinux",
                 ImageMold::Debian(_) => "Debian",
                 ImageMold::Goldboot(_) => "Goldboot",
+                ImageMold::Nix(_) => "NixOS",
                 ImageMold::Windows10(_) => "Windows10",
                 ImageMold::Windows11(_) => "Windows11",
             }

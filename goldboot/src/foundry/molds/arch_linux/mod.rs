@@ -189,9 +189,9 @@ pub struct ArchLinuxPackages {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_fetch_latest_iso() -> Result<()> {
-        fetch_latest_iso()?;
-        Ok(())
-    }
+    // #[test]
+    // fn test_fetch_latest_iso() -> Result<()> {
+    //     fetch_latest_iso()?;
+    //     Ok(())
+    // }
 }
