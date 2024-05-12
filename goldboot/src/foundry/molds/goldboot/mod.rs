@@ -1,88 +1,88 @@
-use super::*;
-use crate::{
-    build::BuildWorker,
-    cache::{MediaCache, MediaFormat},
-    http::HttpServer,
-    provisioners::*,
-    qemu::QemuArgs,
-    templates::*,
-};
-use anyhow::bail;
+use anyhow::{bail, Result};
+use dialoguer::theme::Theme;
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
-use tracing::info;
+use std::io::{BufRead, BufReader};
 use validator::Validate;
 
-#[derive(rust_embed::RustEmbed)]
-#[folder = "res/Goldboot/"]
-struct Resources;
+use crate::{
+    cli::prompt::Prompt,
+    enter,
+    foundry::{
+        http::HttpServer,
+        options::{hostname::Hostname, unix_account::RootPassword},
+        qemu::{OsCategory, QemuBuilder},
+        sources::ImageSource,
+        Foundry, FoundryWorker,
+    },
+    input, wait, wait_screen, wait_screen_rect,
+};
+
+use super::{
+    debian::{fetch_debian_iso, DebianEdition},
+    CastImage, DefaultSource,
+};
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct GoldbootTemplate {
-    pub id: TemplateId,
+pub struct Goldboot {}
 
-    /// The goldboot-linux executable to embed
-    pub executable: String,
-}
-
-impl Default for GoldbootTemplate {
+impl Default for Goldboot {
     fn default() -> Self {
-        Self {
-            general: GeneralContainer {
-                base: TemplateId::Goldboot,
-                storage_size: String::from("4 GiB"),
-                ..Default::default()
-            },
-            executable: String::from(""),
-        }
+        Self {}
     }
 }
 
-impl Template for GoldbootTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<()> {
-        info!("Starting {} build", console::style("goldboot Linux").blue());
+// TODO proc macro
+impl Prompt for Goldboot {
+    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+        todo!()
+    }
+}
 
-        let mut qemuargs = QemuArgs::new(&context);
+impl DefaultSource for Goldboot {
+    fn default_source(&self, arch: ImageArch) -> Result<ImageSource> {
+        fetch_debian_iso(DebianEdition::default(), arch)
+    }
+}
 
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-			"file={},media=cdrom",
-			MediaCache::get("https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-cd/debian-testing-amd64-netinst.iso".to_string(), "none", MediaFormat::Iso)?
-		));
+impl CastImage for Goldboot {
+    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+            .vga("cirrus")
+            .source(&worker.element.source)?
+            .prepare_ssh()?
+            .start()?;
 
         // Start HTTP
-        let http = HttpServer::serve_file(Resources::get("preseed.cfg").unwrap().data.to_vec())?;
-
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
-
-        // Temporary root password for the run
-        let temp_password = crate::random_password();
+        let http = HttpServer::new()?
+            .file("preseed.cfg", include_bytes!("preseed.cfg"))?
+            .serve();
 
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.boot_command(vec![
-			wait!(10),
+		qemu.vnc.run(vec![
+            // Wait for boot
+			wait_screen_rect!("f6852e8b6e072d15270b2b215bbada3da30fd733", 100, 100, 400, 400),
+            // Trigger unattended install
 			input!("aa"),
-			wait_screen!("a5263becea998337f06070678e4bf3db2d437195"),
-			enter!(format!("http://10.0.2.2:{}/preseed.cfg", http.port)),
-			wait_screen!("97354165fd270a95fd3da41ef43c35bf24b7c09b"),
-			enter!(&temp_password),
-			enter!(&temp_password),
-			wait_screen!("33e3bacbff9507e9eb29c73642eaceda12a359c2"),
+            // Wait for preseed URL to be prompted
+            wait_screen!("6ee7873098bceb5a2124db82dae6abdae214ce7e"),
+			enter!(format!("http://{}:{}/preseed.cfg", http.address, http.port)),
+            // Wait for login prompt
+            wait_screen!("2eb1ef517849c86a322ba60bb05386decbf00ba5"),
+            // Login as root
+            enter!("root"),
+            enter!("r00tme"),
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &temp_password)?;
+        let mut ssh = qemu.ssh("root")?;
 
-        // Copy executable
-        ssh.upload(
-            std::fs::read(&self.executable)?,
-            "/mnt/usr/bin/goldboot-linux",
-        )?;
+        // Install executable
+        // ssh.upload(
+        //     std::fs::read(&self.executable)?,
+        //     "/mnt/usr/bin/goldboot-linux",
+        // )?;
 
         // Shutdown
         ssh.shutdown("poweroff")?;

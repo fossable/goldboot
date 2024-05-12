@@ -14,9 +14,13 @@ rust-version = "1.74"
 anyhow = "1.0.76"
 axum = "0.7.4"
 clap = { version = "4.4.7", features = ["derive", "string"] }
-goldboot = { path="../goldboot", version = "0.0.2" }
 goldboot-image = { path="../goldboot-image", version = "0.0.1" }
+goldboot = { path="../goldboot", version = "0.0.2" }
 reqwest = { version = "0.11.22", features = ["stream"] }
+tftpd = { version = "0.2.12", optional = true }
 tokio = { version = "1.34.0", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+[features]
+pxe = ["dep:tftpd"]
