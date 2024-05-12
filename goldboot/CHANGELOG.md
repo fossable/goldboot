@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3](https://github.com/fossable/goldboot/compare/goldboot-v0.0.2...goldboot-v0.0.3) - 2024-05-12
+
+### Other
+- enable nix os
+- re-enable goldboot linux
+- rename write subcommand -> deploy
+- update readme
+- continue windows 11 support
+- begin windows 11 support
+- Autounattend.xml handling on Windows
+- refresh windows 10
+- refresh alpine linux
+- restore registry crate
+- use openssl vendored
+
 ## [0.0.2](https://github.com/fossable/goldboot/compare/goldboot-v0.0.1...goldboot-v0.0.2) - 2024-03-17
 
 ### Fixed

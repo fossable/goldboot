@@ -8,7 +8,7 @@ name = "goldboot"
 readme = "README.md"
 repository = "https://github.com/fossable/goldboot"
 rust-version = "1.74"
-version = "0.0.2"
+version = "0.0.3"
 
 [dependencies]
 anyhow = "1.0.76"
@@ -31,8 +31,8 @@ gdk4 = { version = "0.8.1", optional = true }
 gdk-pixbuf = { version = "0.19.2", optional = true }
 glib-macros = { version = "0.19.2", optional = true }
 glib = { version = "0.19.2", optional = true }
-goldboot-image = { path="../goldboot-image", version = "0.0.1" }
-goldboot-macros = { path="../goldboot-macros", version = "0.0.1" }
+goldboot-image = { path="../goldboot-image", version = "0.0.2" }
+goldboot-macros = { path="../goldboot-macros", version = "0.0.2" }
 gtk4 = { version = "0.8.1", optional = true, features = ["v4_12"] }
 hex = "0.4.3"
 indicatif = "0.17.7"

@@ -6,38 +6,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.2](https://github.com/fossable/goldboot/compare/goldboot-image-v0.0.1...goldboot-image-v0.0.2) - 2024-05-12
+## [0.0.1](https://github.com/fossable/goldboot/releases/tag/goldboot-registry-v0.0.1) - 2024-05-12
 
 ### Other
+- re-enable goldboot linux
+- update readme
 - restore registry crate
-
-## [0.0.1](https://github.com/fossable/goldboot/releases/tag/goldboot-image-v0.0.1) - 2024-03-17
-
-### Fixed
-- c_char cast on muslc
-- unit tests
-
-### Other
-- initial ImageHandle request extractor
-- bump MSRV
-- improve archinstall config
-- restore original gui functionality
+- merge registry into main crate
 - update dependencies
-- attempt to format drive file properly
-- prepare to generate session keys for ssh
 - replace log with tracing
+- fix remaining build errors
 - replace simple_error -> anyhow
+- use enum dispatch in image mold
+- continue cleanup
 - reorganize crates
-- move OVMF firmwares
-- fix build errors in image crate
 - reorganize crates
+- remove goldboot-graphics crate
+- back to standard formatting
+- Bump rustls-pemfile from 0.3.0 to 1.0.1 ([#37](https://github.com/fossable/goldboot/pull/37))
+- Fix remaining image test
+- Migrate core crate into CLI crate
+- Begin updating image format for cluster encryption
+- Begin to add registry endpoints
+- Enable dependabot
+- Rename gui crate
+- Automatically strip release profile executables
 - Migrate goldboot-image crate into goldboot-core
-- Reconnect SSH if a provisioner reboots
-- Add new image write implementation
 - Begin transition from qcow to custom image container
 - Repair the build again
 - Change formatter conventions
-- Simplify image dependency
 - Move templates back into core module
-- Continue implementation
 - Reorganize into rust workspaces
