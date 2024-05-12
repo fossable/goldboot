@@ -102,6 +102,21 @@ cargo install goldboot
 </details>
 
 <details>
+<summary>Github Releases</summary>
+
+#### Install manually from Github releases
+
+```sh
+curl -o /usr/bin/goldboot https://github.com/fossable/goldboot/releases/download/v0.0.3/goldboot_<platform>
+```
+
+##### Dependencies
+```sh
+apt-get install -y libudev1 libgtk-4-1 libglib2.0-0
+```
+</details>
+
+<details>
 <summary>Github Actions</summary>
 
 #### Running on Github actions

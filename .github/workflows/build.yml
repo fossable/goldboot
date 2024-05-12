@@ -10,6 +10,7 @@ on:
 jobs:
   build-linux:
     name: Build / ubuntu-latest (x86_64) / ${{ matrix.target }}
+    # Need ubuntu-24.04 for --features gui
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,7 +43,7 @@ jobs:
         with:
           use_cross: true
           command: build
-          args: --release --target ${{ matrix.target }} --features gui
+          args: --release --target ${{ matrix.target }}
 
       - uses: actions/upload-artifact@v4
         with:
