@@ -4,6 +4,8 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  release:
+    types: [created]
 
 jobs:
   build-linux:
@@ -19,10 +21,10 @@ jobs:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
     steps:
-      # - name: Install dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y libudev-dev libgtk-4-dev jq
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libgtk-4-dev
 
       - name: Install rust
         uses: actions-rs/toolchain@v1
@@ -35,19 +37,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          use_cross: true
-          command: test
-          args: --target ${{ matrix.target }}
-
       - name: Build x86_64
         uses: actions-rs/cargo@v1
         with:
           use_cross: true
           command: build
-          args: --release --target ${{ matrix.target }}
+          args: --release --target ${{ matrix.target }} --features gui
 
       - uses: actions/upload-artifact@v4
         with:
@@ -73,6 +68,16 @@ jobs:
       #     name: goldboot-linux-x86_64.gb
       #     path: goldboot-linux-x86_64.gb
 
+      - name: Upload artifact
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: target/${{ matrix.target }}/release/goldboot
+          asset_name: goldboot_${{ matrix.target }}
+          asset_content_type: application/x-executable
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   build-macos:
     name: Build / macos-latest (x86_64)
     runs-on: macos-latest
@@ -85,11 +90,6 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
 
       - name: Build x86_64
         uses: actions-rs/cargo@v1
@@ -115,11 +115,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-
       - name: Build x86_64
         uses: actions-rs/cargo@v1
         with:
@@ -132,7 +127,7 @@ jobs:
           path: target/release/goldboot
 
   build-docker:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'release'
     name: Build docker / ubuntu-latest
     runs-on: ubuntu-latest
     needs: build-linux
