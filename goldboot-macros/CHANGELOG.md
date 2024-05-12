@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2](https://github.com/fossable/goldboot/compare/goldboot-macros-v0.0.1...goldboot-macros-v0.0.2) - 2024-05-12
+
+### Other
+- Include the repository field
+- restore registry crate
+
 ## [0.0.1](https://github.com/fossable/goldboot/releases/tag/goldboot-macros-v0.0.1) - 2024-03-17
 
 ### Other
