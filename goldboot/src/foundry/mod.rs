@@ -1,3 +1,4 @@
+use self::qemu::{detect_accel, Accel};
 use self::{fabricators::Fabricator, molds::ImageMold, sources::ImageSource};
 use crate::foundry::molds::CastImage;
 use crate::{cli::progress::ProgressBar, library::ImageLibrary};
@@ -97,6 +98,9 @@ pub struct Foundry {
     /// Whether the image is public
     pub public: bool,
 
+    /// Don't use hardware acceleration even if available (slow)
+    pub no_accel: bool,
+
     pub size: String,
 }
 
@@ -136,6 +140,11 @@ impl Foundry {
 
         FoundryWorker {
             arch: self.arch,
+            accel: if self.no_accel {
+                Accel::Tcg
+            } else {
+                detect_accel()
+            },
             debug: self.debug,
             record: self.record,
             end_time: None,
@@ -228,6 +237,8 @@ impl Foundry {
 /// to speed up multiboot configurations.
 pub struct FoundryWorker {
     pub arch: ImageArch,
+
+    pub accel: Accel,
 
     pub debug: bool,
 

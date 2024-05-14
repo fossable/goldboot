@@ -29,6 +29,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             let mut foundry: Foundry = config_path.load().unwrap();
             foundry.debug = debug;
             foundry.record = record;
+            foundry.no_accel = no_accel;
             debug!("Loaded: {:#?}", &foundry);
 
             // Include the encryption password if provided

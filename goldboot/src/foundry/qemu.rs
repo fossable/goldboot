@@ -25,10 +25,30 @@ pub enum OsCategory {
     Windows,
 }
 
+/// Supported VM hardware acceleration.
+pub enum Accel {
+    Kvm,
+    /// Basically means no acceleration
+    Tcg,
+}
+
+impl std::fmt::Display for Accel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match &self {
+                Accel::Tcg => "tcg",
+                Accel::Kvm => "kvm",
+            }
+        )
+    }
+}
+
 /// Detect the best acceleration type for the current hardware.
-pub fn detect_accel() -> String {
+pub fn detect_accel() -> Accel {
     if std::env::var("CI").is_ok() {
-        return String::from("tcg");
+        return Accel::Tcg;
     }
     if cfg!(target_arch = "x86_64") {
         if cfg!(target_os = "linux") {
@@ -41,21 +61,21 @@ pub fn detect_accel() -> String {
                 Ok(status) => {
                     if let Some(code) = status.code() {
                         if code == 0 {
-                            String::from("kvm")
+                            Accel::Kvm
                         } else {
-                            String::from("tcg")
+                            Accel::Tcg
                         }
                     } else {
-                        String::from("tcg")
+                        Accel::Tcg
                     }
                 }
-                Err(_) => String::from("tcg"),
+                Err(_) => Accel::Tcg,
             }
         } else {
-            String::from("tcg")
+            Accel::Tcg
         }
     } else {
-        String::from("tcg")
+        Accel::Tcg
     }
 }
 
@@ -272,7 +292,7 @@ impl QemuBuilder {
 
                 // This seems to be necessary for the EFI variables to persist
                 global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
-                machine: format!("type=pc,accel={}", detect_accel()),
+                machine: format!("type=pc,accel={}", worker.accel),
 
                 // Use the recommended memory amount from the config or use a default
                 memory: worker.memory.clone(),
