@@ -46,10 +46,7 @@ impl Prompt for ArchLinux {
 
 impl DefaultSource for ArchLinux {
     fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
-        Ok(ImageSource::Iso {
-            url: "https://mirrors.edge.kernel.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso".to_string(),
-            checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
-        })
+        fetch_latest_iso()
     }
 }
 
@@ -161,7 +158,7 @@ impl ArchLinuxMirrorlist {
 /// Fetch the latest installation ISO
 fn fetch_latest_iso() -> Result<ImageSource> {
     let rs = reqwest::blocking::get(format!(
-        "http://mirror.fossable.org/archlinux/iso/latest/sha256sums.txt"
+        "http://mirrors.edge.kernel.org/archlinux/iso/latest/sha256sums.txt"
     ))?;
     if rs.status().is_success() {
         for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
@@ -169,7 +166,9 @@ fn fetch_latest_iso() -> Result<ImageSource> {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {
                     return Ok(ImageSource::Iso {
-                        url: format!("http://mirror.fossable.org/archlinux/iso/latest/{filename}"),
+                        url: format!(
+                            "http://mirrors.edge.kernel.org/archlinux/iso/latest/{filename}"
+                        ),
                         checksum: Some(format!("sha256:{hash}")),
                     });
                 }
@@ -189,9 +188,9 @@ pub struct ArchLinuxPackages {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_fetch_latest_iso() -> Result<()> {
-    //     fetch_latest_iso()?;
-    //     Ok(())
-    // }
+    #[test]
+    fn test_fetch_latest_iso() -> Result<()> {
+        fetch_latest_iso()?;
+        Ok(())
+    }
 }
