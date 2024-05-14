@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4](https://github.com/fossable/goldboot/compare/goldboot-v0.0.3...goldboot-v0.0.4) - 2024-05-14
+
+### Fixed
+- fetch latest ArchLinux ISO by default
+- missing alpine packages (closes [#192](https://github.com/fossable/goldboot/pull/192))
+
+### Other
+- add --no-accel option to disable hardware acceleration check
+
 ## [0.0.3](https://github.com/fossable/goldboot/compare/goldboot-v0.0.2...goldboot-v0.0.3) - 2024-05-12
 
 ### Other
