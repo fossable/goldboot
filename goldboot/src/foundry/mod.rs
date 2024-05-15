@@ -36,6 +36,7 @@ pub mod vnc;
 pub struct ImageElement {
     pub fabricators: Option<Vec<Fabricator>>,
     pub mold: ImageMold,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pref_size: Option<String>,
     pub source: ImageSource,
 }
@@ -66,6 +67,7 @@ pub struct Foundry {
     pub arch: ImageArch,
 
     /// When set, the run will pause before each step in the boot sequence
+    #[serde(default, skip_serializing)]
     pub debug: bool,
 
     /// An image description
@@ -81,6 +83,10 @@ pub struct Foundry {
     #[validate(length(min = 1, max = 64))]
     pub name: String,
 
+    /// Don't use hardware acceleration even if available (slow)
+    #[serde(default, skip_serializing)]
+    pub no_accel: bool,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nvme: Option<bool>,
 
@@ -92,15 +98,15 @@ pub struct Foundry {
     #[serde(skip_serializing)]
     pub password: Option<String>,
 
-    /// Whether screenshots will be generated during the run for debugging
-    pub record: bool,
-
     /// Whether the image is public
+    #[serde(default, skip_serializing)]
     pub public: bool,
 
-    /// Don't use hardware acceleration even if available (slow)
-    pub no_accel: bool,
+    /// Whether screenshots will be generated during the run for debugging
+    #[serde(default, skip_serializing)]
+    pub record: bool,
 
+    /// The total image size in human-readable units
     pub size: String,
 }
 
@@ -299,7 +305,7 @@ pub enum FoundryConfigPath {
 
 impl Default for FoundryConfigPath {
     fn default() -> Self {
-        FoundryConfigPath::Ron(PathBuf::from("./goldboot.ron"))
+        FoundryConfigPath::Json(PathBuf::from("./goldboot.json"))
     }
 }
 

@@ -212,7 +212,7 @@ be tweaked to suit your needs. For example:
 There are many ways to customize the image, but for now just build it:
 
 ```sh
-goldboot build .
+goldboot cast .
 ```
 
 Once the build succeeds, the image will be saved to the system's library
