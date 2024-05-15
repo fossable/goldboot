@@ -1286,7 +1286,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "axum",
@@ -1375,7 +1375,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-registry"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "axum",
