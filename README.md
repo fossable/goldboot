@@ -3,7 +3,7 @@
 </p>
 
 ![License](https://img.shields.io/github/license/goldboot/goldboot)
-![build](https://github.com/goldboot/goldboot/actions/workflows/build.yml/badge.svg)
+![build](https://github.com/goldboot/goldboot/actions/workflows/test.yml/badge.svg)
 [![Discord](https://img.shields.io/discord/981695209492606986)](https://discord.gg/Vzr7gT5dsd)
 ![GitHub repo size](https://img.shields.io/github/repo-size/fossable/goldboot)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)

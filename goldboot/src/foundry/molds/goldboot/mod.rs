@@ -24,11 +24,15 @@ use super::{
 };
 
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct Goldboot {}
+pub struct Goldboot {
+    /// Path to the goldboot executable to install. If this isn't given, it
+    /// will be downloaded from Github releases.
+    pub executable: Option<String>,
+}
 
 impl Default for Goldboot {
     fn default() -> Self {
-        Self {}
+        Self { executable: None }
     }
 }
 
