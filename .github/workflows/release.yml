@@ -53,7 +53,7 @@ jobs:
         with:
           use_cross: true
           command: build
-          args: --release --target ${{ matrix.target }} --features gui
+          args: --release --target ${{ matrix.target }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -71,6 +71,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           for tag in $(git tag --points-at HEAD); do
+            # TODO
+            tag=goldboot-v0.0.5
             if cp target/${{ matrix.target }}/release/${tag%-*} ${tag%-*}_${{ matrix.target }}; then
               gh release upload "${tag}" "${tag%-*}_${{ matrix.target }}"
             fi
@@ -164,6 +166,13 @@ jobs:
           platforms: linux/amd64,linux/arm64 #,linux/arm/v7
           push: true
           tags: fossable/goldboot:latest
+
+      # - uses: docker/build-push-action@v5
+      #   with:
+      #     context: goldboot-registry
+      #     platforms: linux/amd64,linux/arm64 #,linux/arm/v7
+      #     push: true
+      #     tags: fossable/goldboot-registry:latest
 
       - uses: peter-evans/dockerhub-description@v4
         with:
