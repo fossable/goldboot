@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6](https://github.com/fossable/goldboot/compare/goldboot-v0.0.5...goldboot-v0.0.6) - 2024-05-17
+
+### Other
+- split release.yml workflow
+
 ## [0.0.5](https://github.com/fossable/goldboot/compare/goldboot-v0.0.4...goldboot-v0.0.5) - 2024-05-15
 
 ### Other
