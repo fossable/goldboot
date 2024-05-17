@@ -8,15 +8,16 @@ on:
       - master
 
 jobs:
-  prepare-release:
-    name: Prepare release PR
+  github:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'chore: release')"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: dtolnay/rust-toolchain@stable
+
       - uses: MarcoIeni/release-plz-action@v0.5
         with:
           command: release-pr

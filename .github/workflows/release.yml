@@ -5,8 +5,7 @@ on:
       - master
 
 jobs:
-  # release:
-  #   name: Publish release
+  # github:
   #   runs-on: ubuntu-latest
   #   if: "contains(github.event.head_commit.message, 'chore: release')"
   #   steps:
@@ -21,10 +20,10 @@ jobs:
   #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   #         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-  build-linux:
-    name: Build / ubuntu-latest (x86_64) / ${{ matrix.target }}
-    runs-on: ubuntu-24.04
-    # needs: release
+  linux:
+    name: linux / ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    # needs: github
     strategy:
       fail-fast: false
       matrix:
@@ -35,10 +34,11 @@ jobs:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
     steps:
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev libgtk-4-dev libglib2.0-dev
+      # TODO this needs to run in the cross container
+      # - name: Install dependencies
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y libudev-dev libgtk-4-dev libglib2.0-dev
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -70,30 +70,36 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          for tag in $(git tag --points-at HEAD); do
-            # TODO
-            tag=goldboot-v0.0.5
+          for tag in goldboot-v0.0.5 $(git tag --points-at HEAD); do
             if cp target/${{ matrix.target }}/release/${tag%-*} ${tag%-*}_${{ matrix.target }}; then
               gh release upload "${tag}" "${tag%-*}_${{ matrix.target }}"
             fi
           done
 
+  goldboot-linux:
+    runs-on: ubuntu-latest
+    needs: linux
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: goldboot-x86_64-unknown-linux-musl
+          path: goldboot/linux-amd64
+
       - name: Build goldboot-linux image x86_64
         run: |
           export RUST_BACKTRACE=1
           export RUST_LOG=debug
-          target/release/goldboot init --mold Goldboot
-          target/release/goldboot cast --output goldboot-linux-x86_64.gb .
+          goldboot/linux-amd64 init --mold Goldboot
+          goldboot/linux-amd64 cast --output goldboot-linux-x86_64.gb .
 
       - uses: actions/upload-artifact@v4
         with:
           name: goldboot-linux-x86_64.gb
           path: goldboot-linux-x86_64.gb
 
-  build-macos:
-    name: Build / macos-latest (x86_64)
+  macos:
     runs-on: macos-latest
-    # needs: release
+    # needs: github
     steps:
       - uses: actions-rs/toolchain@v1
         with:
@@ -112,10 +118,9 @@ jobs:
           name: goldboot-x86_64-apple-darwin
           path: target/release/goldboot
 
-  build-windows:
-    name: Build / windows-latest (x86_64)
+  windows:
     runs-on: windows-latest
-    # needs: release
+    # needs: github
     steps:
       - uses: actions-rs/toolchain@v1
         with:
@@ -134,10 +139,9 @@ jobs:
           name: goldboot-x86_64-pc-windows-msvc
           path: target/release/goldboot
 
-  build-docker:
-    name: Build docker / ubuntu-latest
+  docker:
     runs-on: ubuntu-latest
-    needs: build-linux
+    needs: linux
     steps:
       - uses: actions/checkout@v4
 
@@ -160,12 +164,32 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Find version tags
+        id: get_tags
+        run: |
+          for tag in $(git tag --points-at HEAD); do
+            echo "${tag%-*}=${tag##*-}" >> "$GITHUB_OUTPUT"
+          done
+
       - uses: docker/build-push-action@v5
+        if: ${{ steps.get_tags.outputs.goldboot != '' }}
         with:
           context: goldboot
           platforms: linux/amd64,linux/arm64 #,linux/arm/v7
           push: true
-          tags: fossable/goldboot:latest
+          tags:
+            - fossable/goldboot:latest
+            - fossable/goldboot:${{ steps.get_tags.outputs.goldboot }}
+
+      - uses: docker/build-push-action@v5
+        if: ${{ steps.get_tags.outputs.goldboot-registry != '' }}
+        with:
+          context: goldboot-registry
+          platforms: linux/amd64,linux/arm64 #,linux/arm/v7
+          push: true
+          tags:
+            - fossable/goldboot-registry:latest
+            - fossable/goldboot-registry:${{ steps.get_tags.outputs.goldboot-registry }}
 
       # - uses: docker/build-push-action@v5
       #   with:
