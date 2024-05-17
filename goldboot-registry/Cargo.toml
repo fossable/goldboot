@@ -1,7 +1,7 @@
 [package]
 name = "goldboot-registry"
 description = "A web service for hosting goldboot images"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 license = "AGPL-3.0-only"
 authors = ["Tyler Cook"]
@@ -15,7 +15,7 @@ anyhow = "1.0.76"
 axum = "0.7.4"
 clap = { version = "4.4.7", features = ["derive", "string"] }
 goldboot-image = { path="../goldboot-image", version = "0.0.2" }
-goldboot = { path="../goldboot", version = "0.0.6" }
+goldboot = { path="../goldboot", version = "0.0.7" }
 reqwest = { version = "0.11.22", features = ["stream"] }
 tftpd = { version = "0.2.12", optional = true }
 tokio = { version = "1.34.0", features = ["full"] }
