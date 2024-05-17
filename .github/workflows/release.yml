@@ -177,9 +177,7 @@ jobs:
           context: goldboot
           platforms: linux/amd64,linux/arm64 #,linux/arm/v7
           push: true
-          tags:
-            - fossable/goldboot:latest
-            - fossable/goldboot:${{ steps.get_tags.outputs.goldboot }}
+          tags: fossable/goldboot:latest,fossable/goldboot:${{ steps.get_tags.outputs.goldboot }}
 
       - uses: docker/build-push-action@v5
         if: ${{ steps.get_tags.outputs.goldboot-registry != '' }}
@@ -187,9 +185,7 @@ jobs:
           context: goldboot-registry
           platforms: linux/amd64,linux/arm64 #,linux/arm/v7
           push: true
-          tags:
-            - fossable/goldboot-registry:latest
-            - fossable/goldboot-registry:${{ steps.get_tags.outputs.goldboot-registry }}
+          tags: fossable/goldboot-registry:latest,fossable/goldboot-registry:${{ steps.get_tags.outputs.goldboot-registry }}
 
       # - uses: docker/build-push-action@v5
       #   with:
