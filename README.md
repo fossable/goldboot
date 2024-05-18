@@ -104,10 +104,13 @@ cargo install goldboot
 <details>
 <summary>Github Releases</summary>
 
+![GitHub Downloads](https://img.shields.io/github/downloads/fossable/goldboot/total)
+
 #### Install manually from Github releases
 
 ```sh
-curl -o /usr/bin/goldboot https://github.com/fossable/goldboot/releases/download/v0.0.3/goldboot_<platform>
+curl -o /usr/bin/goldboot https://github.com/fossable/goldboot/releases/download/goldboot-v0.0.7/goldboot_<platform>
+chmod +x /usr/bin/goldboot
 ```
 
 ##### Dependencies

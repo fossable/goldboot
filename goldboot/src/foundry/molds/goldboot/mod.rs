@@ -77,7 +77,8 @@ impl CastImage for Goldboot {
             enter!("root"),
             enter!("r00tme"),
             // Install goldboot
-            enter!(format!("curl https://github.com/fossable/goldboot/releases/download/v0.0.3/goldboot_0.0.3_linux_{}.tar.gz | tar xf - -C /usr/bin goldboot", worker.arch)),
+            enter!(format!("curl -o /usr/bin/goldboot https://github.com/fossable/goldboot/releases/download/goldboot-v0.0.7/goldboot_{}-unknown-linux-gnu", worker.arch)),
+            enter!("chmod +x /usr/bin/goldboot"),
             // Skip getty login
             enter!("sed -i 's|ExecStart=.*$|ExecStart=/usr/bin/goldboot|' /usr/lib/systemd/system/getty@.service"),
             // Stop gracefully

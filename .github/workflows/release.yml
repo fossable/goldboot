@@ -164,11 +164,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          for tag in $(git tag --points-at HEAD); do
-            if cp target/release/${tag%-*} ${tag%-*}_x86_64-pc-windows-msvc; then
-              gh release upload "${tag}" "${tag%-*}_x86_64-pc-windows-msvc"
-            fi
-          done
+          foreach ($tag in $(git tag --points-at HEAD)) {
+              $tagWithoutSuffix = $tag -replace '-.*$'
+              if (Copy-Item -Path "target\release\$tagWithoutSuffix" -Destination "$tagWithoutSuffix_x86_64-pc-windows-msvc") {
+                  gh release upload $tag "$tagWithoutSuffix_x86_64-pc-windows-msvc"
+              }
+          }
 
   docker:
     runs-on: ubuntu-latest
@@ -190,6 +191,16 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: goldboot-aarch64-unknown-linux-musl
+          path: goldboot/linux-arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: goldboot-registry-x86_64-unknown-linux-musl
+          path: goldboot/linux-amd64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: goldboot-registry-aarch64-unknown-linux-musl
           path: goldboot/linux-arm64
 
       - uses: docker/login-action@v3
