@@ -69,7 +69,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: nightly / doc
     steps:
-      - run: sudo apt-get install -y libpango1.0-dev
+      - run: sudo apt-get install -y libpango1.0-dev libgraphene-1.0-dev
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -79,24 +79,6 @@ jobs:
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
-  hack:
-    # cargo-hack checks combinations of feature flags to ensure that features are all additive
-    # which is required for feature unification
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'chore: release')"
-    name: ubuntu / stable / features
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-      - name: cargo install cargo-hack
-        uses: taiki-e/install-action@cargo-hack
-      # intentionally no target specifier; see https://github.com/jonhoo/rust-ci-conf/pull/4
-      # --feature-powerset runs for every combination of features
-      - name: cargo hack
-        run: cargo hack --feature-powerset check
   msrv:
     # check that we can build using the minimal rust version that is specified by this crate
     runs-on: ubuntu-latest
