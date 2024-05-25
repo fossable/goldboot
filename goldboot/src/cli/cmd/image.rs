@@ -9,7 +9,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Image { command } => match &command {
             super::ImageCommands::List {} => {
-                let images = ImageLibrary::load().unwrap();
+                let images = ImageLibrary::find_all().unwrap();
 
                 println!("Image Name      Image Size   Build Date                      Image ID     Description");
                 for image in images {

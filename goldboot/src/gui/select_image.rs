@@ -43,7 +43,7 @@ pub fn init(window: &'static gtk::ApplicationWindow) {
 
         let mut images = Vec::new();
 
-        for image in ImageLibrary::load().unwrap() {
+        for image in ImageLibrary::find_all().unwrap() {
             images.push(image.id.clone());
             image_box.append(&create_image_row(&image));
         }

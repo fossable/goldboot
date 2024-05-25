@@ -22,9 +22,20 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 return ExitCode::FAILURE;
             }
 
+            // Load from library or download
+            let mut image_handles = match ImageLibrary::find_by_name("Test") {
+                Ok(image_handles) => image_handles,
+                Err(_) => return ExitCode::FAILURE,
+            };
+
+            // TODO prompt password
+            if image_handles[0].load(None).is_err() {
+                return ExitCode::FAILURE;
+            }
+
             if !confirm {
                 if !Confirm::with_theme(&theme)
-                    .with_prompt("Do you want to continue?")
+                    .with_prompt(format!("Do you want to overwrite: {}?", dest))
                     .interact()
                     .unwrap()
                 {
@@ -32,7 +43,13 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
             }
 
-            ExitCode::SUCCESS
+            match image_handles[0].write(dest, ProgressBar::Write.new_empty()) {
+                Err(err) => {
+                    error!(error = %err, "Failed to write image");
+                    ExitCode::FAILURE
+                }
+                _ => ExitCode::SUCCESS,
+            }
         }
         _ => panic!(),
     }

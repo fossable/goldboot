@@ -25,8 +25,21 @@ pub enum OsCategory {
     Windows,
 }
 
+impl OsCategory {
+    /// Convert to String representation for use in a Github release asset
+    pub fn as_github_string(&self) -> String {
+        match self {
+            OsCategory::Darwin => "apple",
+            OsCategory::Linux => "linux",
+            OsCategory::Windows => "windows",
+        }
+        .to_string()
+    }
+}
+
 /// Supported VM hardware acceleration.
 pub enum Accel {
+    /// "Kernel VM" which requires Intel VT or AMD-V
     Kvm,
     /// Basically means no acceleration
     Tcg,
@@ -363,7 +376,7 @@ impl QemuBuilder {
 
         // Add a buffer of extra space
         let mut fs_size: u64 = files.values().map(|c| c.len() as u64).sum();
-        fs_size += 32000;
+        fs_size += 320000;
 
         debug!(
             fs_path = ?fs_path,
@@ -391,6 +404,7 @@ impl QemuBuilder {
             let root_dir = fs.root_dir();
 
             for (path, content) in &files {
+                debug!(path = ?path, size = content.len(), "Copying file to temporary filesystem");
                 let mut file = root_dir.create_file(path)?;
                 file.write_all(content)?;
             }

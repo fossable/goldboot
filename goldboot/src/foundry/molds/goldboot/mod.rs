@@ -2,7 +2,12 @@ use anyhow::{bail, Result};
 use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader};
+use serde_json::{Map, Value};
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader},
+};
+use tracing::debug;
 use validator::Validate;
 
 use crate::{
@@ -54,6 +59,10 @@ impl CastImage for Goldboot {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
             .source(&worker.element.source)?
+            .drive_files(HashMap::from([(
+                "goldboot".to_string(),
+                get_latest_release(OsCategory::Linux, worker.arch)?,
+            )]))?
             .start()?;
 
         // Start HTTP
@@ -77,7 +86,8 @@ impl CastImage for Goldboot {
             enter!("root"),
             enter!("r00tme"),
             // Install goldboot
-            enter!(format!("curl -o /usr/bin/goldboot https://github.com/fossable/goldboot/releases/download/goldboot-v0.0.7/goldboot_{}-unknown-linux-gnu", worker.arch)),
+            enter!("mount /dev/vdb /mnt"),
+            enter!("cp /mnt/goldboot /usr/bin/goldboot"),
             enter!("chmod +x /usr/bin/goldboot"),
             // Skip getty login
             enter!("sed -i 's|ExecStart=.*$|ExecStart=/usr/bin/goldboot|' /usr/lib/systemd/system/getty@.service"),
@@ -87,5 +97,82 @@ impl CastImage for Goldboot {
 
         qemu.shutdown_wait()?;
         Ok(())
+    }
+}
+
+/// Download the latest goldboot release.
+fn get_latest_release(os: OsCategory, arch: ImageArch) -> Result<Vec<u8>> {
+    // List releases
+    let releases: Vec<Value> = reqwest::blocking::Client::new()
+        .get("https://api.github.com/repos/fossable/goldboot/releases")
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .header("User-Agent", "goldboot")
+        .send()?
+        .json()?;
+    debug!(count = releases.len(), "Total releases");
+
+    // Match the major and minor versions against what we're currently running
+    let mut releases: Vec<Map<String, Value>> = releases
+        .into_iter()
+        .filter_map(|r| match r {
+            Value::Object(release) => match release.get("tag_name") {
+                Some(Value::String(name)) => {
+                    if name.starts_with(&format!(
+                        "goldboot-v{}.{}.",
+                        crate::built_info::PKG_VERSION_MAJOR,
+                        crate::built_info::PKG_VERSION_MINOR
+                    )) {
+                        Some(release)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+
+    debug!(count = releases.len(), "Matched releases");
+
+    // Sort by patch version
+    releases.sort_by_key(|release| match release.get("tag_name") {
+        Some(Value::String(name)) => name.split(".").last().unwrap().parse::<i64>().unwrap(),
+        _ => todo!(),
+    });
+
+    // Find asset for the given arch
+    let asset = match releases.last().unwrap().get("assets") {
+        Some(Value::Array(assets)) => assets
+            .iter()
+            .filter_map(|a| match a {
+                Value::Object(asset) => match asset.get("name") {
+                    Some(Value::String(name)) => {
+                        if name.contains(&arch.as_github_string())
+                            && name.contains(&os.as_github_string())
+                        {
+                            Some(asset)
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                },
+                _ => None,
+            })
+            .last(),
+        _ => None,
+    };
+
+    // Download the asset
+    if let Some(asset) = asset {
+        debug!(asset = ?asset, "Found asset for download");
+        match asset.get("browser_download_url") {
+            Some(Value::String(url)) => Ok(reqwest::blocking::get(url)?.bytes()?.into()),
+            _ => todo!(),
+        }
+    } else {
+        bail!("No release asset found for OS/Arch combination");
     }
 }

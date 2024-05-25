@@ -37,6 +37,20 @@ pub enum ImageArch {
     S390x,
 }
 
+impl ImageArch {
+    pub fn as_github_string(&self) -> String {
+        match self {
+            ImageArch::Amd64 => "x86_64",
+            ImageArch::Arm64 => todo!(),
+            ImageArch::I386 => todo!(),
+            ImageArch::Mips => todo!(),
+            ImageArch::Mips64 => todo!(),
+            ImageArch::S390x => todo!(),
+        }
+        .to_string()
+    }
+}
+
 impl Default for ImageArch {
     fn default() -> Self {
         match std::env::consts::ARCH {
@@ -387,11 +401,11 @@ impl ImageHandle {
         let path = path.as_ref();
         let mut file = File::open(path)?;
 
-        debug!("Opening image from: {}", path.display());
+        debug!(path = ?path, "Opening image");
 
         // Read primary header (always plaintext)
         let primary_header: PrimaryHeader = file.read_be()?;
-        trace!("Read: {:?}", &primary_header);
+        debug!(primary_header = ?primary_header, "Primary header");
 
         // Get image ID
         let id = if let Some(stem) = path.file_stem() {
@@ -753,9 +767,9 @@ impl ImageHandle {
                 let mut cluster: Cluster = cluster_table.read_be()?;
 
                 trace!(
-                    "Read cluster of size {} from offset {}",
-                    cluster.size,
-                    entry.cluster_offset
+                    cluster_size = cluster.size,
+                    cluster_offset = entry.cluster_offset,
+                    "Read cluster",
                 );
 
                 // Reverse encryption
@@ -777,7 +791,7 @@ impl ImageHandle {
 
                 // Write the cluster to the block
                 dest.seek(SeekFrom::Start(entry.block_offset))?;
-                dest.write_all(&cluster.data)?;
+                // dest.write_all(&cluster.data)?;
             }
 
             progress(
