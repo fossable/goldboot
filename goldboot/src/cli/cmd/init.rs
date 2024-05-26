@@ -194,7 +194,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // Finally write out the config
             match config_path.write(&foundry) {
                 Err(err) => {
-                    error!(error = %err, "Failed to write config file");
+                    error!(error = ?err, "Failed to write config file");
                     ExitCode::FAILURE
                 }
                 _ => {

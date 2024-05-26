@@ -47,7 +47,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // Fully verify config before proceeding
             match foundry.validate() {
                 Err(err) => {
-                    error!(error = %err, "Failed to validate config file");
+                    error!(error = ?err, "Failed to validate config file");
                     return ExitCode::FAILURE;
                 }
                 _ => debug!("Validated config file"),
@@ -56,7 +56,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // Run the build finally
             match foundry.run(output) {
                 Err(err) => {
-                    error!(error = %err, "Failed to cast image");
+                    error!(error = ?err, "Failed to cast image");
                     ExitCode::FAILURE
                 }
                 _ => ExitCode::SUCCESS,

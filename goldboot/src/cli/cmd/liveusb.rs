@@ -39,13 +39,13 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     .interact()
                     .unwrap()
                 {
-                    std::process::exit(0);
+                    return ExitCode::FAILURE;
                 }
             }
 
             match image_handles[0].write(dest, ProgressBar::Write.new_empty()) {
                 Err(err) => {
-                    error!(error = %err, "Failed to write image");
+                    error!(error = ?err, "Failed to write image");
                     ExitCode::FAILURE
                 }
                 _ => ExitCode::SUCCESS,

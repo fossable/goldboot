@@ -74,6 +74,9 @@ pub fn main() -> ExitCode {
         #[cfg(feature = "gui")]
         None => goldboot::gui::load_gui(command_line.fullscreen),
         #[cfg(not(feature = "gui"))]
-        None => panic!("Not supported"),
+        None => {
+            error!("GUI support not compiled in");
+            return ExitCode::FAILURE;
+        }
     }
 }

@@ -757,9 +757,13 @@ impl ImageHandle {
 
             // Jump to the block corresponding to the cluster
             dest.seek(SeekFrom::Start(entry.block_offset))?;
-            dest.read_exact(&mut block)?;
-
-            let hash: [u8; 32] = Sha256::new().chain_update(&block).finalize().into();
+            let hash: [u8; 32] = match dest.read_exact(&mut block) {
+                Ok(_) => Sha256::new().chain_update(&block).finalize().into(),
+                Err(_) => {
+                    // TODO check for EOF error
+                    [0u8; 32]
+                }
+            };
 
             if hash != entry.digest {
                 // Read cluster
@@ -791,7 +795,7 @@ impl ImageHandle {
 
                 // Write the cluster to the block
                 dest.seek(SeekFrom::Start(entry.block_offset))?;
-                // dest.write_all(&cluster.data)?;
+                dest.write_all(&cluster.data)?;
             }
 
             progress(

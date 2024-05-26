@@ -56,13 +56,17 @@ impl DefaultSource for Goldboot {
 
 impl CastImage for Goldboot {
     fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+        // Load goldboot executable
+        let exe = if let Some(path) = self.executable.as_ref() {
+            std::fs::read(path)?
+        } else {
+            get_latest_release(OsCategory::Linux, worker.arch)?
+        };
+
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
             .source(&worker.element.source)?
-            .drive_files(HashMap::from([(
-                "goldboot".to_string(),
-                get_latest_release(OsCategory::Linux, worker.arch)?,
-            )]))?
+            .drive_files(HashMap::from([("goldboot".to_string(), exe)]))?
             .start()?;
 
         // Start HTTP
@@ -90,7 +94,8 @@ impl CastImage for Goldboot {
             enter!("cp /mnt/goldboot /usr/bin/goldboot"),
             enter!("chmod +x /usr/bin/goldboot"),
             // Skip getty login
-            enter!("sed -i 's|ExecStart=.*$|ExecStart=/usr/bin/goldboot|' /usr/lib/systemd/system/getty@.service"),
+            enter!("echo 'exec /usr/bin/goldboot' >/root/.xinitrc"),
+            enter!("sed -i 's|ExecStart=.*$|ExecStart=/usr/bin/startx|' /usr/lib/systemd/system/getty@.service"),
             // Stop gracefully
             enter!("poweroff"),
 		])?;
