@@ -83,55 +83,36 @@ impl L2Entry {
     pub fn read_contents(
         &self,
         reader: &mut (impl Read + Seek),
-        buf: &mut [u8],
+        cluster_size: u64,
         comp_type: CompressionType,
-    ) -> std::io::Result<()> {
+    ) -> std::io::Result<Vec<u8>> {
+        let mut buf = Vec::with_capacity(cluster_size as usize);
         match &self.cluster_descriptor {
             ClusterDescriptor::Standard(cluster) => {
                 if cluster.all_zeroes || cluster.host_cluster_offset == 0 {
                     buf.fill(0);
                 } else {
-                    reader
-                        .seek(SeekFrom::Start(cluster.host_cluster_offset))
-                        .map_err(|_| {
-                            std::io::Error::new(
-                                std::io::ErrorKind::UnexpectedEof,
-                                "Seeked past the end of the file attempting to read the current \
-                            cluster",
-                            )
-                        })?;
-
-                    std::io::copy(
-                        &mut reader.take(buf.len() as u64),
-                        &mut std::io::Cursor::new(buf),
-                    )?;
+                    reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
+                    let r = reader.take(cluster_size).read_to_end(&mut buf)?;
                 }
             }
             ClusterDescriptor::Compressed(cluster) => match comp_type {
                 CompressionType::Zlib => {
                     reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
-
-                    let cluster_size = buf.len() as u64;
-                    let mut cluster = std::io::Cursor::new(buf);
-                    std::io::copy(
-                        &mut flate2::read::DeflateDecoder::new(reader).take(cluster_size),
-                        &mut cluster,
-                    )?;
+                    flate2::read::DeflateDecoder::new(reader)
+                        .take(cluster_size)
+                        .read_to_end(&mut buf)?;
                 }
                 CompressionType::Zstd => {
                     reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
-
-                    let cluster_size = buf.len() as u64;
-                    let mut cluster = std::io::Cursor::new(buf);
-                    std::io::copy(
-                        &mut zstd::Decoder::new(reader)?.take(cluster_size),
-                        &mut cluster,
-                    )?;
+                    zstd::Decoder::new(reader)?
+                        .take(cluster_size)
+                        .read_to_end(&mut buf)?;
                 }
             },
         }
 
-        Ok(())
+        Ok(buf)
     }
 }
 

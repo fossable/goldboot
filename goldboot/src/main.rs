@@ -1,6 +1,7 @@
 use clap::Parser;
 use goldboot::cli::cmd::Commands;
 use std::{env, process::ExitCode};
+use tracing::error;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

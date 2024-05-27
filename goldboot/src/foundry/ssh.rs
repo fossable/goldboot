@@ -81,6 +81,7 @@ pub struct SshConnection {
     pub private_key: PathBuf,
     pub port: u16,
     pub session: ssh2::Session,
+    pub os: OsCategory,
 }
 
 impl SshConnection {
@@ -96,6 +97,7 @@ impl SshConnection {
                         username: username.to_string(),
                         private_key: private_key.clone(),
                         port,
+                        os: query_os(&session)?,
                         session,
                     }
                 }
@@ -116,15 +118,29 @@ impl SshConnection {
 
         session.handshake()?;
         session.userauth_pubkey_file(username, None, private_key, None)?;
-        info!("Established SSH connection");
+        debug!("Established SSH connection");
         Ok(session)
     }
 
     /// Send the shutdown command to the VM.
-    pub fn shutdown(&self, command: &str) -> Result<()> {
-        info!("Sending shutdown command");
+    pub fn shutdown(mut self, command: &str) -> Result<()> {
+        self.wipe_free()?;
+
+        debug!("Sending shutdown command");
         let mut channel = self.session.channel_session()?;
         channel.exec(command)?;
+        Ok(())
+    }
+
+    /// Wipe free space which reduces final image size.
+    pub fn wipe_free(&mut self) -> Result<()> {
+        debug!("Wiping free space");
+
+        match self.os {
+            OsCategory::Darwin => todo!(),
+            OsCategory::Linux => self.exec("sh -c 'cat /dev/zero >/zero; rm /zero'")?,
+            OsCategory::Windows => todo!(),
+        };
         Ok(())
     }
 
@@ -213,4 +229,9 @@ impl SshConnection {
     pub fn exec(&mut self, cmdline: &str) -> Result<i32> {
         self.exec_env(cmdline, Vec::new())
     }
+}
+
+/// Figure out what kind of OS we're connected to
+fn query_os(session: &ssh2::Session) -> Result<OsCategory> {
+    Ok(OsCategory::Linux)
 }

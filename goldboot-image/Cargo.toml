@@ -26,4 +26,4 @@ zstd = "0.13.0"
 [dev-dependencies]
 sha1 = "0.10.6"
 tempfile = "3.8.1"
-test-env-log = "0.2.8"
+test-log = { version = "0.2.16", features = ["trace"] }

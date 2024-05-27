@@ -6,6 +6,7 @@ use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 use anyhow::Result;
 use byte_unit::Byte;
 use clap::{builder::PossibleValue, ValueEnum};
+use goldboot_image::ImageBuilder;
 use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
 use rand::Rng;
 use ron::ser::PrettyConfig;
@@ -144,6 +145,10 @@ impl Foundry {
             panic!("No OVMF firmware found");
         };
 
+        // Truncate the image size to a power of two for the qcow storage
+        let qcow_size = element.size(self.size.clone());
+        let qcow_size = qcow_size - (qcow_size % 2);
+
         FoundryWorker {
             arch: self.arch,
             accel: if self.no_accel {
@@ -157,7 +162,7 @@ impl Foundry {
             memory: self.memory.clone().unwrap_or(String::from("8G")),
             ovmf_path,
             qcow_path: tmp.path().join("image.gb.qcow2"),
-            qcow_size: element.size(self.size.clone()),
+            qcow_size,
             start_time: None,
             tmp,
             vnc_port: if self.debug {
@@ -210,29 +215,25 @@ impl Foundry {
         };
 
         // Convert into final immutable image
-        if let Some(output) = output {
-            ImageHandle::convert(
-                &final_qcow,
-                self.name.clone(),
-                ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
-                self.password.clone(),
-                self.public,
-                output,
-                ProgressBar::Convert.new_empty(),
-            )?;
+        let path = if let Some(output) = output.as_ref() {
+            PathBuf::from(output)
         } else {
-            let tmp = ImageLibrary::open().temporary();
-            ImageHandle::convert(
+            ImageLibrary::open().temporary()
+        };
+
+        ImageBuilder::new(&path)
+            .name(&self.name)
+            .config(ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes())
+            .public(self.public)
+            .password_opt(self.password.clone())
+            // .progress(ProgressBar::Convert.new_empty())
+            .convert(
                 &final_qcow,
-                self.name.clone(),
-                ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes(),
-                self.password.clone(),
-                self.public,
-                &tmp,
-                ProgressBar::Convert.new_empty(),
+                Byte::parse_str(&self.size, true).unwrap().into(),
             )?;
 
-            ImageLibrary::open().add_move(tmp)?;
+        if let None = output {
+            ImageLibrary::open().add_move(path.clone())?;
         }
 
         Ok(())
@@ -283,8 +284,8 @@ impl FoundryWorker {
 
         self.element.mold.cast(&self)?;
         info!(
-            "Build completed in: {:?}",
-            self.start_time.unwrap().elapsed()?
+            duration = ?self.start_time.unwrap().elapsed()?,
+            "Build completed",
         );
         self.end_time = Some(SystemTime::now());
 

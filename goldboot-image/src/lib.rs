@@ -11,6 +11,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::ffi::CStr;
+use std::path::PathBuf;
 use std::{
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
@@ -465,23 +466,174 @@ impl ImageHandle {
         todo!()
     }
 
-    /// Convert a qcow image into a goldboot image.
-    pub fn convert<F: Fn(u64, u64) -> ()>(
-        source: &Qcow3,
-        name: String,
-        config: Vec<u8>,
-        password: Option<String>,
-        public: bool,
-        dest: impl AsRef<Path>,
-        progress: F,
-    ) -> Result<ImageHandle> {
-        info!("Exporting storage to goldboot image");
+    /// TODO multi threaded WriteWorkers
+    /// TODO write backup GPT header
 
-        let mut dest_file = File::create(&dest)?;
+    /// Write the image contents out to disk.
+    pub fn write<F: Fn(u64, u64) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
+        if self.protected_header.is_none() || self.digest_table.is_none() {
+            bail!("Image not loaded");
+        }
+
+        let protected_header = self.protected_header.clone().unwrap();
+        let digest_table = self.digest_table.clone().unwrap().digest_table;
+
+        let cluster_cipher =
+            Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
+
+        let dest = dest.as_ref();
+        info!(dest = ?dest, "Writing image");
+
+        let mut dest = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(dest)?;
+
+        // Open the cluster table for reading
+        let mut cluster_table = BufReader::new(File::open(&self.path)?);
+
+        // Extend regular files if necessary
+        // TODO also check size of block devices
+        let dest_metadata = dest.metadata()?;
+        if dest_metadata.is_file() && dest_metadata.len() < self.primary_header.size {
+            dest.set_len(self.primary_header.size)?;
+        }
+
+        let mut block = vec![0u8; protected_header.block_size as usize];
+
+        // Write all of the clusters that have changed
+        for i in 0..protected_header.cluster_count as usize {
+            // Load digest table entry
+            let entry = &digest_table[i];
+
+            // Jump to the block corresponding to the cluster
+            dest.seek(SeekFrom::Start(entry.block_offset))?;
+
+            // Hash the block to avoid unnecessary writes
+            let hash: [u8; 32] = match dest.read_exact(&mut block) {
+                Ok(_) => Sha256::new().chain_update(&block).finalize().into(),
+                Err(_) => {
+                    // TODO check for EOF error
+                    [0u8; 32]
+                }
+            };
+
+            if hash != entry.digest {
+                // Read cluster
+                cluster_table.seek(SeekFrom::Start(entry.cluster_offset))?;
+                let mut cluster: Cluster = cluster_table.read_be()?;
+
+                trace!(
+                    cluster_size = cluster.size,
+                    cluster_offset = entry.cluster_offset,
+                    "Read dirty cluster",
+                );
+
+                // Reverse encryption
+                cluster.data = match protected_header.cluster_encryption {
+                    ClusterEncryptionType::None => cluster.data,
+                    ClusterEncryptionType::Aes256 => cluster_cipher.decrypt(
+                        Nonce::from_slice(&protected_header.nonce_table[i]),
+                        cluster.data.as_ref(),
+                    )?,
+                };
+
+                // Reverse compression
+                cluster.data = match protected_header.cluster_compression {
+                    ClusterCompressionType::None => cluster.data,
+                    ClusterCompressionType::Zstd => {
+                        zstd::decode_all(std::io::Cursor::new(&cluster.data))?
+                    }
+                };
+
+                trace!(
+                    block_offset = entry.block_offset,
+                    block_size = cluster.data.len(),
+                    "Writing block",
+                );
+
+                // Write the cluster to the block
+                dest.seek(SeekFrom::Start(entry.block_offset))?;
+                dest.write_all(&cluster.data)?;
+            }
+
+            progress(
+                protected_header.block_size as u64,
+                protected_header.cluster_count as u64 * protected_header.block_size as u64,
+            );
+        }
+
+        Ok(())
+    }
+}
+
+pub struct ImageBuilder {
+    name: String,
+    config: Vec<u8>,
+    password: Option<String>,
+    public: bool,
+    dest: PathBuf,
+    progress: Box<dyn Fn(u64, u64) -> ()>,
+}
+
+impl ImageBuilder {
+    pub fn new(dest: impl AsRef<Path>) -> Self {
+        Self {
+            name: "".into(),
+            config: Vec::new(),
+            password: None,
+            public: false,
+            dest: dest.as_ref().to_path_buf(),
+            progress: Box::new(|_, _| {}),
+        }
+    }
+
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = name.to_string();
+        self
+    }
+
+    pub fn config(mut self, config: Vec<u8>) -> Self {
+        self.config = config;
+        self
+    }
+
+    pub fn public(mut self, public: bool) -> Self {
+        self.public = public;
+        self
+    }
+
+    pub fn password(mut self, password: &str) -> Self {
+        self.password = Some(password.to_string());
+        self
+    }
+
+    pub fn password_opt(mut self, password: Option<String>) -> Self {
+        self.password = password;
+        self
+    }
+
+    pub fn progress<'a, F>(&'a mut self, progress: F) -> &'a mut Self
+    where
+        F: Fn(u64, u64) + 'static,
+    {
+        self.progress = Box::new(progress);
+        self
+    }
+
+    /// Convert a qcow image into a goldboot image.
+    pub fn convert(self, source: &Qcow3, size: u64) -> Result<ImageHandle> {
+        info!(name = self.name, "Exporting storage to goldboot image");
+
+        // The requested goldboot image must be at least as large as the qcow
+        assert!(source.header.size <= size);
+
+        let mut dest_file = File::create(&self.dest)?;
         let mut source_file = File::open(&source.path)?;
 
         // Prepare cipher and RNG if the image header should be encrypted
-        let header_cipher = new_key(password.clone().unwrap_or("".to_string()));
+        let header_cipher = new_key(self.password.clone().unwrap_or("".to_string()));
         let mut rng = rand::thread_rng();
 
         // Prepare directory
@@ -505,24 +657,24 @@ impl ImageHandle {
             directory_offset: 0,
             directory_size: 0,
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            encryption_type: if password.is_some() {
+            encryption_type: if self.password.is_some() {
                 HeaderEncryptionType::Aes256
             } else {
                 HeaderEncryptionType::None
             },
-            public: if public { 1u8 } else { 0u8 },
+            public: if self.public { 1u8 } else { 0u8 },
             name: [0u8; 64],
             reserved: [0u8; 64],
         };
 
-        primary_header.name[0..name.len()].copy_from_slice(&name.clone().as_bytes()[..]);
+        primary_header.name[0..self.name.len()].copy_from_slice(&self.name.clone().as_bytes()[..]);
 
         // Prepare protected header
         let mut protected_header = ProtectedHeader {
             block_size: source.header.cluster_size() as u32,
             cluster_count: source.count_clusters()? as u32,
-            cluster_compression: ClusterCompressionType::Zstd,
-            cluster_encryption: if password.is_some() {
+            cluster_compression: ClusterCompressionType::None, // TODO
+            cluster_encryption: if self.password.is_some() {
                 ClusterEncryptionType::Aes256
             } else {
                 ClusterEncryptionType::None
@@ -532,7 +684,7 @@ impl ImageHandle {
             nonce_table: vec![],
         };
 
-        if password.is_some() {
+        if self.password.is_some() {
             protected_header.nonce_count = protected_header.cluster_count;
             protected_header.nonce_table = (0..protected_header.cluster_count)
                 .map(|_| rng.gen::<[u8; 12]>())
@@ -549,7 +701,7 @@ impl ImageHandle {
 
         // Write protected header
         {
-            debug!("Writing: {:?}", &protected_header);
+            debug!(protected_header = ?protected_header, "Writing protected header");
             let mut protected_header_bytes = Cursor::new(Vec::new());
             protected_header.write(&mut protected_header_bytes)?;
 
@@ -568,9 +720,11 @@ impl ImageHandle {
         // Write config
         {
             let config_bytes = match primary_header.encryption_type {
-                HeaderEncryptionType::None => config.clone(),
-                HeaderEncryptionType::Aes256 => header_cipher
-                    .encrypt(Nonce::from_slice(&directory.config_nonce), config.as_ref())?,
+                HeaderEncryptionType::None => self.config.clone(),
+                HeaderEncryptionType::Aes256 => header_cipher.encrypt(
+                    Nonce::from_slice(&directory.config_nonce),
+                    self.config.as_ref(),
+                )?,
             };
 
             directory.config_offset = dest_file.stream_position()?;
@@ -585,7 +739,7 @@ impl ImageHandle {
         };
 
         // Track the offset into the data
-        let mut block_offset = 0;
+        let mut block_offset: u64 = 0;
 
         // Track cluster ordinal so we can lookup cluster nonces later
         let mut cluster_count = 0;
@@ -600,15 +754,19 @@ impl ImageHandle {
                     if l2_entry.is_used {
                         // Start building the cluster
                         let mut cluster = Cluster {
+                            // The resulting size gets updated after we compress/encrypt
                             size: 0,
-                            data: vec![0_u8; source.header.cluster_size() as usize],
+                            data: l2_entry.read_contents(
+                                &mut source_file,
+                                source.header.cluster_size(),
+                                source.header.compression_type,
+                            )?,
                         };
 
-                        l2_entry.read_contents(
-                            &mut source_file,
-                            &mut cluster.data,
-                            source.header.compression_type,
-                        )?;
+                        // TODO image size may exceed usize
+                        cluster
+                            .data
+                            .truncate((primary_header.size - block_offset) as usize);
 
                         // Compute hash of the block which will be used when writing the block later
                         let digest = Sha256::new().chain_update(&cluster.data).finalize();
@@ -640,9 +798,9 @@ impl ImageHandle {
 
                         // Write the cluster
                         trace!(
-                            "Writing {} byte cluster to: {}",
-                            cluster.size,
-                            cluster_offset
+                            cluster_size = cluster.size,
+                            cluster_offset = cluster_offset,
+                            "Recording cluster",
                         );
                         cluster.write(&mut dest_file)?;
 
@@ -652,15 +810,15 @@ impl ImageHandle {
                         cluster_count += 1;
                     }
                     block_offset += source.header.cluster_size();
-                    progress(source.header.cluster_size(), source.header.size);
+                    // self.progress(source.header.cluster_size(), source.header.size);
                 }
             } else {
                 block_offset +=
                     source.header.cluster_size() * source.header.l2_entries_per_cluster();
-                progress(
-                    source.header.cluster_size() * source.header.l2_entries_per_cluster(),
-                    source.header.size,
-                );
+                // self.progress(
+                //     source.header.cluster_size() * source.header.l2_entries_per_cluster(),
+                //     source.header.size,
+                // );
             }
         }
 
@@ -705,128 +863,73 @@ impl ImageHandle {
         primary_header.write(&mut dest_file)?;
 
         Ok(ImageHandle {
-            id: compute_id(dest.as_ref())?,
+            id: compute_id(&self.dest)?,
             primary_header,
             protected_header: Some(protected_header),
-            config: Some(config),
+            config: Some(self.config),
             digest_table: Some(digest_table),
             directory: Some(directory),
-            path: dest.as_ref().to_path_buf(),
-            file_size: std::fs::metadata(&dest)?.len(),
+            file_size: std::fs::metadata(&self.dest)?.len(),
+            path: self.dest,
         })
-    }
-
-    /// TODO multi threaded WriteWorkers
-    /// TODO write backup GPT header
-
-    /// Write the image contents out to disk.
-    pub fn write<F: Fn(u64, u64) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
-        if self.protected_header.is_none() || self.digest_table.is_none() {
-            bail!("Image not loaded");
-        }
-
-        let protected_header = self.protected_header.clone().unwrap();
-        let digest_table = self.digest_table.clone().unwrap().digest_table;
-
-        let cluster_cipher =
-            Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
-
-        info!("Writing image");
-
-        let mut dest = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .read(true)
-            .open(dest)?;
-
-        // Open the cluster table for reading
-        let mut cluster_table = BufReader::new(File::open(&self.path)?);
-
-        // Extend the file if necessary
-        // TODO stream_len?
-        if dest.metadata()?.len() < self.primary_header.size {
-            dest.set_len(self.primary_header.size)?;
-        }
-
-        let mut block = vec![0u8; protected_header.block_size as usize];
-
-        // Write all of the clusters that have changed
-        for i in 0..protected_header.cluster_count as usize {
-            // Load digest table entry
-            let entry = &digest_table[i];
-
-            // Jump to the block corresponding to the cluster
-            dest.seek(SeekFrom::Start(entry.block_offset))?;
-            let hash: [u8; 32] = match dest.read_exact(&mut block) {
-                Ok(_) => Sha256::new().chain_update(&block).finalize().into(),
-                Err(_) => {
-                    // TODO check for EOF error
-                    [0u8; 32]
-                }
-            };
-
-            if hash != entry.digest {
-                // Read cluster
-                cluster_table.seek(SeekFrom::Start(entry.cluster_offset))?;
-                let mut cluster: Cluster = cluster_table.read_be()?;
-
-                trace!(
-                    cluster_size = cluster.size,
-                    cluster_offset = entry.cluster_offset,
-                    "Read cluster",
-                );
-
-                // Reverse encryption
-                cluster.data = match protected_header.cluster_encryption {
-                    ClusterEncryptionType::None => cluster.data,
-                    ClusterEncryptionType::Aes256 => cluster_cipher.decrypt(
-                        Nonce::from_slice(&protected_header.nonce_table[i]),
-                        cluster.data.as_ref(),
-                    )?,
-                };
-
-                // Reverse compression
-                cluster.data = match protected_header.cluster_compression {
-                    ClusterCompressionType::None => cluster.data,
-                    ClusterCompressionType::Zstd => {
-                        zstd::decode_all(std::io::Cursor::new(&cluster.data))?
-                    }
-                };
-
-                // Write the cluster to the block
-                dest.seek(SeekFrom::Start(entry.block_offset))?;
-                dest.write_all(&cluster.data)?;
-            }
-
-            progress(
-                protected_header.block_size as u64,
-                protected_header.cluster_count as u64 * protected_header.block_size as u64,
-            );
-        }
-
-        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::process::Command;
+
     use super::*;
     use sha1::Sha1;
+    use test_log::test;
+
+    #[test]
+    fn convert_random_data() -> Result<()> {
+        let tmp = tempfile::tempdir()?;
+
+        // Generate file of random size and contents
+        let size = rand::thread_rng().gen_range(512..=1000);
+        let mut raw: Vec<u8> = Vec::new();
+        for _ in 0..size {
+            raw.push(rand::thread_rng().gen());
+        }
+
+        // Write out for qemu-img
+        std::fs::write(tmp.path().join("file.raw"), &raw)?;
+
+        // Convert with qemu-img
+        Command::new("qemu-img")
+            .arg("convert")
+            .arg("-f")
+            .arg("raw")
+            .arg("-O")
+            .arg("qcow2")
+            .arg(tmp.path().join("file.raw"))
+            .arg(tmp.path().join("file.qcow2"))
+            .spawn()?
+            .wait()?;
+
+        // Convert the qcow2 to gb
+        let image = ImageBuilder::new(tmp.path().join("file.gb"))
+            .convert(&Qcow3::open(tmp.path().join("file.qcow2"))?, size)?;
+
+        // Check raw content
+        image.write(tmp.path().join("output.raw"), |_, _| {})?;
+        assert_eq!(
+            std::fs::read(tmp.path().join("file.raw"))?,
+            std::fs::read(tmp.path().join("output.raw"))?,
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn convert_small_qcow2_to_unencrypted_image() -> Result<()> {
         let tmp = tempfile::tempdir()?;
 
         // Convert the test qcow2
-        let image = ImageHandle::convert(
-            &Qcow3::open("test/small.qcow2")?,
-            String::from("Test"),
-            vec![],
-            None,
-            true,
-            tmp.path().join("small.gb"),
-            |_, _| {},
-        )?;
+        let image = ImageBuilder::new(tmp.path().join("small.gb"))
+            .convert(&Qcow3::open("test/small.qcow2")?, 4194304)?;
 
         // Try to open the image we just converted
         let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
@@ -857,15 +960,9 @@ mod tests {
         let tmp = tempfile::tempdir()?;
 
         // Convert the test qcow2
-        let image = ImageHandle::convert(
-            &Qcow3::open("test/small.qcow2")?,
-            String::from("Test"),
-            vec![],
-            Some(String::from("1234")),
-            true,
-            tmp.path().join("small.gb"),
-            |_, _| {},
-        )?;
+        let image = ImageBuilder::new(tmp.path().join("small.gb"))
+            .password("1234")
+            .convert(&Qcow3::open("test/small.qcow2")?, 4194304)?;
 
         // Try to open the image
         let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;

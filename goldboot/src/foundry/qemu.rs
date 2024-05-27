@@ -138,7 +138,7 @@ impl QemuProcess {
         )?)
     }
 
-    pub fn shutdown_wait(&mut self) -> Result<()> {
+    pub fn shutdown_wait(mut self) -> Result<()> {
         info!("Waiting for shutdown");
 
         // Wait for QEMU to exit

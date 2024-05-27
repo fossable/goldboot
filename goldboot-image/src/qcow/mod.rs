@@ -39,13 +39,17 @@ impl Qcow3 {
         let mut qcow: Qcow3 = file.read_be()?;
         qcow.path = path.as_ref().to_string_lossy().to_string();
 
-        debug!("Opened qcow image: {:?}", &qcow);
+        debug!(qcow = ?qcow, "Opened qcow image");
         Ok(qcow)
     }
 
     /// Allocate a new qcow3 file.
     pub fn create(path: impl AsRef<Path>, size: u64) -> Result<Self> {
         let path = path.as_ref();
+
+        // If we don't pass an image size that's a power of two, qemu-img will
+        // silently round up which is bad.
+        assert!(size % 2 == 0, "The image size must be a power of 2");
 
         debug!(path = ?path, "Creating qcow storage");
         let status = Command::new("qemu-img")
