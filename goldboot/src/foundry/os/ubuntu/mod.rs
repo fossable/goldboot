@@ -45,6 +45,11 @@ pub enum UbuntuEdition {
     Desktop,
 }
 
+/// Ubuntu is a Linux distribution derived from Debian and composed mostly of free
+/// and open-source software.
+///
+/// Upstream: https://ubuntu.com
+/// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Ubuntu {
     pub edition: UbuntuEdition,

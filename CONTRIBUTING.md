@@ -24,7 +24,7 @@ taken from the field of metallurgy.
 
 An image foundry is a configuration object that knows how to build goldboot images.
 
-#### Mold
+#### OS
 
 An image mold takes an image source and refines it according to built-in rules.
 For example, the `ArchLinux` mold knows how to take Arch Linux install media (in
@@ -42,26 +42,25 @@ is converted into a final goldboot image (.gb).
 
 #### Alloys
 
-An alloy is an image made from more than one mold (also known as multi-boot).
+An alloy is a multi-boot image.
 
 #### Fabricators
 
 Operates on images at the end of the casting process. For example, the shell
 fabricator runs shell commands on the image which can be useful in many cases.
 
-## Adding new molds
+## Adding new operating systems
 
 If `goldboot` doesn't already support your operating system, it should be possible
 to add it relatively easily.
 
-Start by finding a mold similar to your operating system in the `goldboot::foundry::molds`
-module.
+Start by finding an OS similar to yours in the `goldboot::foundry::os` module.
 
 TODO
 
-## Mold maintenance
+## OS maintenance
 
-Molds often need constant maintenance as new upstream releases are made and old
+OS support often need constant maintenance as new upstream releases are made and old
 ones are retired. Typically this involves adding new versions and marking some
 as deprecated, but occasionally upstream changes may cause breakages for us.
 
@@ -83,9 +82,6 @@ pub enum AlpineRelease {
     V3_14,
 }
 ```
-
-In the future, we may designate "official maintainers" for molds that change
-frequently to handle the burden.
 
 ## Testing
 TODO

@@ -1,4 +1,4 @@
-use crate::foundry::{molds::ImageMold, FoundryConfigPath};
+use crate::foundry::{os::Os, FoundryConfigPath};
 
 pub mod cast;
 pub mod deploy;
@@ -67,9 +67,9 @@ pub enum Commands {
         #[clap(long)]
         name: Option<String>,
 
-        /// Base mold(s)
+        /// Base operating system(s)
         #[clap(long, value_enum)]
-        mold: Vec<ImageMold>,
+        os: Vec<Os>,
 
         #[clap(long, default_value_t, value_enum)]
         format: FoundryConfigPath,

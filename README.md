@@ -154,16 +154,16 @@ schedule against the latest version of `goldboot`.
 
 | Linux | Windows | macos |
 | ----- | ------- | ----- |
-| ![Alpine](goldboot/src/foundry/molds/alpine/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)    | ![Windows 10](goldboot/src/foundry/molds/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/molds/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
-| ![Arch Linux](goldboot/src/foundry/molds/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) | |
-| ![Debian](goldboot/src/foundry/molds/debian/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)    | |
-| ![Pop!_OS](goldboot/src/foundry/molds/pop_os/icon.png)        ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)   | |
-| ![Steam Deck](goldboot/src/foundry/molds/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) | |
-| ![Steam OS](goldboot/src/foundry/molds/steam_os/icon.png)     ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)   | |
+| ![Alpine](goldboot/src/foundry/os/alpine/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)    | ![Windows 10](goldboot/src/foundry/os/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/os/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
+| ![Arch Linux](goldboot/src/foundry/os/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) | |
+| ![Debian](goldboot/src/foundry/os/debian/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)    | |
+| ![Pop!_OS](goldboot/src/foundry/os/pop_os/icon.png)        ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)   | |
+| ![Steam Deck](goldboot/src/foundry/os/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) | |
+| ![Steam OS](goldboot/src/foundry/os/steam_os/icon.png)     ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)   | |
 
 ## Example walkthrough
 
-Let's build a basic Arch Linux ![ArchLinux](goldboot/src/foundry/molds/arch_linux/icon.png)
+Let's build a basic Arch Linux ![ArchLinux](goldboot/src/foundry/os/arch_linux/icon.png)
 image to prove we're _real_ Linux users.
 
 First, create a directory to hold our configuration (which can later be tracked
@@ -178,7 +178,7 @@ Initialize the directory and choose `ArchLinux` to start with:
 ```sh
 goldboot init \
   --name Test \
-  --mold ArchLinux \
+  --os ArchLinux \
   --size 10G \
   --format json
 ```
@@ -190,7 +190,7 @@ be tweaked to suit your needs. For example:
 {
   "alloy": [
     {
-      "mold": {
+      "os": {
         "ArchLinux": {
           "hostname": "YeahIUseArch",
           "root_password": {

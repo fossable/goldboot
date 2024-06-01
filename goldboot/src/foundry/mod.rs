@@ -1,6 +1,6 @@
 use self::qemu::{detect_accel, Accel};
-use self::{fabricators::Fabricator, molds::ImageMold, sources::ImageSource};
-use crate::foundry::molds::CastImage;
+use self::{fabricators::Fabricator, os::Os, sources::ImageSource};
+use crate::foundry::os::CastImage;
 use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 
 use anyhow::Result;
@@ -24,8 +24,8 @@ use validator::Validate;
 
 pub mod fabricators;
 pub mod http;
-pub mod molds;
 pub mod options;
+pub mod os;
 pub mod ovmf;
 pub mod qemu;
 pub mod sources;
@@ -36,7 +36,7 @@ pub mod vnc;
 #[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
 pub struct ImageElement {
     pub fabricators: Option<Vec<Fabricator>>,
-    pub mold: ImageMold,
+    pub os: Os,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pref_size: Option<String>,
     pub source: ImageSource,
@@ -113,7 +113,7 @@ pub struct Foundry {
 
 /// Handles more sophisticated validation of a [`Foundry`].
 pub fn custom_foundry_validator(_f: &Foundry) -> Result<(), validator::ValidationError> {
-    // If there's more than one mold, they must all support alloy
+    // If there's more than one OS, they must all support alloy
     // if f.alloy.len() > 1 {
     //     for template in &self.config.templates {
     //         //if !template.is_multiboot() {
@@ -282,7 +282,7 @@ impl FoundryWorker {
         self.start_time = Some(SystemTime::now());
         Qcow3::create(&self.qcow_path, self.qcow_size)?;
 
-        self.element.mold.cast(&self)?;
+        self.element.os.cast(&self)?;
         info!(
             duration = ?self.start_time.unwrap().elapsed()?,
             "Build completed",

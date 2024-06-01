@@ -3,10 +3,10 @@ use crate::cli::prompt::Prompt;
 use crate::cli::prompt::PromptNew;
 use crate::foundry::fabricators::Fabricate;
 use crate::foundry::http::HttpServer;
-use crate::foundry::molds::arch_linux::archinstall::ArchinstallConfig;
-use crate::foundry::molds::arch_linux::archinstall::ArchinstallCredentials;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
+use crate::foundry::os::arch_linux::archinstall::ArchinstallConfig;
+use crate::foundry::os::arch_linux::archinstall::ArchinstallCredentials;
 use crate::foundry::qemu::{OsCategory, QemuBuilder};
 use crate::foundry::Foundry;
 use crate::wait;
@@ -25,7 +25,12 @@ use validator::Validate;
 
 mod archinstall;
 
-/// This `Mold` produces an [Arch Linux](https://archlinux.org) image.
+/// Arch Linux is an independently developed x86-64 general-purpose Linux distribution
+/// that strives to provide the latest stable versions of most software by following
+/// a rolling-release model.
+///
+/// Upstream: https://archlinux.org
+/// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ArchLinux {
     #[serde(flatten)]

@@ -28,6 +28,10 @@ use super::{
     CastImage, DefaultSource,
 };
 
+/// Goldboot Linux is a special-purpose distribution for deploying .gb images.
+///
+/// Upstream: https://goldboot.org
+/// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Goldboot {
     /// Path to the goldboot executable to install. If this isn't given, it

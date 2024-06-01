@@ -29,16 +29,13 @@ pub mod windows_11;
 
 /// "Casting" is the process of generating an immutable goldboot image from raw
 /// configuration data.
-///
-/// This term comes from metallurgy where casting means to pour molten metal into
-/// a mold, producing a solidified object in the shape of the mold.
-#[enum_dispatch(ImageMold)]
+#[enum_dispatch(Os)]
 pub trait CastImage {
-    /// Cast an image from the mold.
+    /// Cast an image.
     fn cast(&self, context: &FoundryWorker) -> Result<()>;
 }
 
-#[enum_dispatch(ImageMold)]
+#[enum_dispatch(Os)]
 pub trait DefaultSource {
     fn default_source(&self, arch: ImageArch) -> Result<ImageSource>;
 }
@@ -47,7 +44,7 @@ pub trait DefaultSource {
 /// images.
 #[enum_dispatch]
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
-pub enum ImageMold {
+pub enum Os {
     AlpineLinux,
     ArchLinux,
     // Artix,
@@ -87,17 +84,17 @@ pub enum ImageMold {
     // Zorin,
 }
 
-impl ImageMold {
+impl Os {
     /// Supported system architectures
     pub fn architectures(&self) -> Vec<ImageArch> {
         match self {
-            ImageMold::AlpineLinux(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            ImageMold::ArchLinux(_) => vec![ImageArch::Amd64],
-            ImageMold::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            ImageMold::Goldboot(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            ImageMold::Nix(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            ImageMold::Windows10(_) => vec![ImageArch::Amd64],
-            ImageMold::Windows11(_) => vec![ImageArch::Amd64],
+            Os::AlpineLinux(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            Os::ArchLinux(_) => vec![ImageArch::Amd64],
+            Os::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            Os::Goldboot(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            Os::Nix(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            Os::Windows10(_) => vec![ImageArch::Amd64],
+            Os::Windows11(_) => vec![ImageArch::Amd64],
         }
     }
 
@@ -109,35 +106,35 @@ impl ImageMold {
     // pub fn default_source
 }
 
-impl Display for ImageMold {
+impl Display for Os {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                ImageMold::AlpineLinux(_) => "AlpineLinux",
-                ImageMold::ArchLinux(_) => "ArchLinux",
-                ImageMold::Debian(_) => "Debian",
-                ImageMold::Goldboot(_) => "Goldboot",
-                ImageMold::Nix(_) => "NixOS",
-                ImageMold::Windows10(_) => "Windows10",
-                ImageMold::Windows11(_) => "Windows11",
+                Os::AlpineLinux(_) => "AlpineLinux",
+                Os::ArchLinux(_) => "ArchLinux",
+                Os::Debian(_) => "Debian",
+                Os::Goldboot(_) => "Goldboot",
+                Os::Nix(_) => "NixOS",
+                Os::Windows10(_) => "Windows10",
+                Os::Windows11(_) => "Windows11",
             }
         )
     }
 }
 
-impl Default for ImageMold {
+impl Default for Os {
     fn default() -> Self {
-        ImageMold::ArchLinux(ArchLinux::default())
+        Os::ArchLinux(ArchLinux::default())
     }
 }
 
-static VARIANTS: OnceLock<Vec<ImageMold>> = OnceLock::new();
+static VARIANTS: OnceLock<Vec<Os>> = OnceLock::new();
 
-impl ValueEnum for ImageMold {
+impl ValueEnum for Os {
     fn value_variants<'a>() -> &'a [Self] {
-        VARIANTS.get_or_init(|| ImageMold::iter().collect())
+        VARIANTS.get_or_init(|| Os::iter().collect())
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {

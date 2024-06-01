@@ -8,9 +8,9 @@ use strum::IntoEnumIterator;
 use tracing::{error, info};
 
 use crate::cli::prompt::Prompt;
-use crate::foundry::molds::DefaultSource;
+use crate::foundry::os::DefaultSource;
 use crate::foundry::ImageElement;
-use crate::foundry::{molds::ImageMold, Foundry, FoundryConfigPath};
+use crate::foundry::{os::Os, Foundry, FoundryConfigPath};
 
 fn print_banner() {
     if console::colors_enabled() {
@@ -28,7 +28,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Init {
             name,
-            mold,
+            os,
             format,
             size,
             mimic_hardware: _,
@@ -43,8 +43,8 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 foundry.size = size;
             }
 
-            if mold.len() > 0 {
-                // If a mold name was given, use the default
+            if os.len() > 0 {
+                // If an OS was given, use the default
                 if let Some(name) = name {
                     foundry.name = name;
                 } else {
@@ -54,11 +54,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 }
 
-                for m in mold {
+                for m in os {
                     if let Ok(source) = m.default_source(foundry.arch) {
                         foundry.alloy.push(ImageElement {
                             source,
-                            mold: m,
+                            os: m,
                             fabricators: None,
                             pref_size: None,
                         });
@@ -70,7 +70,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 // Generate QEMU flags for this hardware
                 //config.qemuargs = generate_qemuargs()?;
             } else {
-                // If no mold was given, begin interactive config
+                // If no OS was given, begin interactive config
                 print_banner();
 
                 let theme = ColorfulTheme {
@@ -136,36 +136,36 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     foundry.arch = architectures[choice_index];
                 }
 
-                // Prompt mold
+                // Prompt OS
                 loop {
-                    // Find molds suitable for the architecture
-                    let mut molds: Vec<ImageMold> = ImageMold::iter()
-                        .filter(|mold| mold.architectures().contains(&foundry.arch))
-                        .filter(|mold| foundry.alloy.len() == 0 || mold.alloy())
+                    // Find operating systems suitable for the architecture
+                    let mut supported_os: Vec<Os> = Os::iter()
+                        .filter(|os| os.architectures().contains(&foundry.arch))
+                        .filter(|os| foundry.alloy.len() == 0 || os.alloy())
                         .collect();
 
                     let choice_index = Select::with_theme(&theme)
-                        .with_prompt("Image mold?")
-                        .items(&molds)
+                        .with_prompt("Operating system?")
+                        .items(&supported_os)
                         .interact()
                         .unwrap();
 
-                    let mold = &mut molds[choice_index];
+                    let os = &mut supported_os[choice_index];
 
                     if Confirm::with_theme(&theme)
-                        .with_prompt("Edit mold configuration?")
+                        .with_prompt("Edit OS configuration?")
                         .interact()
                         .unwrap()
                     {
                         // TODO show some kind of banner
-                        mold.prompt(&foundry, Box::new(ColorfulTheme::default()))
+                        os.prompt(&foundry, Box::new(ColorfulTheme::default()))
                             .unwrap();
                     }
 
-                    if let Ok(source) = mold.default_source(foundry.arch) {
+                    if let Ok(source) = os.default_source(foundry.arch) {
                         foundry.alloy.push(ImageElement {
                             source,
-                            mold: mold.to_owned(),
+                            os: os.to_owned(),
                             fabricators: None,
                             pref_size: None,
                         });
@@ -173,7 +173,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         return ExitCode::FAILURE;
                     }
 
-                    if !mold.alloy()
+                    if !os.alloy()
                         || !Confirm::with_theme(&theme)
                             .with_prompt("Create an alloy image (multiboot)?")
                             .interact()

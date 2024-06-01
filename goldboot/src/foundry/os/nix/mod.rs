@@ -20,7 +20,12 @@ use crate::{
 
 use super::{CastImage, DefaultSource};
 
-/// Produces [NixOS](https://www.nixos.org) images.
+/// NixOS is a free and open source Linux distribution based on the Nix package
+/// manager. NixOS uses an immutable design and an atomic update model. Its use
+/// of a declarative configuration system allows reproducibility and portability.
+///
+/// Upstream: https://www.nixos.org
+/// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct Nix {
     pub config: String,

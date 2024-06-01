@@ -64,6 +64,12 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<Image
     bail!("Failed to request latest ISO");
 }
 
+/// Debian is a Linux distribution composed of free and open-source software and
+/// optionally non-free firmware or software developed by the community-supported
+/// Debian Project.
+///
+/// Upstream: https://www.debian.org
+/// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Debian {
     pub edition: DebianEdition,

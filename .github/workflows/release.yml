@@ -88,7 +88,7 @@ jobs:
           export RUST_BACKTRACE=1
           export RUST_LOG=debug
           chmod +x linux-amd64/goldboot
-          linux-amd64/goldboot init --mold Goldboot
+          linux-amd64/goldboot init --os Goldboot
           linux-amd64/goldboot cast --output goldboot-linux-x86_64.gb .
 
       - uses: actions/upload-artifact@v4

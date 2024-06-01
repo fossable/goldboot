@@ -22,6 +22,10 @@ use crate::{
 
 use super::{CastImage, DefaultSource};
 
+/// Windows 10 is a major release of Microsoft's Windows NT operating system.
+///
+/// Upstream: https://microsoft.com
+/// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct Windows10 {
     #[serde(flatten)]

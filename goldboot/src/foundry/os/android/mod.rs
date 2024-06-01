@@ -17,7 +17,7 @@ use std::io::{BufRead, BufReader};
 use tracing::{debug, info};
 use validator::Validate;
 
-/// This `Mold` produces an AOSP image.
+/// Produces an AOSP image.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Android {}
 

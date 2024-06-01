@@ -24,9 +24,6 @@ pub enum ImageSource {
         url: String,
         checksum: Option<String>,
     },
-    Mold {
-        base: String,
-    },
     #[default]
     Buildroot,
 }
