@@ -1,0 +1,6 @@
+[submodule "dist/pacman/goldboot"]
+	path = dist/pacman/goldboot
+	url = ssh://aur@aur.archlinux.org/goldboot
+[submodule "dist/pacman/goldboot-registry"]
+	path = dist/pacman/goldboot-registry
+	url = ssh://aur@aur.archlinux.org/goldboot-registry
