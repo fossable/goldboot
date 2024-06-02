@@ -60,4 +60,4 @@ jobs:
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
       - name: cargo test
-        run: cargo test --locked --all-features --all-targets --exclude goldboot-linux
+        run: cargo test --locked --all-features --all-targets --workspace --exclude goldboot-linux
