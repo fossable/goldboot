@@ -1307,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "anyhow",
  "axum",
@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-image"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -1382,7 +1382,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-linux"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "block-utils",
  "built",
@@ -1401,7 +1401,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-macros"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "quote",
  "syn 2.0.63",
