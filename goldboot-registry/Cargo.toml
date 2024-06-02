@@ -11,7 +11,7 @@ repository = "https://github.com/fossable/goldboot"
 rust-version = "1.74"
 
 [dependencies]
-anyhow = "1.0.76"
+anyhow = "1.0.86"
 axum = "0.7.4"
 clap = { version = "4.4.7", features = ["derive", "string"] }
 goldboot-image = { path="../goldboot-image", version = "0.0.2" }

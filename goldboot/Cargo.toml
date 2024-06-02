@@ -11,7 +11,7 @@ rust-version = "1.74"
 version = "0.0.7"
 
 [dependencies]
-anyhow = "1.0.76"
+anyhow = "1.0.86"
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
 axum = { version = "0.7.4", optional = true }
