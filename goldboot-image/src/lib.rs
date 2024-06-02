@@ -98,6 +98,7 @@ impl TryFrom<String> for ImageArch {
 /// file. Clusters are variable in size and ideally smaller than their
 /// associated blocks (due to compression). If a block does not have an
 /// associated cluster, that block is zero.
+#[derive(Debug)]
 pub struct ImageHandle {
     /// The primary file header
     pub primary_header: PrimaryHeader,
@@ -482,7 +483,7 @@ impl ImageHandle {
             Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
 
         let dest = dest.as_ref();
-        info!(dest = ?dest, "Writing image");
+        info!(image = ?self, dest = ?dest, "Writing goldboot image");
 
         let mut dest = std::fs::OpenOptions::new()
             .create(true)
@@ -626,8 +627,12 @@ impl ImageBuilder {
     pub fn convert(self, source: &Qcow3, size: u64) -> Result<ImageHandle> {
         info!(name = self.name, "Exporting storage to goldboot image");
 
-        // The requested goldboot image must be at least as large as the qcow
-        assert!(source.header.size <= size);
+        assert!(
+            source.header.size >= size,
+            "source.header.size = {}, size = {}",
+            source.header.size,
+            size
+        );
 
         let mut dest_file = File::create(&self.dest)?;
         let mut source_file = File::open(&source.path)?;
@@ -652,7 +657,7 @@ impl ImageBuilder {
         let mut primary_header = PrimaryHeader {
             version: 1,
             arch: ImageArch::Amd64, // TODO
-            size: source.header.size,
+            size,
             directory_nonce: rng.gen::<[u8; 12]>(),
             directory_offset: 0,
             directory_size: 0,

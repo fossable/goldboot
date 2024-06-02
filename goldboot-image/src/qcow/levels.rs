@@ -79,7 +79,7 @@ impl L2Entry {
         }
     }
 
-    /// Read the contents of a given L2 Entry from `reader` into `buf`.
+    /// Read the contents of a given L2 Entry from `reader`.
     pub fn read_contents(
         &self,
         reader: &mut (impl Read + Seek),
@@ -90,10 +90,11 @@ impl L2Entry {
         match &self.cluster_descriptor {
             ClusterDescriptor::Standard(cluster) => {
                 if cluster.all_zeroes || cluster.host_cluster_offset == 0 {
+                    // TODO size properly
                     buf.fill(0);
                 } else {
                     reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
-                    let r = reader.take(cluster_size).read_to_end(&mut buf)?;
+                    reader.take(cluster_size).read_to_end(&mut buf)?;
                 }
             }
             ClusterDescriptor::Compressed(cluster) => match comp_type {
