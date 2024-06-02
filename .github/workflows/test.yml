@@ -1,11 +1,3 @@
-# This is the main CI workflow that runs the test suite on all pushes to main and all pull requests.
-# It runs the following jobs:
-# - required: runs the test suite on ubuntu with stable and beta rust toolchains
-# - minimal: runs the test suite with the minimal versions of the dependencies that satisfy the
-#   requirements of this crate, and its dependencies
-# - os-check: runs the test suite on mac and windows
-# - coverage: runs the test suite and collects coverage information
-# See check.yml for information about how the concurrency cancellation and workflow triggering works
 name: test
 permissions:
   contents: read
@@ -27,7 +19,7 @@ jobs:
         # toolchain
         toolchain: [stable, beta]
     steps:
-      - run: sudo apt-get install -y libpango1.0-dev libgraphene-1.0-dev libudev-dev libgtk-4-dev libglib2.0-dev
+      - run: sudo apt-get install -y qemu-utils libpango1.0-dev libgraphene-1.0-dev libudev-dev libgtk-4-dev libglib2.0-dev
       - uses: actions/checkout@v4
       - name: Install ${{ matrix.toolchain }}
         uses: dtolnay/rust-toolchain@master
