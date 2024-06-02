@@ -58,14 +58,11 @@ jobs:
           reporter: 'github-pr-check'
           github_token: ${{ secrets.GITHUB_TOKEN }}
   doc:
-    # run docs generation on nightly rather than stable. This enables features like
-    # https://doc.rust-lang.org/beta/unstable-book/language-features/doc-cfg.html which allows an
-    # API be documented as only available in some specific platforms.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: "!contains(github.event.head_commit.message, 'chore: release')"
     name: nightly / doc
     steps:
-      - run: sudo apt-get install -y libpango1.0-dev libgraphene-1.0-dev
+      - run: sudo apt-get install -y libpango1.0-dev libgraphene-1.0-dev libudev-dev libgtk-4-dev libglib2.0-dev
       - uses: actions/checkout@v4
       - name: Install nightly
         uses: dtolnay/rust-toolchain@nightly
@@ -74,16 +71,14 @@ jobs:
         env:
           RUSTDOCFLAGS: --cfg docsrs
   msrv:
-    # check that we can build using the minimal rust version that is specified by this crate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: "!contains(github.event.head_commit.message, 'chore: release')"
-    # we use a matrix here just because env can't be used in job names
-    # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
         msrv: ["1.74.0"]
     name: ubuntu / ${{ matrix.msrv }}
     steps:
+      - run: sudo apt-get install -y libpango1.0-dev libgraphene-1.0-dev libudev-dev libgtk-4-dev libglib2.0-dev
       - uses: actions/checkout@v4
       - name: Install ${{ matrix.msrv }}
         uses: dtolnay/rust-toolchain@master
