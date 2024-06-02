@@ -4,8 +4,6 @@ use std::net::TcpListener;
 
 pub mod cli;
 pub mod foundry;
-#[cfg(feature = "gui")]
-pub mod gui;
 pub mod library;
 pub mod registry;
 

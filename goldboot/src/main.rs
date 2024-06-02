@@ -72,12 +72,8 @@ pub fn main() -> ExitCode {
         Some(Commands::Liveusb { .. }) => {
             goldboot::cli::cmd::liveusb::run(command_line.command.unwrap())
         }
-        #[cfg(feature = "gui")]
-        None => goldboot::gui::load_gui(command_line.fullscreen),
-        #[cfg(not(feature = "gui"))]
         None => {
-            error!("GUI support not compiled in");
-            return ExitCode::FAILURE;
+            todo!("TUI?");
         }
     }
 }

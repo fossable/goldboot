@@ -15,7 +15,6 @@ anyhow = "1.0.76"
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
 axum = { version = "0.7.4", optional = true }
-block-utils = { version = "0.11.1", optional = true }
 built = { version = "0.7", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
 chrono = "0.4.31"
@@ -27,13 +26,8 @@ fatfs = { version = "0.3.6", optional = true }
 flate2 = "1.0.28"
 fossable = "0.1.2"
 fscommon = { version = "0.1.1", optional = true }
-gdk4 = { version = "0.8.1", optional = true }
-gdk-pixbuf = { version = "0.19.2", optional = true }
-glib-macros = { version = "0.19.2", optional = true }
-glib = { version = "0.19.2", optional = true }
 goldboot-image = { path="../goldboot-image", version = "0.0.2" }
 goldboot-macros = { path="../goldboot-macros", version = "0.0.2" }
-gtk4 = { version = "0.8.1", optional = true, features = ["v4_12"] }
 hex = "0.4.3"
 indicatif = "0.17.7"
 openssl = { version = "0.10", features = ["vendored"] }
@@ -80,9 +74,6 @@ default = ["cast", "include_ovmf"]
 
 # Support for registry server
 registry = []
-
-# Support for the graphical UI
-gui = ["dep:gtk4", "dep:glib-macros", "dep:gdk4", "dep:gdk-pixbuf", "dep:block-utils", "dep:glib"]
 
 # Support for casting images
 cast = ["dep:fatfs", "dep:fscommon", "dep:png", "dep:vnc", "dep:serde_win_unattend", "dep:axum"]

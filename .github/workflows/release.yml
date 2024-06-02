@@ -30,32 +30,20 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          # TODO: re-enable these. Problems arise with cross-rs because the base
-          # image doesn't have libgtk-4-dev...
-          # - aarch64-unknown-linux-gnu
-          # - aarch64-unknown-linux-musl
-          # - i686-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - aarch64-unknown-linux-musl
+          - i686-unknown-linux-gnu
           - x86_64-unknown-linux-gnu
-          # - x86_64-unknown-linux-musl
+          - x86_64-unknown-linux-musl
     steps:
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev libgtk-4-dev libglib2.0-dev
-
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target }} --features gui
+          args: --release --target ${{ matrix.target }} --exclude goldboot-linux
 
       - uses: actions/upload-artifact@v4
         with:
@@ -79,26 +67,45 @@ jobs:
           done
 
   goldboot-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: linux
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libgtk-4-dev libglib2.0-dev
+
+      - uses: actions-rs/toolchain@v1
         with:
-          name: goldboot-x86_64-unknown-linux-musl
-          path: linux-amd64
+          toolchain: nightly
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 
       - name: Build goldboot-linux image x86_64
         run: |
           export RUST_BACKTRACE=1
           export RUST_LOG=debug
-          chmod +x linux-amd64/goldboot
-          linux-amd64/goldboot init --os Goldboot
-          linux-amd64/goldboot cast --output goldboot-linux-x86_64.gb .
+          target/release/goldboot init --os Goldboot --executable target/release/goldboot-linux
+          target/release/goldboot cast --output goldboot-linux-x86_64.gb .
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: goldboot-linux-x86_64.gb
-          path: goldboot-linux-x86_64.gb
+      - name: Upload artifacts to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for tag in $(git tag --points-at HEAD); do
+            if [ "${tag%-*}" = "goldboot-linux" ]; then
+              mv target/release/${tag%-*} "${tag%-*}_x86_64-unknown-linux-gnu"
+              gh release upload "${tag}" "${tag%-*}_x86_64-unknown-linux-gnu"
+
+              mv goldboot-linux-x86_64.gb "${tag%-*}_x86_64-unknown-linux-gnu.gb"
+              gh release upload "${tag}" "${tag%-*}_x86_64-unknown-linux-gnu.gb"
+            fi
+          done
 
   macos:
     runs-on: macos-latest
@@ -116,7 +123,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --exclude goldboot-linux
 
       - uses: actions/upload-artifact@v4
         with:
@@ -150,7 +157,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --exclude goldboot-linux
 
       - uses: actions/upload-artifact@v4
         with:
@@ -247,7 +254,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-tags: true
   
       - name: Find version tags
@@ -271,11 +277,13 @@ jobs:
         run: |
           echo "${AUR_PRIVATE_KEY}" >/tmp/id_rsa
           chmod 600 /tmp/id_rsa
-          cd dist/pacman/${{ matrix.package }}
 
           git config --global user.name "github-actions"
           git config --global user.email "10459406+cilki@users.noreply.github.com"
           ssh-keyscan -H aur.archlinux.org >/tmp/known_hosts
+
+          GIT_SSH_COMMAND='ssh -i /tmp/id_rsa -o UserKnownHostsFile=/tmp/known_hosts' git submodule update --init dist/pacman/${{ matrix.package }}
+          cd dist/pacman/${{ matrix.package }}
 
           git add .SRCINFO PKGBUILD
           git commit -m "release: ${{ steps.get_tags.outputs.pkgver }}"

@@ -1311,7 +1311,6 @@ version = "0.0.7"
 dependencies = [
  "anyhow",
  "axum",
- "block-utils",
  "built",
  "byte-unit",
  "chrono",
@@ -1323,13 +1322,8 @@ dependencies = [
  "flate2 1.0.30",
  "fossable",
  "fscommon",
- "gdk-pixbuf",
- "gdk4",
- "glib",
- "glib-macros",
  "goldboot-image",
  "goldboot-macros",
- "gtk4",
  "hex",
  "indicatif",
  "openssl",
@@ -1384,6 +1378,25 @@ dependencies = [
  "test-log",
  "tracing",
  "zstd",
+]
+
+[[package]]
+name = "goldboot-linux"
+version = "0.0.1"
+dependencies = [
+ "block-utils",
+ "built",
+ "clap",
+ "gdk-pixbuf",
+ "gdk4",
+ "glib",
+ "glib-macros",
+ "goldboot",
+ "goldboot-image",
+ "gtk4",
+ "tracing",
+ "tracing-subscriber",
+ "ubyte",
 ]
 
 [[package]]

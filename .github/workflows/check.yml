@@ -27,8 +27,6 @@ jobs:
     name: stable / fmt
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
       - name: Install stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -49,8 +47,6 @@ jobs:
         toolchain: [stable, beta]
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
       - name: Install ${{ matrix.toolchain }}
         uses: dtolnay/rust-toolchain@master
         with:
@@ -71,8 +67,6 @@ jobs:
     steps:
       - run: sudo apt-get install -y libpango1.0-dev libgraphene-1.0-dev
       - uses: actions/checkout@v4
-        with:
-          submodules: true
       - name: Install nightly
         uses: dtolnay/rust-toolchain@nightly
       - name: cargo doc
@@ -91,8 +85,6 @@ jobs:
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
       - name: Install ${{ matrix.msrv }}
         uses: dtolnay/rust-toolchain@master
         with:

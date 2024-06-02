@@ -1,0 +1,25 @@
+[package]
+authors = ["Tyler Cook"]
+description = "A command-line application for building goldboot images"
+edition = "2021"
+homepage = "https://goldboot.org"
+license = "AGPL-3.0-only"
+name = "goldboot-linux"
+repository = "https://github.com/fossable/goldboot"
+rust-version = "1.74"
+version = "0.0.1"
+
+[dependencies]
+block-utils = { version = "0.11.1" }
+built = { version = "0.7", features = ["chrono", "semver"] }
+clap = { version = "4.4.7", features = ["derive", "string"] }
+gdk4 = { version = "0.8.1" }
+gdk-pixbuf = { version = "0.19.2" }
+glib-macros = { version = "0.19.2" }
+glib = { version = "0.19.2" }
+goldboot-image = { path="../goldboot-image", version = "0.0.2" }
+goldboot = { path="../goldboot", version = "0.0.7" }
+gtk4 = { version = "0.8.1", features = ["v4_12"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+ubyte = "0.10.4"
