@@ -1307,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "anyhow",
  "axum",
@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-image"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -1409,7 +1409,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-registry"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "axum",

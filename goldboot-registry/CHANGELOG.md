@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5](https://github.com/fossable/goldboot/compare/goldboot-registry-v0.0.4...goldboot-registry-v0.0.5) - 2024-06-02
+
+### Other
+- updated the following local packages: goldboot, goldboot-image
+
 ## [0.0.4](https://github.com/fossable/goldboot/compare/goldboot-registry-v0.0.3...goldboot-registry-v0.0.4) - 2024-05-17
 
 ### Other
