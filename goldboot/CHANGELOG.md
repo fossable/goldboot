@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8](https://github.com/fossable/goldboot/compare/goldboot-v0.0.7...goldboot-v0.0.8) - 2024-06-02
+
+### Other
+- create separate goldboot-linux crate
+- rename mold -> os
+- avoid unexpected qcow2 size
+- attempt to use cross-rs image for release job
+- continue liveusb command implementation
+- update Github releases URL
+
 ## [0.0.7](https://github.com/fossable/goldboot/compare/goldboot-v0.0.6...goldboot-v0.0.7) - 2024-05-17
 
 ### Other

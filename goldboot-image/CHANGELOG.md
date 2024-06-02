@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3](https://github.com/fossable/goldboot/compare/goldboot-image-v0.0.2...goldboot-image-v0.0.3) - 2024-06-02
+
+### Fixed
+- convert_random_data test
+
+### Other
+- avoid unexpected qcow2 size
+- attempt to use cross-rs image for release job
+- continue liveusb command implementation
+
 ## [0.0.2](https://github.com/fossable/goldboot/compare/goldboot-image-v0.0.1...goldboot-image-v0.0.2) - 2024-05-12
 
 ### Other

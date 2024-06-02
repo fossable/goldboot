@@ -17,8 +17,8 @@ gdk4 = { version = "0.8.1" }
 gdk-pixbuf = { version = "0.19.2" }
 glib-macros = { version = "0.19.2" }
 glib = { version = "0.19.2" }
-goldboot-image = { path="../goldboot-image", version = "0.0.2" }
-goldboot = { path="../goldboot", version = "0.0.7" }
+goldboot-image = { path="../goldboot-image", version = "0.0.3" }
+goldboot = { path="../goldboot", version = "0.0.8" }
 gtk4 = { version = "0.8.1", features = ["v4_12"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
