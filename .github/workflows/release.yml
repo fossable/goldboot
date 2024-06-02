@@ -30,23 +30,27 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - aarch64-unknown-linux-gnu
-          - aarch64-unknown-linux-musl
-          - i686-unknown-linux-gnu
+          # TODO: re-enable these. Problems arise with cross-rs because the base
+          # image doesn't have libgtk-4-dev...
+          # - aarch64-unknown-linux-gnu
+          # - aarch64-unknown-linux-musl
+          # - i686-unknown-linux-gnu
           - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-    container:
-      image: ghcr.io/cross-rs/${{ matrix.target }}:latest
-      options: --user=root
+          # - x86_64-unknown-linux-musl
     steps:
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y libudev-dev libgtk-4-dev libglib2.0-dev
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libgtk-4-dev libglib2.0-dev
 
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
 
       - uses: actions-rs/cargo@v1
         with:
