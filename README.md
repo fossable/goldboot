@@ -1,11 +1,12 @@
 <p align="center">
-	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/logo-bg-256.png" />
+	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/goldboot-256.png" />
 </p>
 
 ![License](https://img.shields.io/github/license/goldboot/goldboot)
 ![build](https://github.com/goldboot/goldboot/actions/workflows/test.yml/badge.svg)
 [![Discord](https://img.shields.io/discord/981695209492606986)](https://discord.gg/Vzr7gT5dsd)
 ![GitHub repo size](https://img.shields.io/github/repo-size/fossable/goldboot)
+[![Turbine](https://turbine.goldboot.org/xmr/balance)](https://turbine.goldboot.org)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
 <hr>
 

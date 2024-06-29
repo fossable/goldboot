@@ -1,10 +1,3 @@
-# This workflow runs whenever a PR is opened or updated, or a commit is pushed to main. It runs
-# several checks:
-# - fmt: checks that the code is formatted according to rustfmt
-# - clippy: checks that the code does not contain any clippy warnings
-# - doc: checks that the code can be documented without errors
-# - hack: check combinations of feature flags
-# - msrv: check that the msrv specified in the crate is correct
 name: check
 permissions:
   contents: read
