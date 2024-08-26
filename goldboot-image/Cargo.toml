@@ -17,7 +17,7 @@ flate2 = "1.0.28"
 hex = "0.4.3"
 rand = "0.8.5"
 regex = "1.10.2"
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.209", features = ["derive"] }
 sha2 = "0.10.8"
 strum = { version = "0.26.1", features = ["derive"] }
 tracing = "0.1.40"
