@@ -15,7 +15,7 @@ built = { version = "0.7", features = ["chrono", "semver"] }
 clap = { version = "4.4.7", features = ["derive", "string"] }
 gdk4 = { version = "0.8.1" }
 gdk-pixbuf = { version = "0.19.2" }
-glib-macros = { version = "0.19.2" }
+glib-macros = { version = "0.20.2" }
 glib = { version = "0.19.2" }
 goldboot-image = { path="../goldboot-image", version = "0.0.4" }
 goldboot = { path="../goldboot", version = "0.0.9" }
