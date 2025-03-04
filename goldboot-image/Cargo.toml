@@ -7,7 +7,7 @@ license = "AGPL-3.0-only"
 name = "goldboot-image"
 repository = "https://github.com/fossable/goldboot"
 rust-version = "1.74"
-version = "0.0.4"
+version = "0.0.5"
 
 [dependencies]
 aes-gcm = { version = "0.10.3", features = ["std"] }
