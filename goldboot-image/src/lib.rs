@@ -1,21 +1,18 @@
 //!
 
 use crate::qcow::Qcow3;
-use aes_gcm::KeyInit;
-use aes_gcm::{aead::Aead, Aes256Gcm, Key, Nonce};
-use anyhow::bail;
-use anyhow::Result;
+use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::Aead};
+use anyhow::{Result, bail};
 use binrw::{BinRead, BinReaderExt, BinWrite};
 use rand::Rng;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::ffi::CStr;
-use std::path::PathBuf;
 use std::{
+    ffi::CStr,
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 use strum::{Display, EnumIter};
@@ -639,16 +636,16 @@ impl ImageBuilder {
 
         // Prepare cipher and RNG if the image header should be encrypted
         let header_cipher = new_key(self.password.clone().unwrap_or("".to_string()));
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // Prepare directory
         let mut directory = Directory {
-            protected_nonce: rng.gen::<[u8; 12]>(),
+            protected_nonce: rng.random::<[u8; 12]>(),
             protected_size: 0,
-            config_nonce: rng.gen::<[u8; 12]>(),
+            config_nonce: rng.random::<[u8; 12]>(),
             config_offset: 0,
             config_size: 0,
-            digest_table_nonce: rng.gen::<[u8; 12]>(),
+            digest_table_nonce: rng.random::<[u8; 12]>(),
             digest_table_offset: 0,
             digest_table_size: 0,
         };
@@ -658,7 +655,7 @@ impl ImageBuilder {
             version: 1,
             arch: ImageArch::Amd64, // TODO
             size,
-            directory_nonce: rng.gen::<[u8; 12]>(),
+            directory_nonce: rng.random::<[u8; 12]>(),
             directory_offset: 0,
             directory_size: 0,
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
@@ -684,7 +681,7 @@ impl ImageBuilder {
             } else {
                 ClusterEncryptionType::None
             },
-            cluster_key: rng.gen::<[u8; 32]>(),
+            cluster_key: rng.random::<[u8; 32]>(),
             nonce_count: 0,
             nonce_table: vec![],
         };
@@ -692,7 +689,7 @@ impl ImageBuilder {
         if self.password.is_some() {
             protected_header.nonce_count = protected_header.cluster_count;
             protected_header.nonce_table = (0..protected_header.cluster_count)
-                .map(|_| rng.gen::<[u8; 12]>())
+                .map(|_| rng.random::<[u8; 12]>())
                 .collect();
         }
 
@@ -815,13 +812,15 @@ impl ImageBuilder {
                         cluster_count += 1;
                     }
                     block_offset += source.header.cluster_size();
-                    // self.progress(source.header.cluster_size(), source.header.size);
+                    // self.progress(source.header.cluster_size(),
+                    // source.header.size);
                 }
             } else {
                 block_offset +=
                     source.header.cluster_size() * source.header.l2_entries_per_cluster();
                 // self.progress(
-                //     source.header.cluster_size() * source.header.l2_entries_per_cluster(),
+                //     source.header.cluster_size() *
+                // source.header.l2_entries_per_cluster(),
                 //     source.header.size,
                 // );
             }
@@ -891,12 +890,13 @@ mod tests {
     #[test]
     fn convert_random_data() -> Result<()> {
         let tmp = tempfile::tempdir()?;
+        let rng = rand::rng();
 
         // Generate file of random size and contents
-        let size = rand::thread_rng().gen_range(512..=1000);
+        let size = rng.gen_range(512..=1000);
         let mut raw: Vec<u8> = Vec::new();
         for _ in 0..size {
-            raw.push(rand::thread_rng().gen());
+            raw.push(rng.random());
         }
 
         // Write out for qemu-img

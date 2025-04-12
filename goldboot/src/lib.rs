@@ -31,7 +31,7 @@ pub fn random_password() -> String {
 
     // Fallback to random letters and numbers
     rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
+        .sample_iter(&rand::distr::Alphanumeric)
         .take(12)
         .map(char::from)
         .collect()

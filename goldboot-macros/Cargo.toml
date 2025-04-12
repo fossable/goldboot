@@ -1,10 +1,10 @@
 [package]
 authors = ["Tyler Cook"]
 description = "Supporting macros for goldboot"
-edition = "2021"
+edition = "2024"
 license = "AGPL-3.0-only"
 name = "goldboot-macros"
-rust-version = "1.74"
+rust-version = "1.85"
 version = "0.0.3"
 repository = "https://github.com/fossable/goldboot"
 

@@ -1,7 +1,5 @@
 use crate::cli::progress::ProgressBar;
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
+use anyhow::{Result, anyhow, bail};
 use goldboot_image::ImageHandle;
 use rand::Rng;
 use sha1::Digest;
@@ -39,7 +37,7 @@ impl ImageLibrary {
 
     pub fn temporary(&self) -> PathBuf {
         let name: String = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)
             .collect();

@@ -1,6 +1,6 @@
-use anyhow::bail;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use binrw::{io::SeekFrom, BinRead, BinReaderExt};
+use snapshot::Snapshot;
 use std::{
     fs::File,
     io::BufReader,
@@ -15,12 +15,18 @@ pub use header::*;
 pub mod levels;
 use levels::*;
 
+mod snapshot;
+
 /// Represents a (stripped down) qcow3 file on disk.
 #[derive(BinRead, Debug)]
 #[brw(big)]
 pub struct Qcow3 {
     /// The image header
     pub header: QcowHeader,
+
+    /// List of snapshots present within this qcow
+    #[br(seek_before = SeekFrom::Start(header.snapshots_offset), count = header.nb_snapshots)]
+    pub snapshots: Vec<Snapshot>,
 
     /// The "active" L1 table
     #[br(seek_before = SeekFrom::Start(header.l1_table_offset), count = header.l1_size)]

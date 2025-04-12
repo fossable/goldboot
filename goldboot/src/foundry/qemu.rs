@@ -1,22 +1,22 @@
-use crate::enter;
-use crate::foundry::{ssh::SshConnection, vnc::VncConnection, FoundryWorker};
-use anyhow::bail;
-use anyhow::Result;
+use crate::{
+    enter,
+    foundry::{FoundryWorker, ssh::SshConnection, vnc::VncConnection},
+};
+use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
 use rand::Rng;
-use std::collections::HashMap;
-use std::fs::{File, OpenOptions};
-use std::io::{Cursor, Write};
-use std::path::PathBuf;
 use std::{
+    collections::HashMap,
+    fs::{File, OpenOptions},
+    io::{Cursor, Write},
+    path::PathBuf,
     process::{Child, Command},
     time::Duration,
 };
 use strum::Display;
 use tracing::{debug, info, trace};
 
-use super::sources::ImageSource;
-use super::sources::SourceCache;
+use super::sources::{ImageSource, SourceCache};
 
 #[derive(Display, Clone, Copy)]
 pub enum OsCategory {
@@ -73,11 +73,7 @@ pub fn detect_accel() -> Accel {
             {
                 Ok(status) => {
                     if let Some(code) = status.code() {
-                        if code == 0 {
-                            Accel::Kvm
-                        } else {
-                            Accel::Tcg
-                        }
+                        if code == 0 { Accel::Kvm } else { Accel::Tcg }
                     } else {
                         Accel::Tcg
                     }
@@ -368,7 +364,7 @@ impl QemuBuilder {
     /// to the invocation.
     pub fn drive_files(mut self, files: HashMap<String, Vec<u8>>) -> Result<Self> {
         let fs_name: String = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)
             .collect();
@@ -423,7 +419,7 @@ impl QemuBuilder {
         const FLOPPY_SIZE: u64 = 1474560;
 
         let fs_name: String = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)
             .collect();

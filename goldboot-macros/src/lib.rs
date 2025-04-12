@@ -23,7 +23,7 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
         _ => panic!(),
     };
 
-    let gen = quote! {
+    let syntax = quote! {
         impl Prompt for #name {
             fn prompt(
                 &mut self,
@@ -34,7 +34,7 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
             }
         }
     };
-    gen.into()
+    syntax.into()
 }
 
 // TODO probably need a macro for ImageMold and Fabricator

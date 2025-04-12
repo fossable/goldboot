@@ -1,7 +1,6 @@
 use crate::foundry::{Foundry, FoundryConfigPath};
 use std::process::ExitCode;
-use tracing::debug;
-use tracing::error;
+use tracing::{debug, error};
 use validator::Validate;
 
 pub fn run(cmd: super::Commands) -> ExitCode {
@@ -40,7 +39,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 // config.password = Some(password);
             } else if let Ok(_password) = std::env::var("GOLDBOOT_PASSWORD") {
                 // Wipe out the value since we no longer need it
-                std::env::set_var("GOLDBOOT_PASSWORD", "");
+                unsafe {
+                    std::env::set_var("GOLDBOOT_PASSWORD", "");
+                }
                 // config.password = Some(password);
             }
 

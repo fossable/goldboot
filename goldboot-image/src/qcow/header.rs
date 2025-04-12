@@ -44,11 +44,11 @@ pub struct QcowHeader {
     _refcount_table_clusters: u32,
 
     /// Number of snapshots contained in the image
-    _nb_snapshots: u32,
+    pub nb_snapshots: u32,
 
     /// Offset into the image file at which the snapshot table
     /// starts. Must be aligned to a cluster boundary.
-    _snapshots_offset: u64,
+    pub snapshots_offset: u64,
 
     /// Bitmask of incompatible features. An implementation must fail to open an
     /// image if an unknown bit is set.

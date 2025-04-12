@@ -1,18 +1,18 @@
 [package]
 authors = ["Tyler Cook"]
 description = "Defines the goldboot image format"
-edition = "2021"
+edition = "2024"
 homepage = "https://goldboot.fossable.org"
 license = "AGPL-3.0-only"
 name = "goldboot-image"
 repository = "https://github.com/fossable/goldboot"
-rust-version = "1.74"
+rust-version = "1.85"
 version = "0.0.5"
 
 [dependencies]
 aes-gcm = { version = "0.10.3", features = ["std"] }
 anyhow = { workspace = true }
-binrw = "0.13.1"
+binrw = "0.14.1"
 flate2 = "1.0.28"
 hex = { workspace = true }
 rand = { workspace = true }

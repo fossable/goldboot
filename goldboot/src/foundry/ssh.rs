@@ -1,18 +1,13 @@
-use anyhow::bail;
-use anyhow::Result;
+use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
 use rand::Rng;
+use ssh_key::{Algorithm, LineEnding, PrivateKey};
 use ssh2::Session;
-use ssh_key::Algorithm;
-use ssh_key::LineEnding;
-use ssh_key::PrivateKey;
-use std::io::Read;
-use std::path::PathBuf;
-use std::thread::sleep;
 use std::{
-    io::{BufRead, BufReader, Cursor},
+    io::{BufRead, BufReader, Cursor, Read},
     net::TcpStream,
-    path::Path,
+    path::{Path, PathBuf},
+    thread::sleep,
     time::Duration,
 };
 use tracing::{debug, info};
@@ -22,12 +17,13 @@ use super::qemu::OsCategory;
 /// Generate a new random SSH keypair
 pub fn generate_key(directory: &Path) -> Result<PathBuf> {
     let key_name: String = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
+        .sample_iter(&rand::distr::Alphanumeric)
         .take(12)
         .map(char::from)
         .collect();
     let key_path = directory.join(key_name);
 
+    // TODO waiting on ssh-key update for rand-core
     let private_key = PrivateKey::random(&mut rand::thread_rng(), Algorithm::Ed25519)?;
     std::fs::write(&key_path, private_key.to_openssh(LineEnding::LF)?)?;
     std::fs::write(
@@ -99,7 +95,7 @@ impl SshConnection {
                         port,
                         os: query_os(&session)?,
                         session,
-                    }
+                    };
                 }
                 Err(error) => debug!("{}", error),
             };
@@ -146,7 +142,7 @@ impl SshConnection {
 
     pub fn upload_exec(&mut self, source: &[u8], env: Vec<(&str, &str)>) -> Result<i32> {
         let id: String = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)
             .collect();
