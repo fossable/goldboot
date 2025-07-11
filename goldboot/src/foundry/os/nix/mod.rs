@@ -2,7 +2,7 @@ use anyhow::Result;
 use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, path::PathBuf};
 use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
@@ -10,10 +10,10 @@ use crate::{
     cli::prompt::{Prompt, PromptNew},
     enter,
     foundry::{
+        Foundry, FoundryWorker,
         options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
-        Foundry, FoundryWorker,
     },
     wait, wait_screen_rect,
 };
@@ -22,22 +22,27 @@ use super::{CastImage, DefaultSource};
 
 /// NixOS is a free and open source Linux distribution based on the Nix package
 /// manager. NixOS uses an immutable design and an atomic update model. Its use
-/// of a declarative configuration system allows reproducibility and portability.
+/// of a declarative configuration system allows reproducibility and
+/// portability.
 ///
 /// Upstream: https://www.nixos.org
 /// Maintainer: cilki
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct Nix {
-    pub config: String,
+    /// Path to /etc/nixos/configuration.nix
+    pub configuration: PathBuf,
+
+    /// Path to /etc/nixos/hardware-configuration.nix
+    pub hardware_configuration: Option<PathBuf>,
 }
 
 impl Nix {
     fn load_config(&self) -> Result<Vec<u8>> {
-        if self.config.starts_with("http") {
+        if self.configuration.starts_with("http") {
             todo!()
         }
 
-        let bytes = std::fs::read(&self.config)?;
+        let bytes = std::fs::read(&self.configuration)?;
         Ok(bytes)
     }
 }

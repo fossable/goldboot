@@ -15,7 +15,7 @@ anyhow = { workspace = true }
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
 axum = { version = "0.8.1", optional = true }
-built = { version = "0.7", features = ["chrono", "semver"] }
+built = { version = "0.8.0", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
 chrono = "0.4.31"
 clap = { version = "4.4.7", features = ["derive", "string"] }
@@ -47,7 +47,7 @@ sha1 = "0.10.6"
 sha2 = { workspace = true }
 # TODO russh
 ssh2 = { version = "0.9.4" }
-ssh-key = { version = "0.6.4", features = ["ed25519"] }
+ssh-key = { version = "0.7.0-pre.1", features = ["ed25519"] }
 strum = { workspace = true }
 tar = "0.4.40"
 tempfile = "3.10.0"
@@ -67,7 +67,7 @@ zstd = { workspace = true }
 [dev-dependencies]
 
 [build-dependencies]
-built = { version = "0.7", features = [
+built = { version = "0.8.0", features = [
   "cargo-lock",
   "dependency-tree",
   "git2",

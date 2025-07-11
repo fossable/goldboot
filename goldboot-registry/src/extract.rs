@@ -1,20 +1,15 @@
-use std::collections::HashMap;
-
+use super::RegistryState;
 use axum::{
-    async_trait,
     extract::{FromRequest, Path, Request},
     http::StatusCode,
 };
-use tracing::error;
-
 use goldboot::library::ImageLibrary;
-
-use super::RegistryState;
+use std::collections::HashMap;
+use tracing::error;
 
 /// Newtype wrapper for ImageHandle.
 pub struct ImageHandle(pub goldboot_image::ImageHandle);
 
-#[async_trait]
 impl FromRequest<RegistryState> for ImageHandle {
     type Rejection = StatusCode;
 

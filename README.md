@@ -8,28 +8,31 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/fossable/goldboot)
 [![Turbine](https://turbine.goldboot.org/xmr/balance)](https://turbine.goldboot.org)
 ![Stars](https://img.shields.io/github/stars/goldboot/goldboot?style=social)
+
 <hr>
 
 People usually don't reinstall their OS from scratch very often. When they do,
 chaos ensues the moment they reach that pristine desktop or terminal. Settings
-get changed, applications are installed, bloatware is removed, files are downloaded
-here and there. The system is generally altered from its original state into a new
-"customized" state by a manual flurry of mouse clicks and key presses.
+get changed, applications are installed, bloatware is removed, files are
+downloaded here and there. The system is generally altered from its original
+state into a new "customized" state by a manual flurry of mouse clicks and key
+presses.
 
 This standard approach is like _mutable infrastructure_, meaning you mutate the
 state of your system repeatedly until it eventually suits your needs. And when
-something goes awry, you have to make the necessary changes to get it back in line.
+something goes awry, you have to make the necessary changes to get it back in
+line.
 
 For most people, mutable infrastructure works out fine until something major
 breaks or they have to migrate to a new computer altogether. In these cases,
 they probably end up starting over from scratch and reapply their changes again
 (and probably slightly differently this time).
 
-Sophisticated computer elites probably practice _immutable infrastructure_. Meaning
-that, every time they boot their system, its state begins almost identically to
-the time before. Any changes that are made during the course of runtime vanish on
-reboot. This approach has some real benefits, but requires quite a bit of effort
-from the user.
+Sophisticated computer elites probably practice _immutable infrastructure_.
+Meaning that, every time they boot their system, its state begins almost
+identically to the time before. Any changes that are made during the course of
+runtime vanish on reboot. This approach has some real benefits, but requires
+quite a bit of effort from the user.
 
 `goldboot` is a tool that builds machine images for real hardware that can help
 you achieve something close to immutable infrastructure without creating a lot
@@ -38,25 +41,28 @@ of extra work for yourself.
 In the `goldboot` approach, you create a declarative configuration file for each
 machine that you want to deploy. Using this configuration, `goldboot` builds an
 image either on your local machine or on a CI platform like Github Actions. The
-resulting image can be deployed to real hardware via a USB drive or through PXE boot.
+resulting image can be deployed to real hardware via a USB drive or through PXE
+boot.
 
 **Warning: this tool is totally unfinshed and should be used for testing only!
 Proceed at your own risk!**
+
 <hr>
 <p align="center">
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/overview.png" />
 </p>
 
-`goldboot` is approximately what you would get if [`docker`](https://www.docker.com) and [`packer`](https://www.packer.io)
-were mixed together. Instead of building containers or virtual machines, `goldboot`
+`goldboot` is approximately what you would get if
+[`docker`](https://www.docker.com) and [`packer`](https://www.packer.io) were
+mixed together. Instead of building containers or virtual machines, `goldboot`
 builds images for real hardware.
 
 These machine images (also known as _golden images_) contain your operating
 system(s), applications, software patches, and configuration all rolled into one
 easily deployable package.
 
-Like Docker images, your `goldboot` images can be stored in a registry and pulled
-onto real hardware.
+Like Docker images, your `goldboot` images can be stored in a registry and
+pulled onto real hardware.
 
 ## Installation
 
@@ -72,6 +78,7 @@ onto real hardware.
 ```sh
 alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 ```
+
 </details>
 
 <details>
@@ -84,6 +91,7 @@ alias goldboot="docker run --rm -v .:/root fossable/goldboot"
 ```sh
 cargo install goldboot
 ```
+
 </details>
 
 <details>
@@ -100,7 +108,19 @@ cargo install goldboot
   curl https://aur.archlinux.org/cgit/aur.git/snapshot/goldboot.tar.gz | tar xf -
   makepkg -si
 ```
+
 </details>
+
+<details>
+<summary>Nixpkgs</summary>
+
+#### Install from nixpkgs
+
+</details>
+
+```bash
+nix-shell -p goldboot
+```
 
 <details>
 <summary>Github Releases</summary>
@@ -115,9 +135,11 @@ chmod +x /usr/bin/goldboot
 ```
 
 ##### Dependencies
+
 ```sh
 apt-get install -y libudev1 libgtk-4-1 libglib2.0-0
 ```
+
 </details>
 
 <details>
@@ -125,8 +147,8 @@ apt-get install -y libudev1 libgtk-4-1 libglib2.0-0
 
 #### Running on Github actions
 
-Building golden images with CI is common practice, so there's also a [Github
-action](https://github.com/fossable/goldboot-action) to make it easy:
+Building golden images with CI is common practice, so there's also a
+[Github action](https://github.com/fossable/goldboot-action) to make it easy:
 
 ```yml
 steps:
@@ -145,27 +167,30 @@ steps:
       name: my_image.gb
       path: image.gb
 ```
+
 </details>
 
 ## Examples
 
-The [goldboot-examples](https://github.com/fossable/goldboot-examples) repo contains example
-configurations of all supported OS types and system architectures. They are built on a weekly
-schedule against the latest version of `goldboot`.
+The [goldboot-examples](https://github.com/fossable/goldboot-examples) repo
+contains example configurations of all supported OS types and system
+architectures. They are built on a weekly schedule against the latest version of
+`goldboot`.
 
-| Linux | Windows | macos |
-| ----- | ------- | ----- |
-| ![Alpine](goldboot/src/foundry/os/alpine/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)    | ![Windows 10](goldboot/src/foundry/os/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/os/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
-| ![Arch Linux](goldboot/src/foundry/os/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) | |
-| ![Debian](goldboot/src/foundry/os/debian/icon.png)         ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)    | |
-| ![Pop!_OS](goldboot/src/foundry/os/pop_os/icon.png)        ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)   | |
-| ![Steam Deck](goldboot/src/foundry/os/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) | |
-| ![Steam OS](goldboot/src/foundry/os/steam_os/icon.png)     ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)   | |
+| Linux                                                                                                                                             | Windows                                                                                                                                           | macos                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| ![Alpine](goldboot/src/foundry/os/alpine/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Alpine/badge.svg)            | ![Windows 10](goldboot/src/foundry/os/windows_10/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Windows10/badge.svg) | ![macOS](goldboot/src/foundry/os/arch_linux/mac_os.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Macos/badge.svg) |
+| ![Arch Linux](goldboot/src/foundry/os/arch_linux/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/ArchLinux/badge.svg) |                                                                                                                                                   |
+| ![Debian](goldboot/src/foundry/os/debian/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Debian/badge.svg)            |                                                                                                                                                   |
+| ![Pop!_OS](goldboot/src/foundry/os/pop_os/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/Pop!_OS/badge.svg)          |                                                                                                                                                   |
+| ![Steam Deck](goldboot/src/foundry/os/steam_deck/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamDeck/badge.svg) |                                                                                                                                                   |
+| ![Steam OS](goldboot/src/foundry/os/steam_os/icon.png) ![x86_64](https://github.com/fossable/goldboot-examples/workflows/SteamOs/badge.svg)       |                                                                                                                                                   |
 
 ## Example walkthrough
 
-Let's build a basic Arch Linux ![ArchLinux](goldboot/src/foundry/os/arch_linux/icon.png)
-image to prove we're _real_ Linux users.
+Let's build a basic Arch Linux
+![ArchLinux](goldboot/src/foundry/os/arch_linux/icon.png) image to prove we're
+_real_ Linux users.
 
 First, create a directory to hold our configuration (which can later be tracked
 in version control):
@@ -220,8 +245,8 @@ goldboot cast .
 ```
 
 Once the build succeeds, the image will be saved to the system's library
-directory. To deploy it to a physical disk, you can include the image on a
-new bootable USB drive:
+directory. To deploy it to a physical disk, you can include the image on a new
+bootable USB drive:
 
 ```sh
 # THIS WILL OVERWRITE /dev/sdX!
