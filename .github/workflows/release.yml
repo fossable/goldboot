@@ -219,7 +219,7 @@ jobs:
             echo "${tag%-*}=${tag##*-}" >>"$GITHUB_OUTPUT"
           done
 
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v6
         if: ${{ steps.get_tags.outputs.goldboot != '' }}
         with:
           context: goldboot
@@ -227,7 +227,7 @@ jobs:
           push: true
           tags: fossable/goldboot:latest,fossable/goldboot:${{ steps.get_tags.outputs.goldboot }}
 
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v6
         if: ${{ steps.get_tags.outputs.goldboot-registry != '' }}
         with:
           context: goldboot-registry
