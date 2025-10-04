@@ -1,11 +1,10 @@
 use anyhow::{Result, bail};
-use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader},
+    io::BufRead,
 };
 use tracing::debug;
 use validator::Validate;
@@ -16,11 +15,10 @@ use crate::{
     foundry::{
         Foundry, FoundryWorker,
         http::HttpServer,
-        options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    input, wait, wait_screen, wait_screen_rect,
+    input, wait_screen, wait_screen_rect,
 };
 
 use super::{
@@ -47,7 +45,7 @@ impl Default for Goldboot {
 
 // TODO proc macro
 impl Prompt for Goldboot {
-    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _foundry: &Foundry) -> Result<()> {
         todo!()
     }
 }

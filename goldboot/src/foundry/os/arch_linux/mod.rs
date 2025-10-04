@@ -1,6 +1,5 @@
 use super::{BuildImage, DefaultSource};
 use crate::cli::prompt::Prompt;
-use crate::cli::prompt::PromptNew;
 use crate::foundry::Foundry;
 use crate::foundry::fabricators::Fabricate;
 use crate::foundry::http::HttpServer;
@@ -16,7 +15,6 @@ use crate::{
 };
 use anyhow::Result;
 use anyhow::bail;
-use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
@@ -31,7 +29,7 @@ mod archinstall;
 ///
 /// Upstream: https://archlinux.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default, goldboot_macros::Prompt)]
 pub struct ArchLinux {
     #[serde(flatten)]
     pub hostname: Hostname,
@@ -39,14 +37,6 @@ pub struct ArchLinux {
     #[serde(flatten)]
     pub packages: Option<ArchLinuxPackages>,
     pub root_password: RootPassword,
-}
-
-// TODO proc macro
-impl Prompt for ArchLinux {
-    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
-        self.root_password = RootPassword::prompt_new(_foundry, _theme)?;
-        Ok(())
-    }
 }
 
 impl DefaultSource for ArchLinux {
@@ -134,7 +124,7 @@ impl Default for ArchLinuxMirrorlist {
 }
 
 impl Prompt for ArchLinuxMirrorlist {
-    fn prompt(&mut self, _: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
         // Prompt mirror list
         // {
         //     let mirror_index = dialoguer::Select::with_theme(&theme)
@@ -187,6 +177,12 @@ fn fetch_latest_iso() -> Result<ImageSource> {
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
 pub struct ArchLinuxPackages {
     packages: Vec<String>,
+}
+
+impl Prompt for ArchLinuxPackages {
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

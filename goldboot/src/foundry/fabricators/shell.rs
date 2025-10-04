@@ -1,5 +1,5 @@
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use validator::Validate;

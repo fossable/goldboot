@@ -1,5 +1,5 @@
 use crate::cmd::Commands;
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use clap::Parser;
 use std::{env, process::ExitCode};
 

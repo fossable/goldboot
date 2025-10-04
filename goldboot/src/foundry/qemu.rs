@@ -7,8 +7,8 @@ use goldboot_image::ImageArch;
 use rand::Rng;
 use std::{
     collections::HashMap,
-    fs::{File, OpenOptions},
-    io::{Cursor, Write},
+    fs::OpenOptions,
+    io::Write,
     path::PathBuf,
     process::{Child, Command},
     time::Duration,

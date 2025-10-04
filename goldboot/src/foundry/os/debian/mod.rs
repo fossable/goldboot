@@ -1,8 +1,8 @@
 use anyhow::{Result, bail};
-use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
+use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
 use crate::{
@@ -15,18 +15,32 @@ use crate::{
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    input, wait, wait_screen, wait_screen_rect,
+    input, wait_screen, wait_screen_rect,
 };
 
 use super::{BuildImage, DefaultSource};
 
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, Default, EnumIter, Display)]
 pub enum DebianEdition {
     Bullseye,
     #[default]
     Bookworm,
     Trixie,
     Sid,
+}
+
+impl Prompt for DebianEdition {
+    fn prompt(&mut self, foundry: &Foundry) -> Result<()> {
+        let editions: Vec<DebianEdition> = DebianEdition::iter().collect();
+        let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
+            .with_prompt("Choose Debian edition")
+            .default(0)
+            .items(editions.iter())
+            .interact()?;
+
+        *self = editions[edition_index];
+        Ok(())
+    }
 }
 
 /// Fetch the latest ISO
@@ -70,7 +84,7 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<Image
 ///
 /// Upstream: https://www.debian.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct Debian {
     pub edition: DebianEdition,
 
@@ -86,13 +100,6 @@ impl Default for Debian {
             edition: DebianEdition::default(),
             hostname: Some(Hostname::default()),
         }
-    }
-}
-
-// TODO proc macro
-impl Prompt for Debian {
-    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
-        todo!()
     }
 }
 
@@ -143,7 +150,7 @@ impl BuildImage for Debian {
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh("root")?;
+        let ssh = qemu.ssh("root")?;
 
         // Shutdown
         ssh.shutdown("poweroff")?;

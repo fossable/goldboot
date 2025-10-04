@@ -1,11 +1,8 @@
 use std::fmt::Display;
 
-use crate::{
-    cli::prompt::{Prompt, PromptNew},
-    foundry::Foundry,
-};
+use crate::{cli::prompt::Prompt, foundry::Foundry};
 use anyhow::Result;
-use dialoguer::{theme::Theme, Password};
+use dialoguer::Password;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -31,8 +28,9 @@ pub struct UnixAccountProvisioner {
 }
 
 impl Prompt for UnixAccountProvisioner {
-    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.password = Password::with_theme(&*theme)
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+        let theme = crate::cli::cmd::init::theme();
+        self.password = Password::with_theme(&theme)
             .with_prompt("Root password")
             .interact()?;
 
@@ -66,13 +64,15 @@ impl Default for RootPassword {
     }
 }
 
-impl PromptNew for RootPassword {
-    fn prompt_new(_: &Foundry, theme: Box<dyn Theme>) -> Result<Self> {
-        Ok(RootPassword::Plaintext(
-            Password::with_theme(&*theme)
+impl Prompt for RootPassword {
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+        let theme = crate::cli::cmd::init::theme();
+        *self = RootPassword::Plaintext(
+            Password::with_theme(&theme)
                 .with_prompt("Root password")
                 .interact()?,
-        ))
+        );
+        Ok(())
     }
 }
 

@@ -1,17 +1,14 @@
 use anyhow::Result;
-use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display, path::PathBuf};
-use strum::{Display, EnumIter, IntoEnumIterator};
+use std::{collections::HashMap, path::PathBuf};
 use validator::Validate;
 
 use crate::{
-    cli::prompt::{Prompt, PromptNew},
+    cli::prompt::Prompt,
     enter,
     foundry::{
         Foundry, FoundryWorker,
-        options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
@@ -59,7 +56,7 @@ impl DefaultSource for Nix {
 
 // TODO proc macro
 impl Prompt for Nix {
-    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _foundry: &Foundry) -> Result<()> {
         Ok(())
     }
 }

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -7,7 +6,7 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
 use crate::{
-    cli::prompt::{Prompt, PromptNew},
+    cli::prompt::Prompt,
     enter,
     foundry::{
         Foundry, FoundryWorker,
@@ -21,7 +20,7 @@ use crate::{
 use super::{BuildImage, DefaultSource};
 
 /// Produces [Alpine Linux](https://www.alpinelinux.org) images.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default, goldboot_macros::Prompt)]
 pub struct AlpineLinux {
     pub edition: AlpineEdition,
     #[serde(flatten)]
@@ -36,14 +35,6 @@ impl DefaultSource for AlpineLinux {
             url: "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-standard-3.19.1-x86_64.iso".to_string(),
             checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
         })
-    }
-}
-
-// TODO proc macro
-impl Prompt for AlpineLinux {
-    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
-        self.root_password = RootPassword::prompt_new(_foundry, _theme)?;
-        Ok(())
     }
 }
 
@@ -89,7 +80,7 @@ iface eth0 inet dhcp
 		])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh("root")?;
+        let ssh = qemu.ssh("root")?;
 
         // Run provisioners
         // TODO
@@ -110,19 +101,18 @@ pub enum AlpineEdition {
     Xen,
 }
 
-impl PromptNew for AlpineEdition {
-    fn prompt_new(
-        foundry: &crate::foundry::Foundry,
-        theme: Box<dyn dialoguer::theme::Theme>,
-    ) -> Result<Self> {
+impl Prompt for AlpineEdition {
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+        let theme = crate::cli::cmd::init::theme();
         let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
-        let edition_index = dialoguer::Select::with_theme(&*theme)
+        let edition_index = dialoguer::Select::with_theme(&theme)
             .with_prompt("Choose an edition")
             .default(0)
             .items(&editions)
             .interact()?;
 
-        Ok(editions[edition_index])
+        *self = editions[edition_index];
+        Ok(())
     }
 }
 
@@ -140,6 +130,12 @@ pub enum AlpineRelease {
     V3_16,
     #[serde(rename = "v3.15")]
     V3_15,
+}
+
+impl Prompt for AlpineRelease {
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl Display for AlpineRelease {

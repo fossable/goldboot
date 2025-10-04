@@ -459,7 +459,6 @@ impl ImageHandle {
     pub fn change_password(&self, _old_password: String, new_password: String) -> Result<()> {
         // Create the cipher and a RNG for the nonces
         let _cipher = new_key(new_password);
-        let _rng = rand::thread_rng();
 
         todo!()
     }

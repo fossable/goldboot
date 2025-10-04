@@ -1,13 +1,13 @@
 use self::qemu::{Accel, detect_accel};
 use self::{fabricators::Fabricator, os::Os, sources::ImageSource};
 use crate::foundry::os::BuildImage;
-use crate::{cli::progress::ProgressBar, library::ImageLibrary};
+use crate::library::ImageLibrary;
 
 use anyhow::Result;
 use byte_unit::Byte;
 use clap::{ValueEnum, builder::PossibleValue};
 use goldboot_image::ImageBuilder;
-use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
+use goldboot_image::{ImageArch, qcow::Qcow3};
 use rand::Rng;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};

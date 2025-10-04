@@ -8,7 +8,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
-use tracing::{debug, error, info};
+use tracing::info;
 
 /// Represents the local image library.
 ///

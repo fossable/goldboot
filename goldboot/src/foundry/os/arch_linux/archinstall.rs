@@ -3,7 +3,6 @@ use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

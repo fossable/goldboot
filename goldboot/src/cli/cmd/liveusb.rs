@@ -1,6 +1,5 @@
 use console::Style;
-use dialoguer::{theme::ColorfulTheme, Confirm};
-use goldboot_image::ImageHandle;
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use std::{path::Path, process::ExitCode};
 use tracing::error;
 

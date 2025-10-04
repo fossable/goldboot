@@ -1,7 +1,7 @@
 use crate::cli::progress::ProgressBar;
+use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
-use anyhow::Result;
 use serde::Deserialize;
 use serde::Serialize;
 use sha1::{Digest, Sha1};

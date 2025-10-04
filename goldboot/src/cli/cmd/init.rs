@@ -26,6 +26,14 @@ fn print_banner() {
     }
 }
 
+/// Get the current theme for prompts.
+pub fn theme() -> ColorfulTheme {
+    ColorfulTheme {
+        values_style: Style::new().yellow().dim(),
+        ..ColorfulTheme::default()
+    }
+}
+
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Init {
@@ -75,10 +83,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 // If no OS was given, begin interactive config
                 print_banner();
 
-                let theme = ColorfulTheme {
-                    values_style: Style::new().yellow().dim(),
-                    ..ColorfulTheme::default()
-                };
+                let theme = theme();
 
                 println!("Get ready to create a new image configuration!");
                 println!("(it can be further edited later)");
@@ -160,8 +165,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         .unwrap()
                     {
                         // TODO show some kind of banner
-                        os.prompt(&foundry, Box::new(ColorfulTheme::default()))
-                            .unwrap();
+                        os.prompt(&foundry).unwrap();
                     }
 
                     if let Ok(source) = os.default_source(foundry.arch) {

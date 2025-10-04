@@ -4,7 +4,7 @@ use goldboot::library::ImageLibrary;
 use goldboot_image::ImageHandle;
 use gtk::glib;
 use gtk4 as gtk;
-use gtk4::{prelude::*, EventControllerKey};
+use gtk4::{EventControllerKey, prelude::*};
 use tracing::info;
 use ubyte::ToByteUnit;
 

@@ -1,8 +1,8 @@
 use crate::extract::ImageHandle;
 use axum::{
+    Json,
     extract::{Path, State},
     http::StatusCode,
-    Json,
 };
 use goldboot::registry::api::image::ImageInfoResponse;
 

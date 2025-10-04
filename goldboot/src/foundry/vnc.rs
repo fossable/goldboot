@@ -2,8 +2,8 @@
 //! we compare the state of the screen with specifications from templates in order
 //! to act on timing events.
 
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use rand::Rng;
 use sha1::{Digest, Sha1};
 use std::{fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
@@ -59,9 +59,7 @@ impl VncScreenshot {
         }
         trace!(
             "Trimming screenshot ({} x {}) to {:?}",
-            self.width,
-            self.height,
-            rect
+            self.width, self.height, rect
         );
 
         let w = rect.width as usize;

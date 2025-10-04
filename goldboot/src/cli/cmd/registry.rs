@@ -1,5 +1,5 @@
 use console::Style;
-use dialoguer::{theme::ColorfulTheme, Input};
+use dialoguer::{Input, theme::ColorfulTheme};
 use std::process::ExitCode;
 
 use super::RegistryCommands;

@@ -1,5 +1,5 @@
-use anyhow::{bail, Result};
-use binrw::{io::SeekFrom, BinRead, BinReaderExt};
+use anyhow::{Result, bail};
+use binrw::{BinRead, BinReaderExt, io::SeekFrom};
 use snapshot::Snapshot;
 use std::{
     fs::File,

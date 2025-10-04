@@ -45,6 +45,8 @@ pub enum UbuntuEdition {
     Desktop,
 }
 
+impl Prompt for UbuntuEdition {}
+
 /// Ubuntu is a Linux distribution derived from Debian and composed mostly of free
 /// and open-source software.
 ///
@@ -117,11 +119,11 @@ impl Template for UbuntuTemplate {
 }
 
 impl Prompt for Ubuntu {
-    fn prompt(&mut self, config: &BuildConfig, theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _foundry: &Foundry) -> Result<()> {
         // Prompt edition
         {
             let editions: Vec<UbuntuEdition> = UbuntuEdition::iter().collect();
-            let edition_index = dialoguer::Select::with_theme(&*theme)
+            let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
                 .with_prompt("Choose Ubuntu edition")
                 .default(0)
                 .items(&editions)
@@ -133,7 +135,7 @@ impl Prompt for Ubuntu {
         // Prompt release
         {
             let releases: Vec<UbuntuRelease> = UbuntuRelease::iter().collect();
-            let release_index = dialoguer::Select::with_theme(&*theme)
+            let release_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
                 .with_prompt("Choose Ubuntu release")
                 .default(0)
                 .items(&releases)

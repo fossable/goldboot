@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_win_unattend::*;
@@ -38,9 +37,9 @@ pub struct Windows10 {
 
 // TODO proc macro
 impl Prompt for Windows10 {
-    fn prompt(&mut self, _foundry: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
+    fn prompt(&mut self, _foundry: &Foundry) -> Result<()> {
         // Prompt for minimal install
-        if dialoguer::Confirm::with_theme(&*theme).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
+        if dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme()).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
 
 		}
         Ok(())

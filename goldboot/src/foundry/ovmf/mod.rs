@@ -1,8 +1,8 @@
 // UEFI firmwares for various platforms. We include them here to avoid having
 // to depend on one provided by the system.
 
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use goldboot_image::ImageArch;
 use std::path::Path;
 use std::path::PathBuf;

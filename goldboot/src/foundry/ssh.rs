@@ -7,7 +7,6 @@ use std::{
     io::{BufRead, BufReader, Cursor, Read},
     net::TcpStream,
     path::{Path, PathBuf},
-    thread::sleep,
     time::Duration,
 };
 use tracing::{debug, info};

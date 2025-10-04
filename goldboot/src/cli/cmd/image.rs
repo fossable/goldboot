@@ -11,7 +11,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             super::ImageCommands::List {} => {
                 let images = ImageLibrary::find_all().unwrap();
 
-                println!("Image Name      Image Size   Build Date                      Image ID     Description");
+                println!(
+                    "Image Name      Image Size   Build Date                      Image ID     Description"
+                );
                 for image in images {
                     println!(
                         "{:15} {:12} {:31} {:12} {}",

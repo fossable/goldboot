@@ -4,7 +4,6 @@ use crate::foundry::Foundry;
 use crate::foundry::FoundryWorker;
 use anyhow::Result;
 use clap::ValueEnum;
-use dialoguer::theme::Theme;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};

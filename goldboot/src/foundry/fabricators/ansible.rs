@@ -1,8 +1,7 @@
 use crate::foundry::Foundry;
 use crate::{cli::prompt::Prompt, foundry::ssh::SshConnection};
-use anyhow::bail;
 use anyhow::Result;
-use dialoguer::theme::Theme;
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 use tracing::info;
@@ -59,13 +58,13 @@ impl Fabricate for Ansible {
 }
 
 impl Prompt for Ansible {
-    fn prompt(&mut self, _: &Foundry, theme: Box<dyn Theme>) -> Result<()> {
-        self.playbook = dialoguer::Input::with_theme(&*theme)
+    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+        self.playbook = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;
 
         if !Path::new(&self.playbook).exists() {
-            if !dialoguer::Confirm::with_theme(&*theme)
+            if !dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme())
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
             {

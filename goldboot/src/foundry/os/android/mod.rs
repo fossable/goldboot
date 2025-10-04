@@ -1,16 +1,16 @@
 use super::{CastImage, DefaultSource};
 use crate::cli::prompt::Prompt;
+use crate::foundry::Foundry;
 use crate::foundry::options::hostname::Hostname;
 use crate::foundry::options::unix_account::RootPassword;
 use crate::foundry::qemu::QemuBuilder;
-use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
-    foundry::{sources::ImageSource, FoundryWorker},
+    foundry::{FoundryWorker, sources::ImageSource},
     wait_screen_rect,
 };
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use dialoguer::theme::Theme;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
@@ -18,19 +18,12 @@ use tracing::{debug, info};
 use validator::Validate;
 
 /// Produces an AOSP image.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct Android {}
 
 impl Default for Android {
     fn default() -> Self {
         Self {}
-    }
-}
-
-// TODO proc macro
-impl Prompt for Android {
-    fn prompt(&mut self, _foundry: &Foundry, _theme: Box<dyn Theme>) -> Result<()> {
-        todo!()
     }
 }
 
