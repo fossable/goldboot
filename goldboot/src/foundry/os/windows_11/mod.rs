@@ -12,15 +12,15 @@ use crate::{
     cli::prompt::Prompt,
     enter,
     foundry::{
+        Foundry, FoundryWorker,
         options::hostname::Hostname,
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
-        Foundry, FoundryWorker,
     },
     wait,
 };
 
-use super::{CastImage, DefaultSource};
+use super::{BuildImage, DefaultSource};
 
 /// Windows 11 is a major release of Microsoft's Windows NT operating system.
 ///
@@ -53,8 +53,8 @@ impl DefaultSource for Windows11 {
     }
 }
 
-impl CastImage for Windows11 {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+impl BuildImage for Windows11 {
+    fn build(&self, worker: &FoundryWorker) -> Result<()> {
         let unattended = UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
             settings: vec![

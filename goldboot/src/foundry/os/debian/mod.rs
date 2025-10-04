@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
@@ -9,16 +9,16 @@ use crate::{
     cli::prompt::Prompt,
     enter,
     foundry::{
+        Foundry, FoundryWorker,
         http::HttpServer,
         options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
-        Foundry, FoundryWorker,
     },
     input, wait, wait_screen, wait_screen_rect,
 };
 
-use super::{CastImage, DefaultSource};
+use super::{BuildImage, DefaultSource};
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub enum DebianEdition {
@@ -102,8 +102,8 @@ impl DefaultSource for Debian {
     }
 }
 
-impl CastImage for Debian {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+impl BuildImage for Debian {
+    fn build(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
             .source(&worker.element.source)?

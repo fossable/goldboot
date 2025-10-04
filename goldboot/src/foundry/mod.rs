@@ -1,13 +1,13 @@
-use self::qemu::{detect_accel, Accel};
+use self::qemu::{Accel, detect_accel};
 use self::{fabricators::Fabricator, os::Os, sources::ImageSource};
-use crate::foundry::os::CastImage;
+use crate::foundry::os::BuildImage;
 use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 
 use anyhow::Result;
 use byte_unit::Byte;
-use clap::{builder::PossibleValue, ValueEnum};
+use clap::{ValueEnum, builder::PossibleValue};
 use goldboot_image::ImageBuilder;
-use goldboot_image::{qcow::Qcow3, ImageArch, ImageHandle};
+use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
 use rand::Rng;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -240,7 +240,7 @@ impl Foundry {
     }
 }
 
-/// Manages the image casting process. Multiple workers can run in parallel
+/// Manages the image build process. Multiple workers can run in parallel
 /// to speed up multiboot configurations.
 pub struct FoundryWorker {
     pub arch: ImageArch,
@@ -277,12 +277,12 @@ pub struct FoundryWorker {
 }
 
 impl FoundryWorker {
-    /// Run the image casting/building process.
+    /// Run the image building process.
     pub fn run(&mut self) -> Result<()> {
         self.start_time = Some(SystemTime::now());
         Qcow3::create(&self.qcow_path, self.qcow_size)?;
 
-        self.element.os.cast(&self)?;
+        self.element.os.build(&self)?;
         info!(
             duration = ?self.start_time.unwrap().elapsed()?,
             "Build completed",

@@ -18,7 +18,7 @@ use crate::{
     wait, wait_screen_rect,
 };
 
-use super::{CastImage, DefaultSource};
+use super::{BuildImage, DefaultSource};
 
 /// NixOS is a free and open source Linux distribution based on the Nix package
 /// manager. NixOS uses an immutable design and an atomic update model. Its use
@@ -64,8 +64,8 @@ impl Prompt for Nix {
     }
 }
 
-impl CastImage for Nix {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+impl BuildImage for Nix {
+    fn build(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             // Add Nix config

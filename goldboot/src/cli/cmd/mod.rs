@@ -1,6 +1,6 @@
-use crate::foundry::{os::Os, FoundryConfigPath};
+use crate::foundry::{FoundryConfigPath, os::Os};
 
-pub mod cast;
+pub mod build;
 pub mod deploy;
 pub mod image;
 pub mod init;
@@ -9,8 +9,8 @@ pub mod registry;
 
 #[derive(clap::Subcommand, Debug)]
 pub enum Commands {
-    /// Cast (build) a new image
-    Cast {
+    /// Build a new image
+    Build {
         /// Save a screenshot to ./screenshots after each boot command for
         /// debugging
         #[clap(long, num_args = 0)]

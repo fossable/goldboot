@@ -76,13 +76,13 @@ built = { version = "0.8.0", features = [
 ] }
 
 [features]
-default = ["cast", "include_ovmf"]
+default = ["build", "include_ovmf"]
 
 # Support for registry server
 registry = []
 
-# Support for casting images
-cast = [
+# Support for building images
+build = [
   "dep:fatfs",
   "dep:fscommon",
   "dep:png",

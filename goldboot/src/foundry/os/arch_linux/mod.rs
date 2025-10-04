@@ -1,6 +1,7 @@
-use super::{CastImage, DefaultSource};
+use super::{BuildImage, DefaultSource};
 use crate::cli::prompt::Prompt;
 use crate::cli::prompt::PromptNew;
+use crate::foundry::Foundry;
 use crate::foundry::fabricators::Fabricate;
 use crate::foundry::http::HttpServer;
 use crate::foundry::options::hostname::Hostname;
@@ -8,14 +9,13 @@ use crate::foundry::options::unix_account::RootPassword;
 use crate::foundry::os::arch_linux::archinstall::ArchinstallConfig;
 use crate::foundry::os::arch_linux::archinstall::ArchinstallCredentials;
 use crate::foundry::qemu::{OsCategory, QemuBuilder};
-use crate::foundry::Foundry;
 use crate::wait;
 use crate::{
-    foundry::{sources::ImageSource, FoundryWorker},
+    foundry::{FoundryWorker, sources::ImageSource},
     wait_screen_rect,
 };
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
@@ -55,8 +55,8 @@ impl DefaultSource for ArchLinux {
     }
 }
 
-impl CastImage for ArchLinux {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+impl BuildImage for ArchLinux {
+    fn build(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             .prepare_ssh()?

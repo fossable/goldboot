@@ -5,7 +5,7 @@ use validator::Validate;
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
-        super::Commands::Cast {
+        super::Commands::Build {
             record,
             debug,
             read_password,
@@ -57,7 +57,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // Run the build finally
             match foundry.run(output) {
                 Err(err) => {
-                    error!(error = ?err, "Failed to cast image");
+                    error!(error = ?err, "Failed to build image");
                     ExitCode::FAILURE
                 }
                 _ => ExitCode::SUCCESS,

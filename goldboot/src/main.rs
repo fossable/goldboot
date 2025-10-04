@@ -34,7 +34,7 @@ pub fn main() -> ExitCode {
     // Configure logging
     {
         let default_filter = match &command_line.command {
-            Some(Commands::Cast {
+            Some(Commands::Build {
                 record: _,
                 debug,
                 read_password: _,
@@ -59,7 +59,9 @@ pub fn main() -> ExitCode {
     // Dispatch command
     match &command_line.command {
         Some(Commands::Init { .. }) => goldboot::cli::cmd::init::run(command_line.command.unwrap()),
-        Some(Commands::Cast { .. }) => goldboot::cli::cmd::cast::run(command_line.command.unwrap()),
+        Some(Commands::Build { .. }) => {
+            goldboot::cli::cmd::build::run(command_line.command.unwrap())
+        }
         Some(Commands::Image { .. }) => {
             goldboot::cli::cmd::image::run(command_line.command.unwrap())
         }

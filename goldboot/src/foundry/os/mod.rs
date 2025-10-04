@@ -27,12 +27,12 @@ pub mod nix;
 pub mod windows_10;
 pub mod windows_11;
 
-/// "Casting" is the process of generating an immutable goldboot image from raw
+/// "Building" is the process of generating an immutable goldboot image from raw
 /// configuration data.
 #[enum_dispatch(Os)]
-pub trait CastImage {
-    /// Cast an image.
-    fn cast(&self, context: &FoundryWorker) -> Result<()>;
+pub trait BuildImage {
+    /// Build an image.
+    fn build(&self, context: &FoundryWorker) -> Result<()>;
 }
 
 #[enum_dispatch(Os)]

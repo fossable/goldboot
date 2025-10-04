@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use dialoguer::theme::Theme;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
@@ -14,18 +14,18 @@ use crate::{
     cli::prompt::Prompt,
     enter,
     foundry::{
+        Foundry, FoundryWorker,
         http::HttpServer,
         options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
-        Foundry, FoundryWorker,
     },
     input, wait, wait_screen, wait_screen_rect,
 };
 
 use super::{
-    debian::{fetch_debian_iso, DebianEdition},
-    CastImage, DefaultSource,
+    BuildImage, DefaultSource,
+    debian::{DebianEdition, fetch_debian_iso},
 };
 
 /// Goldboot Linux is a special-purpose distribution for deploying .gb images.
@@ -58,8 +58,8 @@ impl DefaultSource for Goldboot {
     }
 }
 
-impl CastImage for Goldboot {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+impl BuildImage for Goldboot {
+    fn build(&self, worker: &FoundryWorker) -> Result<()> {
         // Load goldboot executable
         let exe = if let Some(path) = self.executable.as_ref() {
             std::fs::read(path)?

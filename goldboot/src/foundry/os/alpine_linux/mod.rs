@@ -10,15 +10,15 @@ use crate::{
     cli::prompt::{Prompt, PromptNew},
     enter,
     foundry::{
+        Foundry, FoundryWorker,
         options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
-        Foundry, FoundryWorker,
     },
     wait, wait_screen_rect,
 };
 
-use super::{CastImage, DefaultSource};
+use super::{BuildImage, DefaultSource};
 
 /// Produces [Alpine Linux](https://www.alpinelinux.org) images.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
@@ -47,8 +47,8 @@ impl Prompt for AlpineLinux {
     }
 }
 
-impl CastImage for AlpineLinux {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+impl BuildImage for AlpineLinux {
+    fn build(&self, worker: &FoundryWorker) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             .prepare_ssh()?

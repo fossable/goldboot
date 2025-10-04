@@ -13,7 +13,7 @@ pub mod exe;
 pub mod shell;
 
 /// A `Fabricator` performs some custom operation on an image at the very end of
-/// the casting process.
+/// the build process.
 #[enum_dispatch(Fabricator)]
 pub trait Fabricate {
     fn run(&self, ssh: &mut SshConnection) -> Result<()>;
