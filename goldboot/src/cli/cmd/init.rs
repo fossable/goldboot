@@ -1,16 +1,18 @@
 use clap::ValueEnum;
 use console::Style;
-use dialoguer::Password;
-use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use dialoguer::{Confirm, Input, Password, Select, theme::ColorfulTheme};
 use goldboot_image::ImageArch;
 use std::process::ExitCode;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
 
-use crate::cli::prompt::Prompt;
-use crate::foundry::os::DefaultSource;
-use crate::foundry::ImageElement;
-use crate::foundry::{os::Os, Foundry, FoundryConfigPath};
+use crate::{
+    cli::prompt::Prompt,
+    foundry::{
+        Foundry, FoundryConfigPath, ImageElement,
+        os::{DefaultSource, Os},
+    },
+};
 
 fn print_banner() {
     if console::colors_enabled() {
@@ -88,7 +90,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     let choice_index = Select::with_theme(&theme)
                         .with_prompt("Config format?")
                         .default(0)
-                        .items(&formats)
+                        .items(formats.iter())
                         .interact()
                         .unwrap();
                     config_path = formats[choice_index].clone();

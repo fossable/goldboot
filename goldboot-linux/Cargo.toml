@@ -11,15 +11,15 @@ version = "0.0.3"
 
 [dependencies]
 block-utils = { version = "0.11.1" }
-built = { version = "0.7", features = ["chrono", "semver"] }
+built = { version = "0.8.0", features = ["chrono", "semver"] }
 clap = { version = "4.4.7", features = ["derive", "string"] }
-gdk4 = { version = "0.9.6" }
-gdk-pixbuf = { version = "0.20.9" }
-glib-macros = { version = "0.20.7" }
-glib = { version = "0.20.9" }
+gdk4 = { version = "0.10.1" }
+gdk-pixbuf = { version = "0.21.2" }
+glib-macros = { version = "0.21.2" }
+glib = { version = "0.21.3" }
 goldboot-image = { path = "../goldboot-image", version = "0.0.5" }
 goldboot = { path = "../goldboot", version = "0.0.10" }
-gtk4 = { version = "0.9.6", features = ["v4_12"] }
+gtk4 = { version = "0.10.1", features = ["v4_12"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ubyte = "0.10.4"
