@@ -31,18 +31,17 @@ goldboot-macros = { path = "../goldboot-macros", version = "0.0.3" }
 hex = { workspace = true }
 indicatif = "0.18.0"
 png = { version = "0.18.0", optional = true }
-# cross environments need to be updated with python
-# pyo3 = { version = "0.21.2", features = ["extension-module"] }
+pyo3 = { version = "0.26.0", features = ["anyhow"], optional = true }
 quick-xml = { version = "0.38.3", features = ["serialize"] }
 rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["stream", "blocking", "json"] }
-ron = "0.11.0"
+ron = { version = "0.11.0", optional = true }
 rustls = { version = "0.23.23" }
-serde_json = "1.0.108"
+serde_json = { version = "1.0.108", optional = true }
 serde = { workspace = true }
 serde_win_unattend = { version = "0.3.3", optional = true }
-serde_yaml = "0.9.27"
+serde_yaml = { version = "0.9.27", optional = true }
 sha1 = "0.10.6"
 sha2 = { workspace = true }
 # TODO russh
@@ -52,7 +51,7 @@ strum = { workspace = true }
 tar = "0.4.40"
 tempfile = "3.10.0"
 tokio = { version = "1.36.0", features = ["full"] }
-toml = "0.9.7"
+toml = { version = "0.9.7", optional = true }
 tower-http = { version = "0.6.6", features = ["fs", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
@@ -76,7 +75,14 @@ built = { version = "0.8.0", features = [
 ] }
 
 [features]
-default = ["build", "include_ovmf"]
+default = [
+  "build",
+  "include_ovmf",
+  "config-json",
+  "config-yaml",
+  "config-ron",
+  "config-toml",
+]
 
 # Support for registry server
 registry = []
@@ -93,3 +99,10 @@ build = [
 
 # Bundled OVMF firmware
 include_ovmf = []
+
+# Configuration formats
+config-json = ["dep:serde_json"]
+config-yaml = ["dep:serde_yaml"]
+config-ron = ["dep:ron"]
+config-toml = ["dep:toml"]
+config-python = ["dep:pyo3"]

@@ -8,8 +8,9 @@ use tracing::{error, info};
 
 use crate::{
     cli::prompt::Prompt,
+    config::ConfigPath,
     foundry::{
-        Foundry, FoundryConfigPath, ImageElement,
+        Foundry, ImageElement,
         os::{DefaultSource, Os},
     },
 };
@@ -43,7 +44,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             size,
             mimic_hardware: _,
         } => {
-            let mut config_path = FoundryConfigPath::from_dir(".").unwrap_or(format);
+            let mut config_path = ConfigPath::from_dir(".").unwrap_or(format);
 
             // Build a new default config that we'll override
             let mut foundry = Foundry::default();
@@ -91,7 +92,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
 
                 // Prompt config format
                 {
-                    let formats: &[FoundryConfigPath] = FoundryConfigPath::value_variants();
+                    let formats: &[ConfigPath] = ConfigPath::value_variants();
                     let choice_index = Select::with_theme(&theme)
                         .with_prompt("Config format?")
                         .default(0)

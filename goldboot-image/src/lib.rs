@@ -2,7 +2,7 @@
 
 use crate::qcow::Qcow3;
 use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::Aead};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use binrw::{BinRead, BinReaderExt, BinWrite};
 use rand::Rng;
 use regex::Regex;
@@ -12,7 +12,7 @@ use std::{
     ffi::CStr,
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+    path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
 use strum::{Display, EnumIter};
@@ -85,7 +85,6 @@ impl TryFrom<String> for ImageArch {
 /// |---------------------|-------------------|
 /// | Primary Header      | None              |
 /// | Protected Header    | Password + SHA256 |
-/// | Image Config        | Password + SHA256 |
 /// | Cluster Table       | Cluster Key       |
 /// | Digest Table        | Password + SHA256 |
 /// | Directory           | Password + SHA256 |
@@ -102,9 +101,6 @@ pub struct ImageHandle {
 
     /// The secondary header
     pub protected_header: Option<ProtectedHeader>,
-
-    /// The encoded config used to build the image
-    pub config: Option<Vec<u8>>,
 
     /// The digest table
     pub digest_table: Option<DigestTable>,
@@ -129,7 +125,7 @@ pub enum ClusterCompressionType {
     /// Clusters will not be compressed
     None = 0,
 
-    /// Clusters will be compressed with Zstandard
+    /// Clusters will be compressed with Z standard
     Zstd = 1,
 }
 
@@ -137,22 +133,64 @@ pub enum ClusterCompressionType {
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(repr(u8))]
 pub enum ClusterEncryptionType {
-    /// Clusters will not be encrypted
+    /// Clusters are not encrypted
     None = 0,
 
-    /// Clusters will be encrypted with AES256 GCM after compression
+    /// Clusters are encrypted with AES256 GCM after compression
     Aes256 = 1,
 }
 
-/// The header encryption algorithm.
+/// Algorithm used to encrypt the header.
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(repr(u8))]
 pub enum HeaderEncryptionType {
-    /// The header will not be encrypted
+    /// Header is not encrypted
     None = 0,
 
-    /// The header will be encrypted with AES256 GCM
+    /// Header is encrypted with AES256 GCM
     Aes256 = 1,
+}
+
+/// Metadata about an image element.
+#[derive(BinRead, BinWrite, Debug, Eq, PartialEq)]
+#[brw(big)]
+pub struct ImageElement {
+    /// Length of the os field in bytes
+    pub os_length: u8,
+
+    /// Element OS type
+    #[br(count = os_length)]
+    pub os: Vec<u8>,
+
+    /// Length of the name field in bytes
+    pub name_length: u8,
+
+    /// Element name
+    #[br(count = name_length)]
+    pub name: Vec<u8>,
+}
+
+impl ImageElement {
+    pub fn name(&self) -> String {
+        unsafe { CStr::from_ptr(self.name.as_ptr() as *const std::ffi::c_char) }
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    pub fn os(&self) -> String {
+        unsafe { CStr::from_ptr(self.os.as_ptr() as *const std::ffi::c_char) }
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    pub fn new(os: &str, name: &str) -> Result<ImageElement> {
+        Ok(ImageElement {
+            os_length: u8::try_from(os.len()).context("OS string too long")?,
+            os: os.as_bytes().to_vec(),
+            name_length: u8::try_from(name.len()).context("Name string too long")?,
+            name: name.as_bytes().to_vec(),
+        })
+    }
 }
 
 /// Contains metadata which is always plaintext. Anything potentially useful to
@@ -161,11 +199,11 @@ pub enum HeaderEncryptionType {
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq)]
 #[brw(magic = b"\xc0\x1d\xb0\x01", big)]
 pub struct PrimaryHeader {
-    /// The format version
+    /// Format version
     #[br(assert(version == 1))]
     pub version: u8,
 
-    /// The total size of all blocks combined in bytes
+    /// Total size of all blocks combined in bytes
     pub size: u64,
 
     /// Image creation time
@@ -174,8 +212,11 @@ pub struct PrimaryHeader {
     /// The encryption type for metadata
     pub encryption_type: HeaderEncryptionType,
 
-    /// A copy of the name field from the config
-    pub name: [u8; 64],
+    /// Number of elements in this image
+    pub element_count: u8,
+
+    #[br(count = element_count)]
+    pub elements: Vec<ImageElement>,
 
     /// System architecture
     pub arch: ImageArch,
@@ -188,24 +229,6 @@ pub struct PrimaryHeader {
 
     /// The size of the directory in bytes
     pub directory_size: u32,
-
-    /// Whether the image is public
-    pub public: u8,
-
-    /// Extra space for the future
-    pub reserved: [u8; 64],
-}
-
-impl PrimaryHeader {
-    pub fn name(&self) -> String {
-        unsafe { CStr::from_ptr(self.name.as_ptr() as *const std::ffi::c_char) }
-            .to_string_lossy()
-            .into_owned()
-    }
-
-    pub fn is_public(&self) -> bool {
-        return self.public == 1u8;
-    }
 }
 
 /// Contains metadata which may be encrypted.
@@ -243,15 +266,6 @@ pub struct Directory {
 
     /// The size of the protected header in bytes
     pub protected_size: u32,
-
-    /// The nonce value used to encrypt the config
-    pub config_nonce: [u8; 12],
-
-    /// The byte offset of the config
-    pub config_offset: u64,
-
-    /// The size of the config in bytes
-    pub config_size: u32,
 
     /// The nonce value used to encrypt the digest table
     pub digest_table_nonce: [u8; 12],
@@ -293,10 +307,10 @@ pub struct DigestTableEntry {
 #[derive(BinRead, BinWrite, Debug)]
 #[brw(big)]
 pub struct Cluster {
-    /// The size of the cluster in bytes
+    /// Size of the cluster in bytes
     pub size: u32,
 
-    /// The cluster data which might be compressed and encrypted
+    /// Cluster data (might be compressed and encrypted)
     #[br(count = size)]
     pub data: Vec<u8>,
 }
@@ -359,19 +373,6 @@ impl ImageHandle {
             }
         };
 
-        // Load config
-        file.seek(SeekFrom::Start(directory.config_offset))?;
-        let mut config_bytes = vec![0u8; directory.config_size as usize];
-        file.read_exact(&mut config_bytes)?;
-
-        self.config = match self.primary_header.encryption_type {
-            HeaderEncryptionType::None => Some(config_bytes),
-            HeaderEncryptionType::Aes256 => Some(cipher.decrypt(
-                Nonce::from_slice(&directory.config_nonce),
-                config_bytes.as_ref(),
-            )?),
-        };
-
         // Load the digest table
         file.seek(SeekFrom::Start(directory.digest_table_offset))?;
         let digest_table: DigestTable = match self.primary_header.encryption_type {
@@ -425,16 +426,10 @@ impl ImageHandle {
             file.seek(SeekFrom::Start(primary_header.directory_offset))?;
             let directory: Directory = file.read_be()?;
 
-            // Read config
-            let mut config = vec![0u8; directory.config_size as usize];
-            file.seek(SeekFrom::Start(directory.config_offset))?;
-            file.read_exact(&mut config)?;
-
             Ok(Self {
                 id,
                 primary_header,
                 protected_header: Some(protected_header),
-                config: Some(config),
                 digest_table: None,
                 directory: Some(directory),
                 path: path.to_path_buf(),
@@ -445,7 +440,6 @@ impl ImageHandle {
                 id,
                 primary_header,
                 protected_header: None,
-                config: None,
                 digest_table: None,
                 directory: None,
                 path: path.to_path_buf(),
@@ -563,87 +557,28 @@ impl ImageHandle {
 
         Ok(())
     }
-}
-
-pub struct ImageBuilder {
-    name: String,
-    config: Vec<u8>,
-    password: Option<String>,
-    public: bool,
-    dest: PathBuf,
-    progress: Box<dyn Fn(u64, u64) -> ()>,
-}
-
-impl ImageBuilder {
-    pub fn new(dest: impl AsRef<Path>) -> Self {
-        Self {
-            name: "".into(),
-            config: Vec::new(),
-            password: None,
-            public: false,
-            dest: dest.as_ref().to_path_buf(),
-            progress: Box::new(|_, _| {}),
-        }
-    }
-
-    pub fn name(mut self, name: &str) -> Self {
-        self.name = name.to_string();
-        self
-    }
-
-    pub fn config(mut self, config: Vec<u8>) -> Self {
-        self.config = config;
-        self
-    }
-
-    pub fn public(mut self, public: bool) -> Self {
-        self.public = public;
-        self
-    }
-
-    pub fn password(mut self, password: &str) -> Self {
-        self.password = Some(password.to_string());
-        self
-    }
-
-    pub fn password_opt(mut self, password: Option<String>) -> Self {
-        self.password = password;
-        self
-    }
-
-    pub fn progress<'a, F>(&'a mut self, progress: F) -> &'a mut Self
-    where
-        F: Fn(u64, u64) + 'static,
-    {
-        self.progress = Box::new(progress);
-        self
-    }
 
     /// Convert a qcow image into a goldboot image.
-    pub fn convert(self, source: &Qcow3, size: u64) -> Result<ImageHandle> {
-        info!(name = self.name, "Exporting storage to goldboot image");
+    pub fn from_qcow<F: Fn(u64, u64) -> ()>(
+        metadata: Vec<ImageElement>,
+        source: &Qcow3,
+        dest: impl AsRef<Path>,
+        password: Option<String>,
+        progress: F,
+    ) -> Result<ImageHandle> {
+        info!("Converting qcow image to goldboot image");
 
-        assert!(
-            source.header.size >= size,
-            "source.header.size = {}, size = {}",
-            source.header.size,
-            size
-        );
-
-        let mut dest_file = File::create(&self.dest)?;
+        let mut dest_file = File::create(&dest)?;
         let mut source_file = File::open(&source.path)?;
 
         // Prepare cipher and RNG if the image header should be encrypted
-        let header_cipher = new_key(self.password.clone().unwrap_or("".to_string()));
+        let header_cipher = new_key(password.clone().unwrap_or("".to_string()));
         let mut rng = rand::rng();
 
         // Prepare directory
         let mut directory = Directory {
             protected_nonce: rng.random::<[u8; 12]>(),
             protected_size: 0,
-            config_nonce: rng.random::<[u8; 12]>(),
-            config_offset: 0,
-            config_size: 0,
             digest_table_nonce: rng.random::<[u8; 12]>(),
             digest_table_offset: 0,
             digest_table_size: 0,
@@ -652,30 +587,27 @@ impl ImageBuilder {
         // Prepare primary header
         let mut primary_header = PrimaryHeader {
             version: 1,
-            arch: ImageArch::Amd64, // TODO
-            size,
+            arch: ImageArch::Amd64,   // TODO
+            size: source.header.size, // TODO this is aligned to the cluster size?
             directory_nonce: rng.random::<[u8; 12]>(),
             directory_offset: 0,
             directory_size: 0,
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            encryption_type: if self.password.is_some() {
+            encryption_type: if password.is_some() {
                 HeaderEncryptionType::Aes256
             } else {
                 HeaderEncryptionType::None
             },
-            public: if self.public { 1u8 } else { 0u8 },
-            name: [0u8; 64],
-            reserved: [0u8; 64],
+            element_count: u8::try_from(metadata.len()).context("Too many elements")?,
+            elements: metadata,
         };
-
-        primary_header.name[0..self.name.len()].copy_from_slice(&self.name.clone().as_bytes()[..]);
 
         // Prepare protected header
         let mut protected_header = ProtectedHeader {
             block_size: source.header.cluster_size() as u32,
             cluster_count: source.count_clusters()? as u32,
             cluster_compression: ClusterCompressionType::None, // TODO
-            cluster_encryption: if self.password.is_some() {
+            cluster_encryption: if password.is_some() {
                 ClusterEncryptionType::Aes256
             } else {
                 ClusterEncryptionType::None
@@ -685,7 +617,7 @@ impl ImageBuilder {
             nonce_table: vec![],
         };
 
-        if self.password.is_some() {
+        if password.is_some() {
             protected_header.nonce_count = protected_header.cluster_count;
             protected_header.nonce_table = (0..protected_header.cluster_count)
                 .map(|_| rng.random::<[u8; 12]>())
@@ -716,21 +648,6 @@ impl ImageBuilder {
 
             directory.protected_size = protected_header_bytes.len() as u32;
             dest_file.write_all(&protected_header_bytes)?;
-        }
-
-        // Write config
-        {
-            let config_bytes = match primary_header.encryption_type {
-                HeaderEncryptionType::None => self.config.clone(),
-                HeaderEncryptionType::Aes256 => header_cipher.encrypt(
-                    Nonce::from_slice(&directory.config_nonce),
-                    self.config.as_ref(),
-                )?,
-            };
-
-            directory.config_offset = dest_file.stream_position()?;
-            directory.config_size = config_bytes.len() as u32;
-            dest_file.write_all(&config_bytes)?;
         }
 
         // Prepare the digest table
@@ -811,17 +728,15 @@ impl ImageBuilder {
                         cluster_count += 1;
                     }
                     block_offset += source.header.cluster_size();
-                    // self.progress(source.header.cluster_size(),
-                    // source.header.size);
+                    progress(source.header.cluster_size(), source.header.size);
                 }
             } else {
                 block_offset +=
                     source.header.cluster_size() * source.header.l2_entries_per_cluster();
-                // self.progress(
-                //     source.header.cluster_size() *
-                // source.header.l2_entries_per_cluster(),
-                //     source.header.size,
-                // );
+                progress(
+                    source.header.cluster_size() * source.header.l2_entries_per_cluster(),
+                    source.header.size,
+                );
             }
         }
 
@@ -866,14 +781,13 @@ impl ImageBuilder {
         primary_header.write(&mut dest_file)?;
 
         Ok(ImageHandle {
-            id: compute_id(&self.dest)?,
+            id: compute_id(&dest)?,
             primary_header,
             protected_header: Some(protected_header),
-            config: Some(self.config),
             digest_table: Some(digest_table),
             directory: Some(directory),
-            file_size: std::fs::metadata(&self.dest)?.len(),
-            path: self.dest,
+            file_size: std::fs::metadata(&dest)?.len(),
+            path: dest.as_ref().to_path_buf(),
         })
     }
 }
@@ -889,7 +803,7 @@ mod tests {
     #[test]
     fn convert_random_data() -> Result<()> {
         let tmp = tempfile::tempdir()?;
-        let rng = rand::rng();
+        let mut rng = rand::rng();
 
         // Generate file of random size and contents
         let size = rng.gen_range(512..=1000);
@@ -914,8 +828,13 @@ mod tests {
             .wait()?;
 
         // Convert the qcow2 to gb
-        let image = ImageBuilder::new(tmp.path().join("file.gb"))
-            .convert(&Qcow3::open(tmp.path().join("file.qcow2"))?, size)?;
+        let image = ImageHandle::from_qcow(
+            Vec::new(),
+            &Qcow3::open(tmp.path().join("file.qcow2"))?,
+            tmp.path().join("file.gb"),
+            None,
+            |_, _| {},
+        )?;
 
         // Check raw content
         image.write(tmp.path().join("output.raw"), |_, _| {})?;
@@ -932,8 +851,13 @@ mod tests {
         let tmp = tempfile::tempdir()?;
 
         // Convert the test qcow2
-        let image = ImageBuilder::new(tmp.path().join("small.gb"))
-            .convert(&Qcow3::open("test/small.qcow2")?, 4194304)?;
+        let image = ImageHandle::from_qcow(
+            Vec::new(),
+            &Qcow3::open("test/small.qcow2")?,
+            tmp.path().join("small.gb"),
+            None,
+            |_, _| {},
+        )?;
 
         // Try to open the image we just converted
         let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
@@ -964,9 +888,13 @@ mod tests {
         let tmp = tempfile::tempdir()?;
 
         // Convert the test qcow2
-        let image = ImageBuilder::new(tmp.path().join("small.gb"))
-            .password("1234")
-            .convert(&Qcow3::open("test/small.qcow2")?, 4194304)?;
+        let image = ImageHandle::from_qcow(
+            Vec::new(),
+            &Qcow3::open("test/small.qcow2")?,
+            tmp.path().join("small.gb"),
+            Some("1234".to_string()),
+            |_, _| {},
+        )?;
 
         // Try to open the image
         let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;

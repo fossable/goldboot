@@ -308,7 +308,7 @@ impl VncConnection {
                             running_count += 1;
 
                             std::thread::sleep(Duration::from_millis(
-                                rand::thread_rng().gen_range(500..1000),
+                                rand::rng().random_range(500..1000),
                             ));
 
                             let screenshot = self.screenshot()?;

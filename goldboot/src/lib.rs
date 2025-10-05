@@ -3,6 +3,7 @@ use rand::Rng;
 use std::net::TcpListener;
 
 pub mod cli;
+pub mod config;
 pub mod foundry;
 pub mod library;
 pub mod registry;
@@ -14,10 +15,8 @@ pub mod built_info {
 
 /// Find a random open TCP port in the given range.
 pub fn find_open_port(lower: u16, upper: u16) -> u16 {
-    let mut rand = rand::thread_rng();
-
     loop {
-        let port = rand.gen_range(lower..upper);
+        let port = rand::rng().random_range(lower..upper);
         match TcpListener::bind(format!("0.0.0.0:{port}")) {
             Ok(_) => break port,
             Err(_) => continue,
@@ -30,7 +29,7 @@ pub fn random_password() -> String {
     // TODO check for a dictionary to generate something memorable
 
     // Fallback to random letters and numbers
-    rand::thread_rng()
+    rand::rng()
         .sample_iter(&rand::distr::Alphanumeric)
         .take(12)
         .map(char::from)

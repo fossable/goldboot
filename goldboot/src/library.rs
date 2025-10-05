@@ -36,7 +36,7 @@ impl ImageLibrary {
     }
 
     pub fn temporary(&self) -> PathBuf {
-        let name: String = rand::thread_rng()
+        let name: String = rand::rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)

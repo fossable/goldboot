@@ -266,7 +266,7 @@ pub struct QemuBuilder {
 
 impl QemuBuilder {
     pub fn new(worker: &FoundryWorker, os_category: OsCategory) -> Self {
-        let ssh_port = rand::thread_rng().gen_range(10000..11000);
+        let ssh_port = rand::rng().random_range(10000..11000);
         let ssh_private_key = crate::foundry::ssh::generate_key(worker.tmp.path()).unwrap();
         let ssh_host_key = crate::foundry::ssh::generate_key(worker.tmp.path()).unwrap();
 
@@ -363,7 +363,7 @@ impl QemuBuilder {
     /// Create a temporary FAT filesystem with the given contents and append it
     /// to the invocation.
     pub fn drive_files(mut self, files: HashMap<String, Vec<u8>>) -> Result<Self> {
-        let fs_name: String = rand::thread_rng()
+        let fs_name: String = rand::rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)
@@ -418,7 +418,7 @@ impl QemuBuilder {
     pub fn floppy_files(mut self, files: HashMap<String, Vec<u8>>) -> Result<Self> {
         const FLOPPY_SIZE: u64 = 1474560;
 
-        let fs_name: String = rand::thread_rng()
+        let fs_name: String = rand::rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)

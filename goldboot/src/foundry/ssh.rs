@@ -15,7 +15,7 @@ use super::qemu::OsCategory;
 
 /// Generate a new random SSH keypair
 pub fn generate_key(directory: &Path) -> Result<PathBuf> {
-    let key_name: String = rand::thread_rng()
+    let key_name: String = rand::rng()
         .sample_iter(&rand::distr::Alphanumeric)
         .take(12)
         .map(char::from)
@@ -23,7 +23,7 @@ pub fn generate_key(directory: &Path) -> Result<PathBuf> {
     let key_path = directory.join(key_name);
 
     // TODO waiting on ssh-key update for rand-core
-    let private_key = PrivateKey::random(&mut rand::thread_rng(), Algorithm::Ed25519)?;
+    let private_key = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519)?;
     std::fs::write(&key_path, private_key.to_openssh(LineEnding::LF)?)?;
     std::fs::write(
         &key_path.with_extension("pub"),
@@ -140,7 +140,7 @@ impl SshConnection {
     }
 
     pub fn upload_exec(&mut self, source: &[u8], env: Vec<(&str, &str)>) -> Result<i32> {
-        let id: String = rand::thread_rng()
+        let id: String = rand::rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)

@@ -77,4 +77,4 @@ fn is_option_type(ty: &syn::Type) -> bool {
     false
 }
 
-// TODO probably need a macro for ImageMold and Fabricator
+// TODO add pyclass

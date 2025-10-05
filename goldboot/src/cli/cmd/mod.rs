@@ -1,4 +1,5 @@
-use crate::foundry::{FoundryConfigPath, os::Os};
+use crate::config::ConfigPath;
+use crate::foundry::os::Os;
 
 pub mod build;
 pub mod deploy;
@@ -72,7 +73,7 @@ pub enum Commands {
         os: Vec<Os>,
 
         #[clap(long, default_value_t, value_enum)]
-        format: FoundryConfigPath,
+        format: ConfigPath,
 
         /// The total image size
         #[clap(long)]

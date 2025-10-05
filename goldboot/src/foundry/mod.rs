@@ -5,20 +5,14 @@ use crate::library::ImageLibrary;
 
 use anyhow::Result;
 use byte_unit::Byte;
-use clap::{ValueEnum, builder::PossibleValue};
-use goldboot_image::ImageBuilder;
-use goldboot_image::{ImageArch, qcow::Qcow3};
+use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
 use rand::Rng;
-use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt::Display,
     path::{Path, PathBuf},
-    sync::OnceLock,
     thread,
     time::SystemTime,
 };
-use strum::EnumIter;
 use tracing::info;
 use validator::Validate;
 
@@ -168,7 +162,7 @@ impl Foundry {
             vnc_port: if self.debug {
                 5900
             } else {
-                rand::thread_rng().gen_range(5900..5999)
+                rand::rng().random_range(5900..5999)
             },
             element,
         }
@@ -179,6 +173,8 @@ impl Foundry {
     pub fn run(&mut self, output: Option<String>) -> Result<()> {
         // Track the workers
         let mut workers = Vec::new();
+
+        // TODO always sequential
 
         // If we're in debug mode, run workers sequentially
         if self.debug {
@@ -221,16 +217,13 @@ impl Foundry {
             ImageLibrary::open().temporary()
         };
 
-        ImageBuilder::new(&path)
-            .name(&self.name)
-            .config(ron::ser::to_string_pretty(&self, PrettyConfig::new())?.into_bytes())
-            .public(self.public)
-            .password_opt(self.password.clone())
-            // .progress(ProgressBar::Convert.new_empty())
-            .convert(
-                &final_qcow,
-                Byte::parse_str(&self.size, true).unwrap().into(),
-            )?;
+        ImageHandle::from_qcow(
+            Vec::new(),
+            &final_qcow,
+            &path,
+            self.password.clone(),
+            |_, _| {},
+        )?;
 
         if let None = output {
             ImageLibrary::open().add_move(path.clone())?;
@@ -239,6 +232,8 @@ impl Foundry {
         Ok(())
     }
 }
+
+// TODO remove worker altogether?
 
 /// Manages the image build process. Multiple workers can run in parallel
 /// to speed up multiboot configurations.
@@ -290,111 +285,5 @@ impl FoundryWorker {
         self.end_time = Some(SystemTime::now());
 
         Ok(())
-    }
-}
-
-/// Represents a foundry configuration file. This mainly helps sort out the various
-/// supported config formats.
-#[derive(Clone, Debug, EnumIter)]
-pub enum FoundryConfigPath {
-    Json(PathBuf),
-    Python(PathBuf),
-    Ron(PathBuf),
-    Toml(PathBuf),
-    Yaml(PathBuf),
-}
-
-impl Default for FoundryConfigPath {
-    fn default() -> Self {
-        FoundryConfigPath::Json(PathBuf::from("./goldboot.json"))
-    }
-}
-
-static VARIANTS: OnceLock<Vec<FoundryConfigPath>> = OnceLock::new();
-
-impl ValueEnum for FoundryConfigPath {
-    fn value_variants<'a>() -> &'a [Self] {
-        VARIANTS.get_or_init(|| {
-            vec![
-                FoundryConfigPath::Json(PathBuf::from("./goldboot.json")),
-                FoundryConfigPath::Python(PathBuf::from("./goldboot.py")),
-                FoundryConfigPath::Ron(PathBuf::from("./goldboot.ron")),
-                FoundryConfigPath::Toml(PathBuf::from("./goldboot.toml")),
-                FoundryConfigPath::Yaml(PathBuf::from("./goldboot.yaml")),
-            ]
-        })
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        match *self {
-            FoundryConfigPath::Json(_) => Some(PossibleValue::new("json")),
-            FoundryConfigPath::Python(_) => Some(PossibleValue::new("python")),
-            FoundryConfigPath::Ron(_) => Some(PossibleValue::new("ron")),
-            FoundryConfigPath::Toml(_) => Some(PossibleValue::new("toml")),
-            FoundryConfigPath::Yaml(_) => Some(PossibleValue::new("yaml")),
-        }
-    }
-}
-
-impl FoundryConfigPath {
-    /// Check for a foundry configuration file in the given directory.
-    pub fn from_dir(path: impl AsRef<Path>) -> Option<FoundryConfigPath> {
-        let path = path.as_ref();
-
-        if path.join("goldboot.py").exists() {
-            Some(FoundryConfigPath::Python(path.join("goldboot.py")))
-        } else if path.join("goldboot.json").exists() {
-            Some(FoundryConfigPath::Json(path.join("goldboot.json")))
-        } else if path.join("goldboot.ron").exists() {
-            Some(FoundryConfigPath::Ron(path.join("goldboot.ron")))
-        } else if path.join("goldboot.toml").exists() {
-            Some(FoundryConfigPath::Toml(path.join("goldboot.toml")))
-        } else if path.join("goldboot.yaml").exists() {
-            Some(FoundryConfigPath::Yaml(path.join("goldboot.yaml")))
-        } else if path.join("goldboot.yml").exists() {
-            Some(FoundryConfigPath::Yaml(path.join("goldboot.yml")))
-        } else {
-            None
-        }
-    }
-
-    /// Read the configuration file into a new [`Foundry`].
-    pub fn load(&self) -> Result<Foundry> {
-        Ok(match &self {
-            Self::Json(path) => serde_json::from_slice(&std::fs::read(path)?)?,
-            Self::Python(_) => todo!(),
-            Self::Ron(path) => ron::de::from_bytes(&std::fs::read(path)?)?,
-            Self::Toml(path) => toml::from_str(String::from_utf8(std::fs::read(path)?)?.as_str())?,
-            Self::Yaml(path) => serde_yaml::from_slice(&std::fs::read(path)?)?,
-        })
-    }
-
-    /// Write a [`Foundry`] to a configuration file.
-    pub fn write(&self, foundry: &Foundry) -> Result<()> {
-        match &self {
-            Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(foundry)?),
-            Self::Python(_) => todo!(),
-            Self::Ron(path) => std::fs::write(
-                path,
-                ron::ser::to_string_pretty(foundry, PrettyConfig::new())?.into_bytes(),
-            ),
-            Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(foundry)?.into_bytes()),
-            Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(foundry)?.into_bytes()),
-        }?;
-        Ok(())
-    }
-}
-
-impl Display for FoundryConfigPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let path = match self {
-            FoundryConfigPath::Json(path) => path,
-            FoundryConfigPath::Python(path) => path,
-            FoundryConfigPath::Ron(path) => path,
-            FoundryConfigPath::Toml(path) => path,
-            FoundryConfigPath::Yaml(path) => path,
-        }
-        .to_string_lossy();
-        path.fmt(f)
     }
 }
