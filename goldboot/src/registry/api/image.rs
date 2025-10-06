@@ -24,7 +24,7 @@ impl From<ImageHandle> for ImageInfoResponse {
             version: value.primary_header.version,
             size: value.primary_header.size,
             timestamp: value.primary_header.timestamp,
-            name: value.primary_header.name(),
+            name: todo!(),
             arch: value.primary_header.arch,
         }
     }

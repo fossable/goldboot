@@ -231,6 +231,13 @@ pub struct PrimaryHeader {
     pub directory_size: u32,
 }
 
+impl PrimaryHeader {
+    pub fn name(&self) -> String {
+        let parts: Vec<String> = self.elements.iter().map(|element| element.name()).collect();
+        parts.join(" / ")
+    }
+}
+
 /// Contains metadata which may be encrypted.
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(big)]

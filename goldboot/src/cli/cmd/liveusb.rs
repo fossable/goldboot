@@ -3,7 +3,7 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use std::{path::Path, process::ExitCode};
 use tracing::error;
 
-use crate::{cli::progress::ProgressBar, library::ImageLibrary};
+use crate::{cli::progress::ProgressBar, builder::os::Os, library::ImageLibrary};
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
@@ -22,7 +22,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             }
 
             // Load from library or download
-            let mut image_handles = match ImageLibrary::find_by_name("Test") {
+            let mut image_handles = match ImageLibrary::find_by_os("Goldboot") {
                 Ok(image_handles) => image_handles,
                 Err(_) => return ExitCode::FAILURE,
             };

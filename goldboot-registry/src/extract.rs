@@ -18,11 +18,8 @@ impl FromRequest<RegistryState> for ImageHandle {
             Ok(value) => match value.get("image_id") {
                 Some(image_id) => match ImageLibrary::find_by_id(image_id) {
                     Ok(image_handle) => {
-                        if image_handle.primary_header.is_public() {
-                            Ok(ImageHandle(image_handle))
-                        } else {
-                            todo!()
-                        }
+                        // TODO access control
+                        Ok(ImageHandle(image_handle))
                     }
                     Err(_) => Err(StatusCode::NOT_FOUND),
                 },

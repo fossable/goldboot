@@ -17,7 +17,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 for image in images {
                     println!(
                         "{:15} {:12} {:31} {:12} {}",
-                        std::str::from_utf8(&image.primary_header.name).unwrap(),
+                        todo!(),
                         image.primary_header.size.bytes().to_string(),
                         chrono::Utc
                             .timestamp(image.primary_header.timestamp as i64, 0)

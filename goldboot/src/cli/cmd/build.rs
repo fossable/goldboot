@@ -1,5 +1,5 @@
 use crate::config::ConfigPath;
-use crate::foundry::Foundry;
+use crate::builder::Foundry;
 use std::process::ExitCode;
 use tracing::{debug, error};
 use validator::Validate;
@@ -26,11 +26,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // Load config from current directory
-            let mut foundry: Foundry = config_path.load().unwrap();
-            foundry.debug = debug;
-            foundry.record = record;
-            foundry.no_accel = no_accel;
-            debug!("Loaded: {:#?}", &foundry);
+            let mut builder: Foundry = config_path.load().unwrap();
+            builder.debug = debug;
+            builder.record = record;
+            builder.no_accel = no_accel;
+            debug!("Loaded: {:#?}", &builder);
 
             // Include the encryption password if provided
             if read_password {
@@ -47,7 +47,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             }
 
             // Fully verify config before proceeding
-            match foundry.validate() {
+            match builder.validate() {
                 Err(err) => {
                     error!(error = ?err, "Failed to validate config file");
                     return ExitCode::FAILURE;
@@ -56,7 +56,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // Run the build finally
-            match foundry.run(output) {
+            match builder.run(output) {
                 Err(err) => {
                     error!(error = ?err, "Failed to build image");
                     ExitCode::FAILURE

@@ -4,7 +4,7 @@ use std::net::TcpListener;
 
 pub mod cli;
 pub mod config;
-pub mod foundry;
+pub mod builder;
 pub mod library;
 pub mod registry;
 

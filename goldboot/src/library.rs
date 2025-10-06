@@ -1,4 +1,4 @@
-use crate::cli::progress::ProgressBar;
+use crate::{cli::progress::ProgressBar, builder::os::Os};
 use anyhow::{Result, anyhow, bail};
 use goldboot_image::ImageHandle;
 use rand::Rng;
@@ -123,11 +123,17 @@ impl ImageLibrary {
             .ok_or_else(|| anyhow!("Image not found"))?)
     }
 
-    /// Find images in the library by name.
-    pub fn find_by_name(image_name: &str) -> Result<Vec<ImageHandle>> {
+    /// Find images in the library that have the given OS.
+    pub fn find_by_os(os: &str) -> Result<Vec<ImageHandle>> {
         Ok(Self::find_all()?
             .into_iter()
-            .filter(|image| image.primary_header.name() == image_name)
+            .filter(|image| {
+                image
+                    .primary_header
+                    .elements
+                    .iter()
+                    .any(|element| element.os() == os)
+            })
             .collect())
     }
 

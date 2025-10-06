@@ -16,9 +16,9 @@ use std::{
 };
 use strum::EnumIter;
 
-use crate::foundry::Foundry;
+use crate::builder::Foundry;
 
-/// Represents a foundry configuration file. This mainly helps sort out the various
+/// Represents a builder configuration file. This mainly helps sort out the various
 /// supported config formats.
 #[derive(Clone, Debug, EnumIter)]
 pub enum ConfigPath {
@@ -77,7 +77,7 @@ impl ValueEnum for ConfigPath {
 }
 
 impl ConfigPath {
-    /// Check for a foundry configuration file in the given directory.
+    /// Check for a builder configuration file in the given directory.
     pub fn from_dir(path: impl AsRef<Path>) -> Option<ConfigPath> {
         let path = path.as_ref();
 
@@ -137,21 +137,21 @@ impl ConfigPath {
     }
 
     /// Write a [`Foundry`] to a configuration file.
-    pub fn write(&self, foundry: &Foundry) -> Result<()> {
+    pub fn write(&self, builder: &Foundry) -> Result<()> {
         match &self {
             #[cfg(feature = "config-json")]
-            Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(foundry)?),
+            Self::Json(path) => std::fs::write(path, serde_json::to_vec_pretty(builder)?),
             #[cfg(feature = "config-python")]
             Self::Python(_) => todo!(),
             #[cfg(feature = "config-ron")]
             Self::Ron(path) => std::fs::write(
                 path,
-                ron::ser::to_string_pretty(foundry, ron::ser::PrettyConfig::new())?.into_bytes(),
+                ron::ser::to_string_pretty(builder, ron::ser::PrettyConfig::new())?.into_bytes(),
             ),
             #[cfg(feature = "config-toml")]
-            Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(foundry)?.into_bytes()),
+            Self::Toml(path) => std::fs::write(path, toml::to_string_pretty(builder)?.into_bytes()),
             #[cfg(feature = "config-yaml")]
-            Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(foundry)?.into_bytes()),
+            Self::Yaml(path) => std::fs::write(path, serde_yaml::to_string(builder)?.into_bytes()),
         }?;
         Ok(())
     }

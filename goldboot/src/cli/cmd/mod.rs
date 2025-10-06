@@ -1,5 +1,5 @@
 use crate::config::ConfigPath;
-use crate::foundry::os::Os;
+use crate::builder::os::Os;
 
 pub mod build;
 pub mod deploy;

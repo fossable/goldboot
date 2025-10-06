@@ -9,7 +9,7 @@ use tracing::{error, info};
 use crate::{
     cli::prompt::Prompt,
     config::ConfigPath,
-    foundry::{
+    builder::{
         Foundry, ImageElement,
         os::{DefaultSource, Os},
     },
@@ -47,27 +47,27 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             let mut config_path = ConfigPath::from_dir(".").unwrap_or(format);
 
             // Build a new default config that we'll override
-            let mut foundry = Foundry::default();
+            let mut builder = Foundry::default();
 
             // Use size from command line if given
             if let Some(size) = size {
-                foundry.size = size;
+                builder.size = size;
             }
 
             if os.len() > 0 {
                 // If an OS was given, use the default
                 if let Some(name) = name {
-                    foundry.name = name;
+                    builder.name = name;
                 } else {
                     // Set name equal to directory name
                     if let Some(name) = std::env::current_dir().unwrap().file_name() {
-                        foundry.name = name.to_str().unwrap().to_string();
+                        builder.name = name.to_str().unwrap().to_string();
                     }
                 }
 
                 for m in os {
-                    if let Ok(source) = m.default_source(foundry.arch) {
-                        foundry.alloy.push(ImageElement {
+                    if let Ok(source) = m.default_source(builder.arch) {
+                        builder.alloy.push(ImageElement {
                             source,
                             os: m,
                             fabricators: None,
@@ -103,7 +103,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
 
                 // Prompt image name
-                foundry.name = Input::with_theme(&theme)
+                builder.name = Input::with_theme(&theme)
                     .with_prompt("Image name?")
                     .default(
                         std::env::current_dir()
@@ -123,7 +123,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     .interact()
                     .unwrap()
                 {
-                    foundry.password = Some(
+                    builder.password = Some(
                         Password::with_theme(&theme)
                             .with_prompt("Encryption passphrase?")
                             .interact()
@@ -141,15 +141,15 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         .interact()
                         .unwrap();
 
-                    foundry.arch = architectures[choice_index];
+                    builder.arch = architectures[choice_index];
                 }
 
                 // Prompt OS
                 loop {
                     // Find operating systems suitable for the architecture
                     let mut supported_os: Vec<Os> = Os::iter()
-                        .filter(|os| os.architectures().contains(&foundry.arch))
-                        .filter(|os| foundry.alloy.len() == 0 || os.alloy())
+                        .filter(|os| os.architectures().contains(&builder.arch))
+                        .filter(|os| builder.alloy.len() == 0 || os.alloy())
                         .collect();
 
                     let choice_index = Select::with_theme(&theme)
@@ -166,11 +166,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         .unwrap()
                     {
                         // TODO show some kind of banner
-                        os.prompt(&foundry).unwrap();
+                        os.prompt(&builder).unwrap();
                     }
 
-                    if let Ok(source) = os.default_source(foundry.arch) {
-                        foundry.alloy.push(ImageElement {
+                    if let Ok(source) = os.default_source(builder.arch) {
+                        builder.alloy.push(ImageElement {
                             source,
                             os: os.to_owned(),
                             fabricators: None,
@@ -191,7 +191,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
 
                 // Prompt size
-                foundry.size = Input::with_theme(&theme)
+                builder.size = Input::with_theme(&theme)
                     .with_prompt("Image size?")
                     .default("28GiB".to_string())
                     .interact()
@@ -199,7 +199,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             }
 
             // Finally write out the config
-            match config_path.write(&foundry) {
+            match config_path.write(&builder) {
                 Err(err) => {
                     error!(error = ?err, "Failed to write config file");
                     ExitCode::FAILURE
