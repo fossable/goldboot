@@ -2,23 +2,19 @@ use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::{
-    collections::HashMap,
-    io::BufRead,
-};
+use std::{collections::HashMap, io::BufRead};
 use tracing::debug;
 use validator::Validate;
 
 use crate::{
-    cli::prompt::Prompt,
-    enter,
     builder::{
-        Foundry, FoundryWorker,
+        Builder,
         http::HttpServer,
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    input, wait_screen, wait_screen_rect,
+    cli::prompt::Prompt,
+    enter, input, wait_screen, wait_screen_rect,
 };
 
 use super::{
@@ -45,7 +41,7 @@ impl Default for Goldboot {
 
 // TODO proc macro
 impl Prompt for Goldboot {
-    fn prompt(&mut self, _builder: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         todo!()
     }
 }
@@ -57,7 +53,7 @@ impl DefaultSource for Goldboot {
 }
 
 impl BuildImage for Goldboot {
-    fn build(&self, worker: &FoundryWorker) -> Result<()> {
+    fn build(&self, worker: &Builder) -> Result<()> {
         // Load goldboot executable
         let exe = if let Some(path) = self.executable.as_ref() {
             std::fs::read(path)?

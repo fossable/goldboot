@@ -1,11 +1,12 @@
 use super::sources::ImageSource;
+use crate::builder::Builder;
 use crate::cli::prompt::Prompt;
-use crate::builder::Foundry;
-use crate::builder::FoundryWorker;
 use anyhow::Result;
 use clap::ValueEnum;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
+#[cfg(feature = "config-python")]
+use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, sync::OnceLock};
 use strum::{EnumIter, IntoEnumIterator};
@@ -31,7 +32,7 @@ pub mod windows_11;
 #[enum_dispatch(Os)]
 pub trait BuildImage {
     /// Build an image.
-    fn build(&self, context: &FoundryWorker) -> Result<()>;
+    fn build(&self, builder: &Builder) -> Result<()>;
 }
 
 #[enum_dispatch(Os)]
@@ -39,10 +40,13 @@ pub trait DefaultSource {
     fn default_source(&self, arch: ImageArch) -> Result<ImageSource>;
 }
 
+// TODO Element?
+
 /// Represents a "base configuration" that users can modify and use to build
 /// images.
 #[enum_dispatch]
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
+// #[serde(tag = "os")] // TODO?
 pub enum Os {
     AlpineLinux,
     ArchLinux,
@@ -129,6 +133,14 @@ impl Default for Os {
     }
 }
 
+#[cfg(feature = "config-python")]
+impl<'py> FromPyObject<'py> for Os {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        pythonize::depythonize_bound(ob.clone())
+            .map_err(|e| pyo3::exceptions::PyTypeError::new_err(e.to_string()))
+    }
+}
+
 static VARIANTS: OnceLock<Vec<Os>> = OnceLock::new();
 
 impl ValueEnum for Os {
@@ -142,3 +154,9 @@ impl ValueEnum for Os {
         ))
     }
 }
+
+// impl From<Element> for ElementHeader {
+//     fn from(value: Element) -> ElementHeader {
+//         todo!()
+//     }
+// }

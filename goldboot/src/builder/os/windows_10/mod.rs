@@ -8,15 +8,14 @@ use tracing::debug;
 use validator::Validate;
 
 use crate::{
-    cli::prompt::Prompt,
-    enter,
     builder::{
-        Foundry, FoundryWorker,
+        Builder,
         options::hostname::Hostname,
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    wait,
+    cli::prompt::Prompt,
+    enter, wait,
 };
 
 use super::{BuildImage, DefaultSource};
@@ -37,7 +36,7 @@ pub struct Windows10 {
 
 // TODO proc macro
 impl Prompt for Windows10 {
-    fn prompt(&mut self, _builder: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         // Prompt for minimal install
         if dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme()).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
 
@@ -57,7 +56,7 @@ impl DefaultSource for Windows10 {
 }
 
 impl BuildImage for Windows10 {
-    fn build(&self, worker: &FoundryWorker) -> Result<()> {
+    fn build(&self, worker: &Builder) -> Result<()> {
         let unattended = UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
             settings: vec![

@@ -6,15 +6,14 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
 use crate::{
-    cli::prompt::Prompt,
-    enter,
     builder::{
-        Foundry, FoundryWorker,
+        Builder,
         options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    wait, wait_screen_rect,
+    cli::prompt::Prompt,
+    enter, wait, wait_screen_rect,
 };
 
 use super::{BuildImage, DefaultSource};
@@ -39,7 +38,7 @@ impl DefaultSource for AlpineLinux {
 }
 
 impl BuildImage for AlpineLinux {
-    fn build(&self, worker: &FoundryWorker) -> Result<()> {
+    fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             .prepare_ssh()?
@@ -102,7 +101,7 @@ pub enum AlpineEdition {
 }
 
 impl Prompt for AlpineEdition {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         let theme = crate::cli::cmd::init::theme();
         let editions: Vec<AlpineEdition> = AlpineEdition::iter().collect();
         let edition_index = dialoguer::Select::with_theme(&theme)
@@ -133,7 +132,7 @@ pub enum AlpineRelease {
 }
 
 impl Prompt for AlpineRelease {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         Ok(())
     }
 }

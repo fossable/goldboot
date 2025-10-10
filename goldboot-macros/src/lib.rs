@@ -44,12 +44,12 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
         if is_option_type(ty) {
             quote! {
                 if let Some(ref mut value) = self.#field {
-                    value.prompt(foundry)?;
+                    value.prompt(builder)?;
                 }
             }
         } else {
             quote! {
-                self.#field.prompt(foundry)?;
+                self.#field.prompt(builder)?;
             }
         }
     });
@@ -58,7 +58,7 @@ fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
         impl crate::cli::prompt::Prompt for #name {
             fn prompt(
                 &mut self,
-                foundry: &crate::foundry::Foundry,
+                builder: &crate::builder::Builder,
             ) -> anyhow::Result<()> {
                 #(#prompt_calls)*
                 Ok(())

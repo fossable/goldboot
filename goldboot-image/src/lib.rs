@@ -151,10 +151,10 @@ pub enum HeaderEncryptionType {
     Aes256 = 1,
 }
 
-/// Metadata about an image element.
+/// Metadata about an element within this image.
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq)]
 #[brw(big)]
-pub struct ImageElement {
+pub struct ElementHeader {
     /// Length of the os field in bytes
     pub os_length: u8,
 
@@ -170,7 +170,7 @@ pub struct ImageElement {
     pub name: Vec<u8>,
 }
 
-impl ImageElement {
+impl ElementHeader {
     pub fn name(&self) -> String {
         unsafe { CStr::from_ptr(self.name.as_ptr() as *const std::ffi::c_char) }
             .to_string_lossy()
@@ -183,8 +183,8 @@ impl ImageElement {
             .into_owned()
     }
 
-    pub fn new(os: &str, name: &str) -> Result<ImageElement> {
-        Ok(ImageElement {
+    pub fn new(os: &str, name: &str) -> Result<ElementHeader> {
+        Ok(ElementHeader {
             os_length: u8::try_from(os.len()).context("OS string too long")?,
             os: os.as_bytes().to_vec(),
             name_length: u8::try_from(name.len()).context("Name string too long")?,
@@ -216,7 +216,7 @@ pub struct PrimaryHeader {
     pub element_count: u8,
 
     #[br(count = element_count)]
-    pub elements: Vec<ImageElement>,
+    pub elements: Vec<ElementHeader>,
 
     /// System architecture
     pub arch: ImageArch,
@@ -567,7 +567,7 @@ impl ImageHandle {
 
     /// Convert a qcow image into a goldboot image.
     pub fn from_qcow<F: Fn(u64, u64) -> ()>(
-        metadata: Vec<ImageElement>,
+        metadata: Vec<ElementHeader>,
         source: &Qcow3,
         dest: impl AsRef<Path>,
         password: Option<String>,

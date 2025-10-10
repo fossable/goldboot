@@ -6,16 +6,15 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
 use crate::{
-    cli::prompt::Prompt,
-    enter,
     builder::{
-        Foundry, FoundryWorker,
+        Builder,
         http::HttpServer,
         options::{hostname::Hostname, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    input, wait_screen, wait_screen_rect,
+    cli::prompt::Prompt,
+    enter, input, wait_screen, wait_screen_rect,
 };
 
 use super::{BuildImage, DefaultSource};
@@ -30,7 +29,7 @@ pub enum DebianEdition {
 }
 
 impl Prompt for DebianEdition {
-    fn prompt(&mut self, builder: &Foundry) -> Result<()> {
+    fn prompt(&mut self, builder: &Builder) -> Result<()> {
         let editions: Vec<DebianEdition> = DebianEdition::iter().collect();
         let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Choose Debian edition")
@@ -110,7 +109,7 @@ impl DefaultSource for Debian {
 }
 
 impl BuildImage for Debian {
-    fn build(&self, worker: &FoundryWorker) -> Result<()> {
+    fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
             .source(&worker.element.source)?

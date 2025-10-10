@@ -1,5 +1,5 @@
+use crate::builder::Builder;
 use crate::config::ConfigPath;
-use crate::builder::Foundry;
 use std::process::ExitCode;
 use tracing::{debug, error};
 use validator::Validate;
@@ -13,6 +13,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             no_accel,
             output,
             path,
+            ovmf_path,
         } => {
             let config_path = match ConfigPath::from_dir(path) {
                 Some(p) => {
@@ -26,7 +27,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // Load config from current directory
-            let mut builder: Foundry = config_path.load().unwrap();
+            let mut builder: Builder = config_path.load().unwrap();
             builder.debug = debug;
             builder.record = record;
             builder.no_accel = no_accel;

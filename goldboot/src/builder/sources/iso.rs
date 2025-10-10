@@ -1,4 +1,4 @@
-use crate::{cli::prompt::Prompt, builder::Foundry};
+use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -22,7 +22,7 @@ pub struct IsoSource {
 // }
 
 impl Prompt for IsoSource {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         self.url = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter the ISO URL")
             .interact()?;

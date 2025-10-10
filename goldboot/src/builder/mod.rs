@@ -1,10 +1,13 @@
 use self::qemu::{Accel, detect_accel};
 use self::{fabricators::Fabricator, os::Os, sources::ImageSource};
 use crate::builder::os::BuildImage;
+use crate::cli::cmd::Commands;
 use crate::library::ImageLibrary;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use byte_unit::Byte;
+use dialoguer::Password;
+use goldboot_image::ElementHeader;
 use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -26,218 +29,11 @@ pub mod sources;
 pub mod ssh;
 pub mod vnc;
 
-///
-#[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
-pub struct ImageElement {
-    pub fabricators: Option<Vec<Fabricator>>,
-    pub os: Os,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pref_size: Option<String>,
-    pub source: ImageSource,
-}
-
-impl ImageElement {
-    /// Get the size
-    pub fn size(&self, image_size: String) -> u64 {
-        let image_size = Byte::parse_str(image_size, true).unwrap();
-
-        if let Some(_size) = &self.pref_size {
-            todo!()
-        } else {
-            image_size.as_u64()
-        }
-    }
-}
-
-/// A `Foundry` produces a goldboot image given a raw configuration. This is the
-/// central concept in the machinery that creates images.
-#[derive(Clone, Serialize, Deserialize, Validate, Default, Debug)]
-#[validate(schema(function = "crate::builder::custom_builder_validator"))]
-pub struct Foundry {
-    #[validate(length(min = 1))]
-    pub alloy: Vec<ImageElement>,
+/// Machinery that creates Goldboot images from image elements.
+pub struct Builder {
+    pub elements: Vec<Os>,
 
     /// The system architecture
-    #[serde(flatten)]
-    pub arch: ImageArch,
-
-    /// When set, the run will pause before each step in the boot sequence
-    #[serde(default, skip_serializing)]
-    pub debug: bool,
-
-    /// An image description
-    #[validate(length(max = 4096))]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-
-    /// The amount of memory to allocate to the VM
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory: Option<String>,
-
-    /// The image name
-    #[validate(length(min = 1, max = 64))]
-    pub name: String,
-
-    /// Don't use hardware acceleration even if available (slow)
-    #[serde(default, skip_serializing)]
-    pub no_accel: bool,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nvme: Option<bool>,
-
-    /// The path to an OVMF.fd file
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ovmf_path: Option<String>,
-
-    /// The encryption password
-    #[serde(skip_serializing)]
-    pub password: Option<String>,
-
-    /// Whether the image is public
-    #[serde(default, skip_serializing)]
-    pub public: bool,
-
-    /// Whether screenshots will be generated during the run for debugging
-    #[serde(default, skip_serializing)]
-    pub record: bool,
-
-    /// The total image size in human-readable units
-    pub size: String,
-}
-
-/// Handles more sophisticated validation of a [`Foundry`].
-pub fn custom_builder_validator(_f: &Foundry) -> Result<(), validator::ValidationError> {
-    // If there's more than one OS, they must all support alloy
-    // if f.alloy.len() > 1 {
-    //     for template in &self.config.templates {
-    //         //if !template.is_multiboot() {
-    //         //	bail!("Template does not support multiboot");
-    //         //}
-    //     }
-    // }
-
-    Ok(())
-}
-
-impl Foundry {
-    fn new_worker(&self, element: ImageElement) -> FoundryWorker {
-        // Obtain a temporary directory for the worker
-        let tmp = tempfile::tempdir().unwrap();
-
-        // Unpack included firmware if one isn't given
-        let ovmf_path = if let Some(path) = self.ovmf_path.clone() {
-            PathBuf::from(path)
-        } else if let Some(path) = crate::builder::ovmf::find() {
-            path
-        } else if cfg!(feature = "include_ovmf") {
-            let path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
-
-            #[cfg(feature = "include_ovmf")]
-            crate::builder::ovmf::write(self.arch, &path).unwrap();
-            PathBuf::from(path)
-        } else {
-            panic!("No OVMF firmware found");
-        };
-
-        // Truncate the image size to a power of two for the qcow storage
-        let qcow_size = element.size(self.size.clone());
-        let qcow_size = qcow_size - (qcow_size % 2);
-
-        FoundryWorker {
-            arch: self.arch,
-            accel: if self.no_accel {
-                Accel::Tcg
-            } else {
-                detect_accel()
-            },
-            debug: self.debug,
-            record: self.record,
-            end_time: None,
-            memory: self.memory.clone().unwrap_or(String::from("8G")),
-            ovmf_path,
-            qcow_path: tmp.path().join("image.gb.qcow2"),
-            qcow_size,
-            start_time: None,
-            tmp,
-            vnc_port: if self.debug {
-                5900
-            } else {
-                rand::rng().random_range(5900..5999)
-            },
-            element,
-        }
-    }
-
-    /// Run the entire build process. If no output file is given, the image is
-    /// moved into the image library.
-    pub fn run(&mut self, output: Option<String>) -> Result<()> {
-        // Track the workers
-        let mut workers = Vec::new();
-
-        // TODO always sequential
-
-        // If we're in debug mode, run workers sequentially
-        if self.debug {
-            for element in self.alloy.clone().into_iter() {
-                let mut worker = self.new_worker(element);
-                worker.run()?;
-                workers.push(worker);
-            }
-        }
-        // Otherwise run independent builds in parallel
-        else {
-            let mut handles = Vec::new();
-
-            for element in self.alloy.clone().into_iter() {
-                let mut worker = self.new_worker(element);
-                handles.push(thread::spawn(move || {
-                    worker.run().unwrap();
-                    worker
-                }));
-            }
-
-            // Wait for each build to complete
-            for handle in handles {
-                workers.push(handle.join().unwrap());
-            }
-        }
-
-        let final_qcow = if workers.len() > 1 {
-            // Allocate a temporary image if we need to merge
-            // TODO
-            Qcow3::open(&workers[0].qcow_path)?
-        } else {
-            Qcow3::open(&workers[0].qcow_path)?
-        };
-
-        // Convert into final immutable image
-        let path = if let Some(output) = output.as_ref() {
-            PathBuf::from(output)
-        } else {
-            ImageLibrary::open().temporary()
-        };
-
-        ImageHandle::from_qcow(
-            Vec::new(),
-            &final_qcow,
-            &path,
-            self.password.clone(),
-            |_, _| {},
-        )?;
-
-        if let None = output {
-            ImageLibrary::open().add_move(path.clone())?;
-        }
-
-        Ok(())
-    }
-}
-
-// TODO remove worker altogether?
-
-/// Manages the image build process. Multiple workers can run in parallel
-/// to speed up multiboot configurations.
-pub struct FoundryWorker {
     pub arch: ImageArch,
 
     pub accel: Accel,
@@ -246,43 +42,135 @@ pub struct FoundryWorker {
 
     pub record: bool,
 
-    pub element: ImageElement,
-
-    /// The end time of the run
-    pub end_time: Option<SystemTime>,
-
-    pub memory: String,
-
-    /// The path to the intermediate image artifact
-    pub qcow_path: PathBuf,
-
-    /// The size of the intermediate image in bytes
-    pub qcow_size: u64,
-
-    /// The start time of the run
-    pub start_time: Option<SystemTime>,
-
     /// A general purpose temporary directory for the run
     pub tmp: tempfile::TempDir,
 
-    /// The VM port for VNC
+    pub ovmf_path: PathBuf,
+    pub qcow_path: PathBuf,
+
+    /// VNC port for the VM
     pub vnc_port: u16,
 
-    pub ovmf_path: PathBuf,
+    /// End time of the run
+    pub end_time: Option<SystemTime>,
+
+    /// Start time of the run
+    pub start_time: Option<SystemTime>,
 }
 
-impl FoundryWorker {
-    /// Run the image building process.
-    pub fn run(&mut self) -> Result<()> {
-        self.start_time = Some(SystemTime::now());
-        Qcow3::create(&self.qcow_path, self.qcow_size)?;
+impl Builder {
+    fn new(arch: ImageArch) -> Self {
+        // Allocate directory for the builder to store the intermediate qcow image
+        // and any other supporting files.
+        let tmp = tempfile::tempdir().unwrap();
 
-        self.element.os.build(&self)?;
+        Self {
+            arch,
+            accel: detect_accel(),
+            debug: false,
+            record: false,
+            end_time: None,
+            qcow_path: tmp.path().join("image.gb.qcow2"),
+            start_time: None,
+            vnc_port: rand::rng().random_range(5900..5999),
+            alloy: Vec::new(),
+
+            // Try to find OVMF firmware or unpack what's included
+            ovmf_path: if let Some(path) = crate::builder::ovmf::find() {
+                path
+            } else if cfg!(feature = "include_ovmf") {
+                let path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
+
+                #[cfg(feature = "include_ovmf")]
+                crate::builder::ovmf::write(arch, &path).unwrap();
+                PathBuf::from(path)
+            } else {
+                // Just set a path that doesn't exist because it might get supplied
+                // from the command line.
+                PathBuf::from("")
+            },
+            tmp,
+        }
+    }
+
+    /// Run the image build process according to the given command line.
+    pub fn run(&mut self, cli: Commands) -> Result<()> {
+        self.start_time = Some(SystemTime::now());
+
+        // Truncate the image size to a power of two for the qcow storage
+        let qcow_size = element.size(self.size.clone());
+        let qcow_size = qcow_size - (qcow_size % 2);
+
+        match cli {
+            Commands::Build {
+                record,
+                debug,
+                read_password,
+                no_accel,
+                output,
+                path,
+                ovmf_path,
+            } => {
+                self.debug = debug;
+                self.record = record;
+
+                // Set VNC port predictably in debug mode
+                if debug {
+                    self.vnc_port = 5900;
+                }
+
+                // Prompt password
+                let password = if read_password {
+                    Some(
+                        Password::with_theme(&crate::cli::cmd::init::theme())
+                            .with_prompt("Image encryption passphrase")
+                            .interact()?,
+                    )
+                } else {
+                    None
+                };
+
+                // Disable VM acceleration if requested
+                if no_accel {
+                    self.accel = Accel::Tcg;
+                }
+
+                // Override from command line
+                if let Some(path) = ovmf_path {
+                    self.ovmf_path = PathBuf::from(path);
+                }
+
+                // Check OVMF firmware path
+                if !self.ovmf_path.exists() {
+                    bail!("No OVMF firmware found");
+                }
+
+                let qcow = Qcow3::create(&self.qcow_path, qcow_size)?;
+                for element in self.alloy.clone().into_iter() {
+                    element.os.build(&self)?;
+                }
+
+                // Convert into final immutable image
+                let path = if let Some(output) = output.as_ref() {
+                    PathBuf::from(output)
+                } else {
+                    ImageLibrary::open().temporary()
+                };
+
+                ImageHandle::from_qcow(Vec::new(), &qcow, &path, password, |_, _| {})?;
+
+                if let None = output {
+                    ImageLibrary::open().add_move(path.clone())?;
+                }
+            }
+            _ => panic!("Must be passed a Commands::Build"),
+        }
+
+        self.end_time = Some(SystemTime::now());
         info!(
             duration = ?self.start_time.unwrap().elapsed()?,
             "Build completed",
         );
-        self.end_time = Some(SystemTime::now());
 
         Ok(())
     }

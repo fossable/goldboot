@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{cli::prompt::Prompt, builder::Foundry};
+use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -27,7 +27,7 @@ impl Default for Hostname {
 }
 
 impl Prompt for Hostname {
-    fn prompt(&mut self, builder: &Foundry) -> Result<()> {
+    fn prompt(&mut self, builder: &Builder) -> Result<()> {
         self.hostname = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter network hostname")
             .default(builder.name.clone())

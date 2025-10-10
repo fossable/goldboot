@@ -1,6 +1,6 @@
 use super::Fabricate;
-use crate::builder::Foundry;
-use crate::{cli::prompt::Prompt, builder::ssh::SshConnection};
+use crate::builder::Builder;
+use crate::{builder::ssh::SshConnection, cli::prompt::Prompt};
 use anyhow::Result;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ impl Fabricate for HostExecutable {
 }
 
 impl Prompt for HostExecutable {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         self.path = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter the script path relative to the current directory")
             .interact()?;

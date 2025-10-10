@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{cli::prompt::Prompt, builder::Foundry};
+use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use dialoguer::Password;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub struct UnixAccountProvisioner {
 }
 
 impl Prompt for UnixAccountProvisioner {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         let theme = crate::cli::cmd::init::theme();
         self.password = Password::with_theme(&theme)
             .with_prompt("Root password")
@@ -65,7 +65,7 @@ impl Default for RootPassword {
 }
 
 impl Prompt for RootPassword {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         let theme = crate::cli::cmd::init::theme();
         *self = RootPassword::Plaintext(
             Password::with_theme(&theme)

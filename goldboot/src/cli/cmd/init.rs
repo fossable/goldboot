@@ -7,12 +7,12 @@ use strum::IntoEnumIterator;
 use tracing::{error, info};
 
 use crate::{
-    cli::prompt::Prompt,
-    config::ConfigPath,
     builder::{
-        Foundry, ImageElement,
+        Builder,
         os::{DefaultSource, Os},
     },
+    cli::prompt::Prompt,
+    config::ConfigPath,
 };
 
 fn print_banner() {
@@ -47,7 +47,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             let mut config_path = ConfigPath::from_dir(".").unwrap_or(format);
 
             // Build a new default config that we'll override
-            let mut builder = Foundry::default();
+            let mut builder = Builder::default();
 
             // Use size from command line if given
             if let Some(size) = size {
@@ -67,7 +67,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
 
                 for m in os {
                     if let Ok(source) = m.default_source(builder.arch) {
-                        builder.alloy.push(ImageElement {
+                        builder.alloy.push(Element {
                             source,
                             os: m,
                             fabricators: None,
@@ -170,7 +170,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
 
                     if let Ok(source) = os.default_source(builder.arch) {
-                        builder.alloy.push(ImageElement {
+                        builder.alloy.push(Element {
                             source,
                             os: os.to_owned(),
                             fabricators: None,

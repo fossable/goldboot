@@ -1,6 +1,6 @@
 use crate::{
+    builder::{Builder, ssh::SshConnection, vnc::VncConnection},
     enter,
-    builder::{FoundryWorker, ssh::SshConnection, vnc::VncConnection},
 };
 use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
@@ -265,7 +265,7 @@ pub struct QemuBuilder {
 }
 
 impl QemuBuilder {
-    pub fn new(worker: &FoundryWorker, os_category: OsCategory) -> Self {
+    pub fn new(worker: &Builder, os_category: OsCategory) -> Self {
         let ssh_port = rand::rng().random_range(10000..11000);
         let ssh_private_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();
         let ssh_host_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();

@@ -32,6 +32,7 @@ hex = { workspace = true }
 indicatif = "0.18.0"
 png = { version = "0.18.0", optional = true }
 pyo3 = { version = "0.26.0", features = ["anyhow"], optional = true }
+pythonize = { version = "0.26.0", optional = true }
 quick-xml = { version = "0.38.3", features = ["serialize"] }
 rand = { workspace = true }
 regex = { workspace = true }
@@ -105,4 +106,4 @@ config-json = ["dep:serde_json"]
 config-yaml = ["dep:serde_yaml"]
 config-ron = ["dep:ron"]
 config-toml = ["dep:toml"]
-config-python = ["dep:pyo3"]
+config-python = ["dep:pyo3", "dep:pythonize"]

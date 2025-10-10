@@ -1,4 +1,4 @@
-use crate::{cli::prompt::Prompt, builder::Foundry};
+use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -9,7 +9,7 @@ pub struct Timezone {
 }
 
 impl Prompt for Timezone {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         todo!()
     }
 }

@@ -1473,6 +1473,7 @@ dependencies = [
  "indicatif",
  "png",
  "pyo3",
+ "pythonize",
  "quick-xml 0.38.3",
  "rand 0.9.2",
  "regex",
@@ -2743,6 +2744,16 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "pythonize"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11e06e4cff9be2bbf2bddf28a486ae619172ea57e79787f856572878c62dcfe2"
+dependencies = [
+ "pyo3",
+ "serde",
 ]
 
 [[package]]

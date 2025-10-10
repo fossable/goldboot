@@ -5,14 +5,13 @@ use std::{collections::HashMap, path::PathBuf};
 use validator::Validate;
 
 use crate::{
-    cli::prompt::Prompt,
-    enter,
     builder::{
-        Foundry, FoundryWorker,
+        Builder,
         qemu::{OsCategory, QemuBuilder},
         sources::ImageSource,
     },
-    wait, wait_screen_rect,
+    cli::prompt::Prompt,
+    enter, wait, wait_screen_rect,
 };
 
 use super::{BuildImage, DefaultSource};
@@ -56,13 +55,13 @@ impl DefaultSource for Nix {
 
 // TODO proc macro
 impl Prompt for Nix {
-    fn prompt(&mut self, _builder: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         Ok(())
     }
 }
 
 impl BuildImage for Nix {
-    fn build(&self, worker: &FoundryWorker) -> Result<()> {
+    fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             // Add Nix config

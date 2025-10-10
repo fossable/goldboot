@@ -1,5 +1,5 @@
-use crate::builder::Foundry;
-use crate::{cli::prompt::Prompt, builder::ssh::SshConnection};
+use crate::builder::Builder;
+use crate::{builder::ssh::SshConnection, cli::prompt::Prompt};
 use anyhow::Result;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ impl Fabricate for Ansible {
 }
 
 impl Prompt for Ansible {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         self.playbook = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;

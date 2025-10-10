@@ -1,12 +1,12 @@
 use super::{CastImage, DefaultSource};
-use crate::cli::prompt::Prompt;
 use crate::builder::Foundry;
 use crate::builder::options::hostname::Hostname;
 use crate::builder::options::unix_account::RootPassword;
 use crate::builder::qemu::QemuBuilder;
+use crate::cli::prompt::Prompt;
 use crate::wait;
 use crate::{
-    builder::{FoundryWorker, sources::ImageSource},
+    builder::{Builder, sources::ImageSource},
     wait_screen_rect,
 };
 use anyhow::Result;
@@ -34,7 +34,7 @@ impl DefaultSource for Android {
 }
 
 impl CastImage for Android {
-    fn cast(&self, worker: &FoundryWorker) -> Result<()> {
+    fn cast(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker).start()?;
 
         // Send boot command

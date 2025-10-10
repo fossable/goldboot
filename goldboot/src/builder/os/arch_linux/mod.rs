@@ -1,6 +1,4 @@
 use super::{BuildImage, DefaultSource};
-use crate::cli::prompt::Prompt;
-use crate::builder::Foundry;
 use crate::builder::fabricators::Fabricate;
 use crate::builder::http::HttpServer;
 use crate::builder::options::hostname::Hostname;
@@ -8,9 +6,10 @@ use crate::builder::options::unix_account::RootPassword;
 use crate::builder::os::arch_linux::archinstall::ArchinstallConfig;
 use crate::builder::os::arch_linux::archinstall::ArchinstallCredentials;
 use crate::builder::qemu::{OsCategory, QemuBuilder};
+use crate::cli::prompt::Prompt;
 use crate::wait;
 use crate::{
-    builder::{FoundryWorker, sources::ImageSource},
+    builder::{Builder, sources::ImageSource},
     wait_screen_rect,
 };
 use anyhow::Result;
@@ -46,7 +45,7 @@ impl DefaultSource for ArchLinux {
 }
 
 impl BuildImage for ArchLinux {
-    fn build(&self, worker: &FoundryWorker) -> Result<()> {
+    fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .source(&worker.element.source)?
             .prepare_ssh()?
@@ -124,7 +123,7 @@ impl Default for ArchLinuxMirrorlist {
 }
 
 impl Prompt for ArchLinuxMirrorlist {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         // Prompt mirror list
         // {
         //     let mirror_index = dialoguer::Select::with_theme(&theme)
@@ -180,7 +179,7 @@ pub struct ArchLinuxPackages {
 }
 
 impl Prompt for ArchLinuxPackages {
-    fn prompt(&mut self, _: &Foundry) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         Ok(())
     }
 }
