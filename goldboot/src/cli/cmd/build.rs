@@ -5,7 +5,7 @@ use tracing::{debug, error};
 use validator::Validate;
 
 pub fn run(cmd: super::Commands) -> ExitCode {
-    match cmd {
+    match cmd.clone() {
         super::Commands::Build {
             record,
             debug,
@@ -27,11 +27,12 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // Load config from current directory
-            let mut builder: Builder = config_path.load().unwrap();
-            builder.debug = debug;
-            builder.record = record;
-            builder.no_accel = no_accel;
-            debug!("Loaded: {:#?}", &builder);
+            let Ok(elements) = config_path.load() else {
+                return ExitCode::FAILURE;
+            };
+            debug!("Loaded: {:#?}", &elements);
+
+            let mut builder = Builder::new(elements);
 
             // Include the encryption password if provided
             if read_password {
@@ -57,7 +58,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // Run the build finally
-            match builder.run(output) {
+            match builder.run(cmd) {
                 Err(err) => {
                     error!(error = ?err, "Failed to build image");
                     ExitCode::FAILURE

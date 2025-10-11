@@ -7,14 +7,14 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
+        options::iso::Iso,
         qemu::{OsCategory, QemuBuilder},
-        sources::ImageSource,
     },
     cli::prompt::Prompt,
     enter, wait, wait_screen_rect,
 };
 
-use super::{BuildImage, DefaultSource};
+use super::BuildImage;
 
 /// NixOS is a free and open source Linux distribution based on the Nix package
 /// manager. NixOS uses an immutable design and an atomic update model. Its use
@@ -23,51 +23,38 @@ use super::{BuildImage, DefaultSource};
 ///
 /// Upstream: https://www.nixos.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct Nix {
     /// Path to /etc/nixos/configuration.nix
-    pub configuration: PathBuf,
+    pub configuration: ConfigurationPath,
 
     /// Path to /etc/nixos/hardware-configuration.nix
-    pub hardware_configuration: Option<PathBuf>,
+    pub hardware_configuration: Option<ConfigurationPath>,
+
+    pub iso: Iso,
 }
 
-impl Nix {
-    fn load_config(&self) -> Result<Vec<u8>> {
-        if self.configuration.starts_with("http") {
-            todo!()
+impl Default for Nix {
+    fn default() -> Self {
+        Self {
+            configuration: ConfigurationPath(PathBuf::from("configuration.nix")),
+            hardware_configuration: None,
+            iso: Iso {
+                url: "https://example.com".parse().unwrap(),
+                checksum: None,
+            },
         }
-
-        let bytes = std::fs::read(&self.configuration)?;
-        Ok(bytes)
-    }
-}
-
-impl DefaultSource for Nix {
-    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
-        Ok(ImageSource::Iso {
-            url: "https://channels.nixos.org/nixos-23.11/latest-nixos-minimal-x86_64-linux.iso"
-                .to_string(),
-            checksum: None,
-        })
-    }
-}
-
-// TODO proc macro
-impl Prompt for Nix {
-    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
-        Ok(())
     }
 }
 
 impl BuildImage for Nix {
     fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
-            .source(&worker.element.source)?
+            .with_iso(&self.iso)?
             // Add Nix config
             .drive_files(HashMap::from([(
                 "configuration.nix".to_string(),
-                self.load_config()?,
+                self.configuration.load()?,
             )]))?
             .start()?;
 
@@ -91,5 +78,25 @@ impl BuildImage for Nix {
         // Shutdown
         qemu.shutdown_wait()?;
         Ok(())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct ConfigurationPath(PathBuf);
+
+impl ConfigurationPath {
+    fn load(&self) -> Result<Vec<u8>> {
+        if self.0.starts_with("http") {
+            todo!()
+        }
+
+        let bytes = std::fs::read(&self.0)?;
+        Ok(bytes)
+    }
+}
+
+impl Prompt for ConfigurationPath {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
+        todo!()
     }
 }

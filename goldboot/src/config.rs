@@ -28,10 +28,7 @@ mod python_codegen {
         if elements.len() == 1 {
             format_os(&elements[0])
         } else {
-            let items: Result<Vec<String>, _> = elements
-                .iter()
-                .map(|os| format_os(os))
-                .collect();
+            let items: Result<Vec<String>, _> = elements.iter().map(|os| format_os(os)).collect();
             Ok(format!("[\n{}\n]\n", items?.join(",\n")))
         }
     }
@@ -43,16 +40,29 @@ mod python_codegen {
     }
 
     fn json_to_python(value: &serde_json::Value, indent: usize) -> String {
+        json_to_python_with_context(value, indent, None)
+    }
+
+    fn json_to_python_with_context(
+        value: &serde_json::Value,
+        indent: usize,
+        field_name: Option<&str>,
+    ) -> String {
         match value {
             serde_json::Value::Null => "None".to_string(),
             serde_json::Value::Bool(b) => if *b { "True" } else { "False" }.to_string(),
             serde_json::Value::Number(n) => n.to_string(),
-            serde_json::Value::String(s) => format!("\"{}\"", s.replace("\\", "\\\\").replace("\"", "\\\"")),
+            serde_json::Value::String(s) => {
+                format!("\"{}\"", s.replace("\\", "\\\\").replace("\"", "\\\""))
+            }
             serde_json::Value::Array(arr) => {
                 if arr.is_empty() {
                     "[]".to_string()
                 } else {
-                    let items: Vec<String> = arr.iter().map(|v| json_to_python(v, indent + 1)).collect();
+                    let items: Vec<String> = arr
+                        .iter()
+                        .map(|v| json_to_python_with_context(v, indent + 1, None))
+                        .collect();
                     format!("[{}]", items.join(", "))
                 }
             }
@@ -66,7 +76,12 @@ mod python_codegen {
 
                     for (key, val) in obj.iter() {
                         if key != "os" {
-                            args.push(format!("{}{}={}", indent_str, key, json_to_python(val, indent + 1)));
+                            args.push(format!(
+                                "{}{}={}",
+                                indent_str,
+                                key,
+                                json_to_python_with_context(val, indent + 1, Some(key))
+                            ));
                         }
                     }
 
@@ -75,15 +90,60 @@ mod python_codegen {
                     } else {
                         format!("{}(\n{},\n{})", os_type, args.join(",\n"), close_indent_str)
                     }
+                } else if let Some(field_name) = field_name {
+                    // This is a nested struct - use the field name to infer the type
+                    let type_name = snake_to_upper_camel(field_name);
+                    let indent_str = "    ".repeat(indent + 1);
+                    let close_indent_str = "    ".repeat(indent);
+                    let mut args = Vec::new();
+
+                    for (key, val) in obj.iter() {
+                        args.push(format!(
+                            "{}{}={}",
+                            indent_str,
+                            key,
+                            json_to_python_with_context(val, indent + 1, Some(key))
+                        ));
+                    }
+
+                    if args.is_empty() {
+                        format!("{}()", type_name)
+                    } else {
+                        format!(
+                            "{}(\n{},\n{})",
+                            type_name,
+                            args.join(",\n"),
+                            close_indent_str
+                        )
+                    }
                 } else {
-                    // Regular dict
-                    let items: Vec<String> = obj.iter()
-                        .map(|(k, v)| format!("\"{}\": {}", k, json_to_python(v, indent + 1)))
+                    // Regular dict (no field context)
+                    let items: Vec<String> = obj
+                        .iter()
+                        .map(|(k, v)| {
+                            format!(
+                                "\"{}\": {}",
+                                k,
+                                json_to_python_with_context(v, indent + 1, None)
+                            )
+                        })
                         .collect();
                     format!("{{{}}}", items.join(", "))
                 }
             }
         }
+    }
+
+    fn snake_to_upper_camel(s: &str) -> String {
+        s.split('_')
+            .map(|word| {
+                let mut chars = word.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(first) => first.to_uppercase().chain(chars).collect(),
+                }
+            })
+            .collect()
     }
 
     #[cfg(test)]
@@ -106,8 +166,14 @@ mod python_codegen {
         fn test_json_to_python_string_escaping() {
             use serde_json::json;
 
-            assert_eq!(json_to_python(&json!("hello \"world\""), 0), "\"hello \\\"world\\\"\"");
-            assert_eq!(json_to_python(&json!("path\\to\\file"), 0), "\"path\\\\to\\\\file\"");
+            assert_eq!(
+                json_to_python(&json!("hello \"world\""), 0),
+                "\"hello \\\"world\\\"\""
+            );
+            assert_eq!(
+                json_to_python(&json!("path\\to\\file"), 0),
+                "\"path\\\\to\\\\file\""
+            );
         }
 
         #[test]
@@ -116,7 +182,10 @@ mod python_codegen {
 
             assert_eq!(json_to_python(&json!([]), 0), "[]");
             assert_eq!(json_to_python(&json!([1, 2, 3]), 0), "[1, 2, 3]");
-            assert_eq!(json_to_python(&json!(["a", "b", "c"]), 0), "[\"a\", \"b\", \"c\"]");
+            assert_eq!(
+                json_to_python(&json!(["a", "b", "c"]), 0),
+                "[\"a\", \"b\", \"c\"]"
+            );
         }
 
         #[test]
@@ -157,13 +226,13 @@ mod python_codegen {
 
             let result = json_to_python(&os_json, 0);
             assert!(result.starts_with("ArchLinux("));
-            assert!(result.contains("source={"));
-            assert!(result.contains("\"url\": \"http://example.com\""));
+            assert!(result.contains("source=Source("));
+            assert!(result.contains("url=\"http://example.com\""));
+            assert!(result.contains("checksum=\"abc123\""));
         }
 
         #[test]
         fn test_to_python_code_single() {
-            use serde_json::json;
             use crate::builder::os::{Os, arch_linux::ArchLinux};
 
             let elements = vec![Os::ArchLinux(ArchLinux::default())];
@@ -207,7 +276,7 @@ pub enum ConfigPath {
 
 impl Default for ConfigPath {
     fn default() -> Self {
-        ConfigPath::Json(PathBuf::from("./goldboot.json"))
+        ConfigPath::Python(PathBuf::from("./goldboot.py"))
     }
 }
 

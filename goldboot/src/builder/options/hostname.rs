@@ -30,7 +30,7 @@ impl Prompt for Hostname {
     fn prompt(&mut self, builder: &Builder) -> Result<()> {
         self.hostname = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter network hostname")
-            .default(builder.name.clone())
+            // .default(builder.name.clone())
             .interact()?;
 
         self.validate()?;

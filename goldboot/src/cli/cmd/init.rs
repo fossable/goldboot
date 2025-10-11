@@ -7,10 +7,7 @@ use strum::IntoEnumIterator;
 use tracing::{error, info};
 
 use crate::{
-    builder::{
-        Builder,
-        os::{DefaultSource, Os},
-    },
+    builder::{Builder, os::Os},
     cli::prompt::Prompt,
     config::ConfigPath,
 };
@@ -41,46 +38,12 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             name,
             os,
             format,
-            size,
             mimic_hardware: _,
         } => {
             let mut config_path = ConfigPath::from_dir(".").unwrap_or(format);
+            let mut builder = Builder::new(os);
 
-            // Build a new default config that we'll override
-            let mut builder = Builder::default();
-
-            // Use size from command line if given
-            if let Some(size) = size {
-                builder.size = size;
-            }
-
-            if os.len() > 0 {
-                // If an OS was given, use the default
-                if let Some(name) = name {
-                    builder.name = name;
-                } else {
-                    // Set name equal to directory name
-                    if let Some(name) = std::env::current_dir().unwrap().file_name() {
-                        builder.name = name.to_str().unwrap().to_string();
-                    }
-                }
-
-                for m in os {
-                    if let Ok(source) = m.default_source(builder.arch) {
-                        builder.alloy.push(Element {
-                            source,
-                            os: m,
-                            fabricators: None,
-                            pref_size: None,
-                        });
-                    } else {
-                        return ExitCode::FAILURE;
-                    }
-                }
-
-                // Generate QEMU flags for this hardware
-                //config.qemuargs = generate_qemuargs()?;
-            } else {
+            if builder.elements.len() == 0 {
                 // If no OS was given, begin interactive config
                 print_banner();
 
@@ -103,36 +66,22 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
 
                 // Prompt image name
-                builder.name = Input::with_theme(&theme)
-                    .with_prompt("Image name?")
-                    .default(
-                        std::env::current_dir()
-                            .unwrap()
-                            .file_name()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .to_string(),
-                    )
-                    .interact()
-                    .unwrap();
-
-                // Prompt encryption password
-                if Confirm::with_theme(&theme)
-                    .with_prompt("Encrypt image at rest?")
-                    .interact()
-                    .unwrap()
-                {
-                    builder.password = Some(
-                        Password::with_theme(&theme)
-                            .with_prompt("Encryption passphrase?")
-                            .interact()
-                            .unwrap(),
-                    );
-                }
+                // builder.name = Input::with_theme(&theme)
+                //     .with_prompt("Image name?")
+                //     .default(
+                //         std::env::current_dir()
+                //             .unwrap()
+                //             .file_name()
+                //             .unwrap()
+                //             .to_str()
+                //             .unwrap()
+                //             .to_string(),
+                //     )
+                //     .interact()
+                //     .unwrap();
 
                 // Prompt image architecture
-                {
+                let arch = {
                     let architectures: Vec<ImageArch> = ImageArch::iter().collect();
                     let choice_index = Select::with_theme(&theme)
                         .with_prompt("Image architecture?")
@@ -141,15 +90,15 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         .interact()
                         .unwrap();
 
-                    builder.arch = architectures[choice_index];
-                }
+                    architectures[choice_index]
+                };
 
                 // Prompt OS
                 loop {
                     // Find operating systems suitable for the architecture
                     let mut supported_os: Vec<Os> = Os::iter()
-                        .filter(|os| os.architectures().contains(&builder.arch))
-                        .filter(|os| builder.alloy.len() == 0 || os.alloy())
+                        .filter(|os| os.architectures().contains(&arch))
+                        .filter(|os| builder.elements.len() == 0 || os.alloy())
                         .collect();
 
                     let choice_index = Select::with_theme(&theme)
@@ -169,16 +118,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         os.prompt(&builder).unwrap();
                     }
 
-                    if let Ok(source) = os.default_source(builder.arch) {
-                        builder.alloy.push(Element {
-                            source,
-                            os: os.to_owned(),
-                            fabricators: None,
-                            pref_size: None,
-                        });
-                    } else {
-                        return ExitCode::FAILURE;
-                    }
+                    builder.elements.push(os.clone());
 
                     if !os.alloy()
                         || !Confirm::with_theme(&theme)
@@ -189,17 +129,10 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         break;
                     }
                 }
-
-                // Prompt size
-                builder.size = Input::with_theme(&theme)
-                    .with_prompt("Image size?")
-                    .default("28GiB".to_string())
-                    .interact()
-                    .unwrap();
             }
 
             // Finally write out the config
-            match config_path.write(&builder) {
+            match config_path.write(&builder.elements) {
                 Err(err) => {
                     error!(error = ?err, "Failed to write config file");
                     ExitCode::FAILURE

@@ -83,6 +83,7 @@ default = [
   "config-yaml",
   "config-ron",
   "config-toml",
+  "config-python",
 ]
 
 # Support for registry server

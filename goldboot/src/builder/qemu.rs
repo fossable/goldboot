@@ -16,7 +16,7 @@ use std::{
 use strum::Display;
 use tracing::{debug, info, trace};
 
-use super::sources::{ImageSource, SourceCache};
+use super::{options::iso::Iso, sources::SourceCache};
 
 #[derive(Display, Clone, Copy)]
 pub enum OsCategory {
@@ -303,8 +303,8 @@ impl QemuBuilder {
                 global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
                 machine: format!("type=pc,accel={}", worker.accel),
 
-                // Use the recommended memory amount from the config or use a default
-                memory: worker.memory.clone(),
+                // TODO need to get memory setting for each element
+                memory: todo!(),
                 name: String::from("goldboot"),
                 netdev: vec!["user,id=user.0".into()],
                 smbios: None,
@@ -313,7 +313,7 @@ impl QemuBuilder {
                 vnc: vec![format!("127.0.0.1:{}", worker.vnc_port % 5900)],
                 vga: String::from("std"),
             },
-            arch: worker.arch,
+            arch: worker.arch().expect("arch must be known"),
             debug: worker.debug,
             os_category,
             record: worker.record,
@@ -325,17 +325,12 @@ impl QemuBuilder {
         }
     }
 
-    /// Set the image source.
-    pub fn source(mut self, source: &ImageSource) -> Result<Self> {
-        match source {
-            ImageSource::Iso { url, checksum } => {
-                self.args.drive.push(format!(
-                    "file={},media=cdrom,read-only=on",
-                    SourceCache::default()?.get(url.clone(), checksum.clone())?
-                ));
-            }
-            _ => todo!(),
-        }
+    /// Attach ISO from cache.
+    pub fn with_iso(mut self, iso: &Iso) -> Result<Self> {
+        self.args.drive.push(format!(
+            "file={},media=cdrom,read-only=on",
+            SourceCache::default()?.get(iso.url.clone().to_string(), iso.checksum.clone())?
+        ));
 
         Ok(self)
     }

@@ -9,73 +9,14 @@ use crate::{
     builder::{
         Builder,
         http::HttpServer,
-        options::{hostname::Hostname, unix_account::RootPassword},
+        options::{hostname::Hostname, iso::Iso, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
-        sources::ImageSource,
     },
     cli::prompt::Prompt,
     enter, input, wait_screen, wait_screen_rect,
 };
 
-use super::{BuildImage, DefaultSource};
-
-#[derive(Clone, Copy, Serialize, Deserialize, Debug, Default, EnumIter, Display)]
-pub enum DebianEdition {
-    Bullseye,
-    #[default]
-    Bookworm,
-    Trixie,
-    Sid,
-}
-
-impl Prompt for DebianEdition {
-    fn prompt(&mut self, builder: &Builder) -> Result<()> {
-        let editions: Vec<DebianEdition> = DebianEdition::iter().collect();
-        let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
-            .with_prompt("Choose Debian edition")
-            .default(0)
-            .items(editions.iter())
-            .interact()?;
-
-        *self = editions[edition_index];
-        Ok(())
-    }
-}
-
-/// Fetch the latest ISO
-pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<ImageSource> {
-    let arch = match arch {
-        ImageArch::Amd64 => "amd64",
-        ImageArch::Arm64 => "arm64",
-        ImageArch::I386 => "i386",
-        _ => bail!("Unsupported architecture"),
-    };
-    let version = match edition {
-        DebianEdition::Bullseye => "archive/11.9.0",
-        DebianEdition::Bookworm => "release/12.5.0",
-        _ => bail!("Unsupported edition"),
-    };
-
-    let rs = reqwest::blocking::get(format!(
-        "https://cdimage.debian.org/cdimage/{version}/{arch}/iso-cd/SHA256SUMS"
-    ))?;
-    if rs.status().is_success() {
-        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
-            if line.ends_with(".iso") {
-                let split: Vec<&str> = line.split_whitespace().collect();
-                if let [hash, filename] = split[..] {
-                    return Ok(ImageSource::Iso {
-                        url: format!(
-                            "https://cdimage.debian.org/cdimage/{version}/{arch}/iso-cd/{filename}"
-                        ),
-                        checksum: Some(format!("sha256:{hash}")),
-                    });
-                }
-            }
-        }
-    }
-    bail!("Failed to request latest ISO");
-}
+use super::BuildImage;
 
 /// Debian is a Linux distribution composed of free and open-source software and
 /// optionally non-free firmware or software developed by the community-supported
@@ -90,21 +31,21 @@ pub struct Debian {
     #[serde(flatten)]
     pub hostname: Option<Hostname>,
     pub root_password: RootPassword,
+
+    pub iso: Iso,
 }
 
 impl Default for Debian {
     fn default() -> Self {
         Self {
-            root_password: RootPassword::Plaintext("root".to_string()),
+            root_password: RootPassword::default(),
             edition: DebianEdition::default(),
             hostname: Some(Hostname::default()),
+            iso: Iso {
+                url: "https://example.com".parse().unwrap(),
+                checksum: None,
+            },
         }
-    }
-}
-
-impl DefaultSource for Debian {
-    fn default_source(&self, arch: ImageArch) -> Result<ImageSource> {
-        fetch_debian_iso(DebianEdition::default(), arch)
     }
 }
 
@@ -112,7 +53,7 @@ impl BuildImage for Debian {
     fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
-            .source(&worker.element.source)?
+            .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;
 
@@ -156,4 +97,64 @@ impl BuildImage for Debian {
         qemu.shutdown_wait()?;
         Ok(())
     }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, Default, EnumIter, Display)]
+pub enum DebianEdition {
+    Bullseye,
+    #[default]
+    Bookworm,
+    Trixie,
+    Sid,
+}
+
+impl Prompt for DebianEdition {
+    fn prompt(&mut self, builder: &Builder) -> Result<()> {
+        let editions: Vec<DebianEdition> = DebianEdition::iter().collect();
+        let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
+            .with_prompt("Choose Debian edition")
+            .default(0)
+            .items(editions.iter())
+            .interact()?;
+
+        *self = editions[edition_index];
+        Ok(())
+    }
+}
+
+/// Fetch the latest ISO
+pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<Iso> {
+    let arch = match arch {
+        ImageArch::Amd64 => "amd64",
+        ImageArch::Arm64 => "arm64",
+        ImageArch::I386 => "i386",
+        _ => bail!("Unsupported architecture"),
+    };
+    let version = match edition {
+        DebianEdition::Bullseye => "archive/11.9.0",
+        DebianEdition::Bookworm => "release/12.5.0",
+        _ => bail!("Unsupported edition"),
+    };
+
+    let rs = reqwest::blocking::get(format!(
+        "https://cdimage.debian.org/cdimage/{version}/{arch}/iso-cd/SHA256SUMS"
+    ))?;
+    if rs.status().is_success() {
+        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+            if line.ends_with(".iso") {
+                let split: Vec<&str> = line.split_whitespace().collect();
+                if let [hash, filename] = split[..] {
+                    return Ok(Iso {
+                        url: format!(
+                            "https://cdimage.debian.org/cdimage/{version}/{arch}/iso-cd/{filename}"
+                        )
+                        .parse()
+                        .unwrap(),
+                        checksum: Some(format!("sha256:{hash}")),
+                    });
+                }
+            }
+        }
+    }
+    bail!("Failed to request latest ISO");
 }

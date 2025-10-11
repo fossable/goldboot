@@ -1,10 +1,10 @@
 use self::qemu::{Accel, detect_accel};
-use self::{fabricators::Fabricator, os::Os, sources::ImageSource};
+use self::{fabricators::Fabricator, os::Os};
 use crate::builder::os::BuildImage;
 use crate::cli::cmd::Commands;
 use crate::library::ImageLibrary;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use byte_unit::Byte;
 use dialoguer::Password;
 use goldboot_image::ElementHeader;
@@ -30,11 +30,9 @@ pub mod ssh;
 pub mod vnc;
 
 /// Machinery that creates Goldboot images from image elements.
+#[derive(Validate)]
 pub struct Builder {
     pub elements: Vec<Os>,
-
-    /// The system architecture
-    pub arch: ImageArch,
 
     pub accel: Accel,
 
@@ -59,13 +57,12 @@ pub struct Builder {
 }
 
 impl Builder {
-    fn new(arch: ImageArch) -> Self {
+    pub fn new(elements: Vec<Os>) -> Self {
         // Allocate directory for the builder to store the intermediate qcow image
         // and any other supporting files.
         let tmp = tempfile::tempdir().unwrap();
 
         Self {
-            arch,
             accel: detect_accel(),
             debug: false,
             record: false,
@@ -73,33 +70,22 @@ impl Builder {
             qcow_path: tmp.path().join("image.gb.qcow2"),
             start_time: None,
             vnc_port: rand::rng().random_range(5900..5999),
-            alloy: Vec::new(),
-
-            // Try to find OVMF firmware or unpack what's included
-            ovmf_path: if let Some(path) = crate::builder::ovmf::find() {
-                path
-            } else if cfg!(feature = "include_ovmf") {
-                let path = tmp.path().join("OVMF.fd").to_string_lossy().to_string();
-
-                #[cfg(feature = "include_ovmf")]
-                crate::builder::ovmf::write(arch, &path).unwrap();
-                PathBuf::from(path)
-            } else {
-                // Just set a path that doesn't exist because it might get supplied
-                // from the command line.
-                PathBuf::from("")
-            },
+            elements,
+            ovmf_path: tmp.path().join("OVMF.fd"),
             tmp,
         }
+    }
+
+    /// The system architecture
+    pub fn arch(&self) -> Option<ImageArch> {
+        todo!()
     }
 
     /// Run the image build process according to the given command line.
     pub fn run(&mut self, cli: Commands) -> Result<()> {
         self.start_time = Some(SystemTime::now());
 
-        // Truncate the image size to a power of two for the qcow storage
-        let qcow_size = element.size(self.size.clone());
-        let qcow_size = qcow_size - (qcow_size % 2);
+        let qcow_size: u64 = self.elements.iter().map(|element| 0 /*TODO*/).sum();
 
         match cli {
             Commands::Build {
@@ -138,6 +124,26 @@ impl Builder {
                 // Override from command line
                 if let Some(path) = ovmf_path {
                     self.ovmf_path = PathBuf::from(path);
+                } else {
+                    // Try to find OVMF firmware or unpack what's included
+                    if let Some(path) = crate::builder::ovmf::find() {
+                        self.ovmf_path = path;
+                    } else if cfg!(feature = "include_ovmf") {
+                        let path = self
+                            .tmp
+                            .path()
+                            .join("OVMF.fd")
+                            .to_string_lossy()
+                            .to_string();
+
+                        #[cfg(feature = "include_ovmf")]
+                        crate::builder::ovmf::write(
+                            self.arch().ok_or_else(|| anyhow!("No elements"))?,
+                            &path,
+                        )
+                        .unwrap();
+                        self.ovmf_path = PathBuf::from(path);
+                    }
                 }
 
                 // Check OVMF firmware path
@@ -145,9 +151,10 @@ impl Builder {
                     bail!("No OVMF firmware found");
                 }
 
-                let qcow = Qcow3::create(&self.qcow_path, qcow_size)?;
-                for element in self.alloy.clone().into_iter() {
-                    element.os.build(&self)?;
+                // Truncate the image size to a power of two for the qcow storage
+                let qcow = Qcow3::create(&self.qcow_path, qcow_size - (qcow_size % 2))?;
+                for element in self.elements.clone().into_iter() {
+                    element.build(&self)?;
                 }
 
                 // Convert into final immutable image

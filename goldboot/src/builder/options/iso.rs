@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use validator::Validate;
 
-/// Uses an ISO image as a source.
+/// Use an ISO image as a source.
 #[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct IsoSource {
+pub struct Iso {
     /// The installation media URL (http, https, or file)
     pub url: Url,
 
@@ -14,14 +14,7 @@ pub struct IsoSource {
     pub checksum: Option<String>,
 }
 
-// impl LoadSource for IsoSource {
-//     /// Load the ISO into the cache and return its path
-//     fn load(&self) -> Result<String> {
-//         todo!()
-//     }
-// }
-
-impl Prompt for IsoSource {
+impl Prompt for Iso {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
         self.url = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Enter the ISO URL")

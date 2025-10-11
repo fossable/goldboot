@@ -1,17 +1,15 @@
-use super::{BuildImage, DefaultSource};
+use super::BuildImage;
 use crate::builder::fabricators::Fabricate;
 use crate::builder::http::HttpServer;
 use crate::builder::options::hostname::Hostname;
+use crate::builder::options::iso::Iso;
 use crate::builder::options::unix_account::RootPassword;
 use crate::builder::os::arch_linux::archinstall::ArchinstallConfig;
 use crate::builder::os::arch_linux::archinstall::ArchinstallCredentials;
 use crate::builder::qemu::{OsCategory, QemuBuilder};
 use crate::cli::prompt::Prompt;
 use crate::wait;
-use crate::{
-    builder::{Builder, sources::ImageSource},
-    wait_screen_rect,
-};
+use crate::{builder::Builder, wait_screen_rect};
 use anyhow::Result;
 use anyhow::bail;
 use goldboot_image::ImageArch;
@@ -28,7 +26,7 @@ mod archinstall;
 ///
 /// Upstream: https://archlinux.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct ArchLinux {
     #[serde(flatten)]
     pub hostname: Hostname,
@@ -36,18 +34,28 @@ pub struct ArchLinux {
     #[serde(flatten)]
     pub packages: Option<ArchLinuxPackages>,
     pub root_password: RootPassword,
+    pub iso: Iso,
 }
 
-impl DefaultSource for ArchLinux {
-    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
-        fetch_latest_iso()
+impl Default for ArchLinux {
+    fn default() -> Self {
+        Self {
+            hostname: Hostname::default(),
+            mirrorlist: None,
+            packages: None,
+            root_password: RootPassword::default(),
+            iso: Iso {
+                url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2025.10.01-x86_64.iso".parse().unwrap(),
+                checksum: None,
+            },
+        }
     }
 }
 
 impl BuildImage for ArchLinux {
     fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
-            .source(&worker.element.source)?
+            .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;
 
@@ -89,11 +97,11 @@ impl BuildImage for ArchLinux {
         }
 
         // Run remaining fabricators
-        if let Some(fabricators) = &worker.element.fabricators {
-            for fabricator in fabricators {
-                fabricator.run(&mut ssh)?;
-            }
-        }
+        // if let Some(fabricators) = &worker.element.fabricators {
+        //     for fabricator in fabricators {
+        //         fabricator.run(&mut ssh)?;
+        //     }
+        // }
 
         // Shutdown
         ssh.shutdown("poweroff")?;
@@ -150,7 +158,7 @@ impl ArchLinuxMirrorlist {
 }
 
 /// Fetch the latest installation ISO
-fn fetch_latest_iso() -> Result<ImageSource> {
+fn fetch_latest_iso() -> Result<Iso> {
     let rs = reqwest::blocking::get(format!(
         "http://mirrors.edge.kernel.org/archlinux/iso/latest/sha256sums.txt"
     ))?;
@@ -159,10 +167,12 @@ fn fetch_latest_iso() -> Result<ImageSource> {
             if line.ends_with(".iso") {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {
-                    return Ok(ImageSource::Iso {
+                    return Ok(Iso {
                         url: format!(
                             "http://mirrors.edge.kernel.org/archlinux/iso/latest/{filename}"
-                        ),
+                        )
+                        .parse()
+                        .unwrap(),
                         checksum: Some(format!("sha256:{hash}")),
                     });
                 }

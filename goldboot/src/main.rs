@@ -34,14 +34,7 @@ pub fn main() -> ExitCode {
     // Configure logging
     {
         let default_filter = match &command_line.command {
-            Some(Commands::Build {
-                record: _,
-                debug,
-                read_password: _,
-                no_accel: _,
-                output: _,
-                path: _,
-            }) => {
+            Some(Commands::Build { debug, .. }) => {
                 if *debug {
                     "debug"
                 } else {

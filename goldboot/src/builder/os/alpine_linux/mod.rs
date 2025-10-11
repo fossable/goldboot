@@ -8,39 +8,45 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{hostname::Hostname, unix_account::RootPassword},
+        options::{hostname::Hostname, iso::Iso, unix_account::RootPassword},
         qemu::{OsCategory, QemuBuilder},
-        sources::ImageSource,
     },
     cli::prompt::Prompt,
     enter, wait, wait_screen_rect,
 };
 
-use super::{BuildImage, DefaultSource};
+use super::BuildImage;
 
 /// Produces [Alpine Linux](https://www.alpinelinux.org) images.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct AlpineLinux {
     pub edition: AlpineEdition,
     #[serde(flatten)]
     pub hostname: Hostname,
     pub release: AlpineRelease,
     pub root_password: RootPassword,
+    pub iso: Iso,
 }
 
-impl DefaultSource for AlpineLinux {
-    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
-        Ok(ImageSource::Iso {
-            url: "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-standard-3.19.1-x86_64.iso".to_string(),
-            checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
-        })
+impl Default for AlpineLinux {
+    fn default() -> Self {
+        Self {
+            edition: AlpineEdition::default(),
+            hostname: Hostname::default(),
+            release: AlpineRelease::default(),
+            root_password: RootPassword::default(),
+            iso: Iso {
+                url: "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-standard-3.19.1-x86_64.iso".parse().unwrap(),
+                checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
+            },
+        }
     }
 }
 
 impl BuildImage for AlpineLinux {
     fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
-            .source(&worker.element.source)?
+            .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;
 

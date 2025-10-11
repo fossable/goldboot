@@ -2,8 +2,6 @@ use crate::cli::progress::ProgressBar;
 use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
-use serde::Deserialize;
-use serde::Serialize;
 use sha1::{Digest, Sha1};
 use sha2::{Sha256, Sha512};
 use std::{
@@ -11,22 +9,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tracing::{debug, info};
-
-pub mod iso;
-
-pub trait LoadSource {}
-
-/// All builds start with a single `Source` which provides the initial image
-/// to be subjected to further customizations.
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
-pub enum ImageSource {
-    Iso {
-        url: String,
-        checksum: Option<String>,
-    },
-    #[default]
-    Buildroot,
-}
 
 /// Simple cache for source installation media like ISOs.
 pub struct SourceCache {

@@ -10,7 +10,7 @@ pub mod init;
 pub mod liveusb;
 pub mod registry;
 
-#[derive(clap::Subcommand, Debug)]
+#[derive(clap::Subcommand, Debug, Clone)]
 pub enum Commands {
     /// Build a new image
     Build {
@@ -79,10 +79,6 @@ pub enum Commands {
         #[clap(long, default_value_t, value_enum)]
         format: ConfigPath,
 
-        /// The total image size
-        #[clap(long)]
-        size: Option<String>,
-
         // #[clap(long, num_args = 0)]
         // list: bool,
         /// Attempt to copy the configuration of the current hardware as closely
@@ -113,7 +109,7 @@ pub enum Commands {
     },
 }
 
-#[derive(clap::Subcommand, Debug)]
+#[derive(clap::Subcommand, Debug, Clone)]
 pub enum RegistryCommands {
     /// Enter a token for a registry
     Login {},
@@ -125,7 +121,7 @@ pub enum RegistryCommands {
     Pull { url: String },
 }
 
-#[derive(clap::Subcommand, Debug)]
+#[derive(clap::Subcommand, Debug, Clone)]
 pub enum ImageCommands {
     /// List local images
     List {},

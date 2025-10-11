@@ -10,48 +10,42 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::hostname::Hostname,
+        options::{hostname::Hostname, iso::Iso},
         qemu::{OsCategory, QemuBuilder},
-        sources::ImageSource,
     },
     cli::prompt::Prompt,
     enter, wait,
 };
 
-use super::{BuildImage, DefaultSource};
+use super::BuildImage;
 
 /// Windows 10 is a major release of Microsoft's Windows NT operating system.
 ///
 /// Upstream: https://microsoft.com
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
 pub struct Windows10 {
     #[serde(flatten)]
     pub hostname: Hostname,
 
-    username: String,
+    // username: String,
 
-    password: String,
+    // password: String,
+    iso: Iso,
 }
 
-// TODO proc macro
-impl Prompt for Windows10 {
-    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
-        // Prompt for minimal install
-        if dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme()).with_prompt("Perform minimal install? This will remove as many unnecessary programs as possible.").interact()? {
-
-		}
-        Ok(())
-    }
-}
-
-impl DefaultSource for Windows10 {
-    fn default_source(&self, _: ImageArch) -> Result<ImageSource> {
+impl Default for Windows10 {
+    fn default() -> Self {
         // TODO? https://github.com/pbatard/Fido
-        Ok(ImageSource::Iso {
-            url: "<TODO>.iso".to_string(),
-            checksum: Some("sha256:<TODO>".to_string()),
-        })
+        Self {
+            hostname: Hostname::default(),
+            // username: todo!(),
+            // password: todo!(),
+            iso: Iso {
+                url: "https://example.com".parse().unwrap(),
+                checksum: None,
+            },
+        }
     }
 }
 
@@ -157,7 +151,7 @@ impl BuildImage for Windows10 {
         debug!(xml = unattended_xml, "Generated Autounattend.xml");
 
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Windows)
-            .source(&worker.element.source)?
+            .with_iso(&self.iso)?
             .floppy_files(HashMap::from([(
                 "Autounattend.xml".to_string(),
                 unattended_xml.as_bytes().to_vec(),

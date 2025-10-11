@@ -1,4 +1,3 @@
-use super::sources::ImageSource;
 use crate::builder::Builder;
 use crate::cli::prompt::Prompt;
 use anyhow::Result;
@@ -14,7 +13,7 @@ use strum::{EnumIter, IntoEnumIterator};
 use alpine_linux::AlpineLinux;
 use arch_linux::ArchLinux;
 use debian::Debian;
-use goldboot::Goldboot;
+// use goldboot::Goldboot;
 use nix::Nix;
 use windows_10::Windows10;
 use windows_11::Windows11;
@@ -22,7 +21,7 @@ use windows_11::Windows11;
 pub mod alpine_linux;
 pub mod arch_linux;
 pub mod debian;
-pub mod goldboot;
+// pub mod goldboot;
 pub mod nix;
 pub mod windows_10;
 pub mod windows_11;
@@ -35,18 +34,13 @@ pub trait BuildImage {
     fn build(&self, builder: &Builder) -> Result<()>;
 }
 
-#[enum_dispatch(Os)]
-pub trait DefaultSource {
-    fn default_source(&self, arch: ImageArch) -> Result<ImageSource>;
-}
-
 // TODO Element?
 
 /// Represents a "base configuration" that users can modify and use to build
 /// images.
 #[enum_dispatch]
 #[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
-// #[serde(tag = "os")] // TODO?
+#[serde(tag = "os")]
 pub enum Os {
     AlpineLinux,
     ArchLinux,
@@ -58,7 +52,7 @@ pub enum Os {
     // Fedora,
     // FreeBsd,
     // Gentoo,
-    Goldboot,
+    // Goldboot,
     // Haiku,
     // Kali,
     // LinuxMint,
@@ -94,7 +88,7 @@ impl Os {
             Os::AlpineLinux(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             Os::ArchLinux(_) => vec![ImageArch::Amd64],
             Os::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            Os::Goldboot(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
+            // Os::Goldboot(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             Os::Nix(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
             Os::Windows10(_) => vec![ImageArch::Amd64],
             Os::Windows11(_) => vec![ImageArch::Amd64],
@@ -118,7 +112,7 @@ impl Display for Os {
                 Os::AlpineLinux(_) => "AlpineLinux",
                 Os::ArchLinux(_) => "ArchLinux",
                 Os::Debian(_) => "Debian",
-                Os::Goldboot(_) => "Goldboot",
+                // Os::Goldboot(_) => "Goldboot",
                 Os::Nix(_) => "NixOS",
                 Os::Windows10(_) => "Windows10",
                 Os::Windows11(_) => "Windows11",
@@ -136,7 +130,7 @@ impl Default for Os {
 #[cfg(feature = "config-python")]
 impl<'py> FromPyObject<'py> for Os {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        pythonize::depythonize_bound(ob.clone())
+        pythonize::depythonize(ob)
             .map_err(|e| pyo3::exceptions::PyTypeError::new_err(e.to_string()))
     }
 }
@@ -160,3 +154,10 @@ impl ValueEnum for Os {
 //         todo!()
 //     }
 // }
+
+#[macro_export]
+macro_rules! size {
+    ($element:expr) => {
+        $element.size
+    };
+}

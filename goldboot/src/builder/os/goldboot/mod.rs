@@ -11,14 +11,13 @@ use crate::{
         Builder,
         http::HttpServer,
         qemu::{OsCategory, QemuBuilder},
-        sources::ImageSource,
     },
     cli::prompt::Prompt,
     enter, input, wait_screen, wait_screen_rect,
 };
 
 use super::{
-    BuildImage, DefaultSource,
+    BuildImage,
     debian::{DebianEdition, fetch_debian_iso},
 };
 
@@ -46,12 +45,6 @@ impl Prompt for Goldboot {
     }
 }
 
-impl DefaultSource for Goldboot {
-    fn default_source(&self, arch: ImageArch) -> Result<ImageSource> {
-        fetch_debian_iso(DebianEdition::default(), arch)
-    }
-}
-
 impl BuildImage for Goldboot {
     fn build(&self, worker: &Builder) -> Result<()> {
         // Load goldboot executable
@@ -63,7 +56,7 @@ impl BuildImage for Goldboot {
 
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .vga("cirrus")
-            .source(&worker.element.source)?
+            .with_iso(&self.iso)?
             .drive_files(HashMap::from([("goldboot".to_string(), exe)]))?
             .start()?;
 
