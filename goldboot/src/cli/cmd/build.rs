@@ -7,13 +7,9 @@ use validator::Validate;
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd.clone() {
         super::Commands::Build {
-            record,
-            debug,
             read_password,
-            no_accel,
-            output,
             path,
-            ovmf_path,
+            ..
         } => {
             let config_path = match ConfigPath::from_dir(path) {
                 Some(p) => {
@@ -27,10 +23,16 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // Load config from current directory
-            let Ok(elements) = config_path.load() else {
-                return ExitCode::FAILURE;
+            let elements = match config_path.load() {
+                Ok(elements) => {
+                    debug!("Loaded: {:#?}", &elements);
+                    elements
+                }
+                Err(error) => {
+                    error!("Failed to load config: {:?}", error);
+                    return ExitCode::FAILURE;
+                }
             };
-            debug!("Loaded: {:#?}", &elements);
 
             let mut builder = Builder::new(elements);
 

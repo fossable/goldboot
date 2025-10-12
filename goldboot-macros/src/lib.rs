@@ -9,6 +9,14 @@ pub fn prompt(input: TokenStream) -> TokenStream {
     impl_prompt(&ast)
 }
 
+/// Automatically implement the "size()" method from BuildImage trait.
+/// This assumes the struct has a field named "size" of type Size.
+#[proc_macro_derive(BuildImageSize)]
+pub fn build_image_size(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+    impl_build_image_size(&ast)
+}
+
 fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
 
@@ -75,6 +83,35 @@ fn is_option_type(ty: &syn::Type) -> bool {
         }
     }
     false
+}
+
+fn impl_build_image_size(ast: &syn::DeriveInput) -> TokenStream {
+    let name = &ast.ident;
+
+    // Verify that the struct has a field named "size"
+    let has_size_field = match &ast.data {
+        syn::Data::Struct(data) => match &data.fields {
+            syn::Fields::Named(fields) => fields
+                .named
+                .iter()
+                .any(|f| f.ident.as_ref().map(|i| i == "size").unwrap_or(false)),
+            _ => false,
+        },
+        _ => false,
+    };
+
+    if !has_size_field {
+        panic!("BuildImageSize derive requires a field named 'size'");
+    }
+
+    let syntax = quote! {
+        impl BuildImage for #name {
+            fn size(&self) -> &crate::builder::options::size::Size {
+                &self.size
+            }
+        }
+    };
+    syntax.into()
 }
 
 // TODO add pyclass

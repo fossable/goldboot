@@ -1,3 +1,4 @@
+pub mod arch;
 pub mod hostname;
 pub mod iso;
 pub mod luks;

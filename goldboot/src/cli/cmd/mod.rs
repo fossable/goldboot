@@ -35,11 +35,12 @@ pub enum Commands {
         #[clap(long)]
         output: Option<String>,
 
+        #[clap(long)]
+        ovmf_path: Option<PathBuf>,
+
         /// The context directory (containing a goldboot config file)
         #[clap(index = 1)]
         path: String,
-
-        ovmf_path: Option<PathBuf>,
         // The image will be run as a virtual machine for testing
         // #[clap(long, num_args = 0)]
         // virtual: bool

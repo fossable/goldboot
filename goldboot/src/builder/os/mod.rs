@@ -26,6 +26,26 @@ pub mod nix;
 pub mod windows_10;
 pub mod windows_11;
 
+/// Macro to access fields from the inner variant of an Os enum.
+///
+/// Usage: `inner!(os).size` or `inner!(os).hostname`
+///
+/// This generates a match statement that extracts the inner variant
+/// and allows accessing its fields.
+#[macro_export]
+macro_rules! inner {
+    ($os:expr) => {
+        match $os {
+            Os::AlpineLinux(inner)
+            | Os::ArchLinux(inner)
+            | Os::Debian(inner)
+            | Os::Nix(inner)
+            | Os::Windows10(inner)
+            | Os::Windows11(inner) => inner,
+        }
+    };
+}
+
 /// "Building" is the process of generating an immutable goldboot image from raw
 /// configuration data.
 #[enum_dispatch(Os)]
@@ -154,10 +174,3 @@ impl ValueEnum for Os {
 //         todo!()
 //     }
 // }
-
-#[macro_export]
-macro_rules! size {
-    ($element:expr) => {
-        $element.size
-    };
-}

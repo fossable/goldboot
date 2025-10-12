@@ -77,8 +77,13 @@ impl Builder {
     }
 
     /// The system architecture
-    pub fn arch(&self) -> Option<ImageArch> {
-        todo!()
+    pub fn arch(&self) -> Result<ImageArch> {
+        match self.elements.first() {
+            Some(element) => {
+                todo!()
+            }
+            None => bail!("No elements in builder"),
+        }
     }
 
     /// Run the image build process according to the given command line.
@@ -137,11 +142,7 @@ impl Builder {
                             .to_string();
 
                         #[cfg(feature = "include_ovmf")]
-                        crate::builder::ovmf::write(
-                            self.arch().ok_or_else(|| anyhow!("No elements"))?,
-                            &path,
-                        )
-                        .unwrap();
+                        crate::builder::ovmf::write(self.arch()?, &path).unwrap();
                         self.ovmf_path = PathBuf::from(path);
                     }
                 }

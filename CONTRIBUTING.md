@@ -1,37 +1,34 @@
 # Contributing
 
-This guide contains helpful information for first time contributors.
+This guide contains some information for first time contributors.
 
-## Crate architecture
+## Architecture
 
 There are currently four crates to know about:
 
 - `goldboot`
-  - The primary CLI application for building goldboot images
+  - The primary CLI application for building images
 - `goldboot-image`
   - Implements the goldboot image format
 - `goldboot-macros`
-  - Procedural macros
+  - Procedural macros to simplify implementation of the `goldboot` crate
 - `goldboot-registry`
   - Web service that hosts goldboot images
 
 ## The metallurgy metaphor
 
-Although end-users could probably ignore it, the internals of `goldboot` use
-vocabulary taken from the field of metallurgy.
+Although end-users could mostly ignore it, the internals of `goldboot` use
+vocabulary appropriated from the field of metallurgy.
 
-#### Foundry
+### Element
 
-An image foundry is a configuration object that knows how to build goldboot
-images.
+An image element takes an image source and refines it according to built-in
+rules.
 
-#### OS
+For example, the `ArchLinux` element knows how to take Arch Linux install media
+(in the form of an ISO) and install it in an automated manner.
 
-An image mold takes an image source and refines it according to built-in rules.
-For example, the `ArchLinux` mold knows how to take Arch Linux install media (in
-the form of an ISO) and install it in an automated manner.
-
-#### Building
+### Building
 
 Building is the process that takes image sources and produces a final goldboot
 image containing all customizations.
@@ -41,21 +38,27 @@ running one or more image molds against it (via SSH or VNC). Once the virtual
 machine is fully provisioned, its shutdown and the underlying storage (.qcow2)
 is converted into a final goldboot image (.gb).
 
-#### Alloys
+### Alloys
 
-An alloy is a multi-boot image.
+An alloy is a multi-boot image that consists of more than one element.
 
-#### Fabricators
+### Fabricators
 
 Operates on images at the end of the casting process. For example, the shell
 fabricator runs shell commands on the image which can be useful in many cases.
 
-## Adding new operating systems
+### Casting
+
+If we followed the metaphor strictly, then _casting_ would be a synonym for
+_building_, but we decided instead to make it be the process of applying an
+image to a device.
+
+## Supporting new operating systems
 
 If `goldboot` doesn't already support your operating system, it should be
 possible to add it relatively easily.
 
-Start by finding an OS similar to yours in the `goldboot::foundry::os` module.
+Start by finding an OS similar to yours in the `goldboot::builder::os` module.
 
 TODO
 

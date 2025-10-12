@@ -1,8 +1,10 @@
 use super::BuildImage;
 use crate::builder::fabricators::Fabricate;
 use crate::builder::http::HttpServer;
+use crate::builder::options::arch::Arch;
 use crate::builder::options::hostname::Hostname;
 use crate::builder::options::iso::Iso;
+use crate::builder::options::size::Size;
 use crate::builder::options::unix_account::RootPassword;
 use crate::builder::os::arch_linux::archinstall::ArchinstallConfig;
 use crate::builder::os::arch_linux::archinstall::ArchinstallCredentials;
@@ -14,6 +16,7 @@ use anyhow::Result;
 use anyhow::bail;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 use std::io::{BufRead, BufReader};
 use tracing::{debug, info};
 use validator::Validate;
@@ -26,30 +29,21 @@ mod archinstall;
 ///
 /// Upstream: https://archlinux.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct ArchLinux {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
     #[serde(flatten)]
     pub hostname: Hostname,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
-    #[serde(flatten)]
     pub packages: Option<ArchLinuxPackages>,
     pub root_password: RootPassword,
+    #[default(Iso {
+        url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2025.10.01-x86_64.iso".parse().unwrap(),
+        checksum: None,
+    })]
     pub iso: Iso,
-}
-
-impl Default for ArchLinux {
-    fn default() -> Self {
-        Self {
-            hostname: Hostname::default(),
-            mirrorlist: None,
-            packages: None,
-            root_password: RootPassword::default(),
-            iso: Iso {
-                url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2025.10.01-x86_64.iso".parse().unwrap(),
-                checksum: None,
-            },
-        }
-    }
 }
 
 impl BuildImage for ArchLinux {
@@ -183,10 +177,8 @@ fn fetch_latest_iso() -> Result<Iso> {
 }
 
 // TODO we can validate package names early
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Default)]
-pub struct ArchLinuxPackages {
-    packages: Vec<String>,
-}
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+struct ArchLinuxPackages(Vec<String>);
 
 impl Prompt for ArchLinuxPackages {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
