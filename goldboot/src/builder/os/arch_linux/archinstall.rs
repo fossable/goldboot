@@ -249,7 +249,7 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
             no_pkg_lookups: false,
             ntp: true,
             offline: false,
-            packages: value.packages.clone().unwrap_or_default().packages,
+            packages: value.packages.clone().unwrap_or_default().0,
             parallel_downloads: 0,
             profile_config: None,
             silent: true,

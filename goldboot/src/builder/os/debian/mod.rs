@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 use std::io::{BufRead, BufReader};
 use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
@@ -9,7 +10,9 @@ use crate::{
     builder::{
         Builder,
         http::HttpServer,
-        options::{hostname::Hostname, iso::Iso, unix_account::RootPassword},
+        options::{
+            arch::Arch, hostname::Hostname, iso::Iso, size::Size, unix_account::RootPassword,
+        },
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
@@ -24,29 +27,20 @@ use super::BuildImage;
 ///
 /// Upstream: https://www.debian.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Debian {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
     pub edition: DebianEdition,
-
     #[serde(flatten)]
     pub hostname: Option<Hostname>,
     pub root_password: RootPassword,
-
+    #[default(Iso {
+        url: "http://example.com".parse().unwrap(),
+        checksum: None,
+    })]
     pub iso: Iso,
-}
-
-impl Default for Debian {
-    fn default() -> Self {
-        Self {
-            root_password: RootPassword::default(),
-            edition: DebianEdition::default(),
-            hostname: Some(Hostname::default()),
-            iso: Iso {
-                url: "https://example.com".parse().unwrap(),
-                checksum: None,
-            },
-        }
-    }
 }
 
 impl BuildImage for Debian {

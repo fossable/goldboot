@@ -4,13 +4,14 @@ use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_win_unattend::*;
+use smart_default::SmartDefault;
 use tracing::debug;
 use validator::Validate;
 
 use crate::{
     builder::{
         Builder,
-        options::{hostname::Hostname, iso::Iso},
+        options::{arch::Arch, hostname::Hostname, iso::Iso, size::Size},
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
@@ -23,30 +24,22 @@ use super::BuildImage;
 ///
 /// Upstream: https://microsoft.com
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Windows10 {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
     #[serde(flatten)]
     pub hostname: Hostname,
 
     // username: String,
 
     // password: String,
+    #[default(Iso {
+        url: "http://example.com".parse().unwrap(),
+        checksum: None,
+    })]
     iso: Iso,
-}
-
-impl Default for Windows10 {
-    fn default() -> Self {
-        // TODO? https://github.com/pbatard/Fido
-        Self {
-            hostname: Hostname::default(),
-            // username: todo!(),
-            // password: todo!(),
-            iso: Iso {
-                url: "https://example.com".parse().unwrap(),
-                checksum: None,
-            },
-        }
-    }
 }
 
 impl BuildImage for Windows10 {

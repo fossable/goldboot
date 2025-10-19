@@ -26,22 +26,16 @@ pub mod nix;
 pub mod windows_10;
 pub mod windows_11;
 
-/// Macro to access fields from the inner variant of an Os enum.
-///
-/// Usage: `inner!(os).size` or `inner!(os).hostname`
-///
-/// This generates a match statement that extracts the inner variant
-/// and allows accessing its fields.
 #[macro_export]
-macro_rules! inner {
+macro_rules! size {
     ($os:expr) => {
-        match $os {
-            Os::AlpineLinux(inner)
-            | Os::ArchLinux(inner)
-            | Os::Debian(inner)
-            | Os::Nix(inner)
-            | Os::Windows10(inner)
-            | Os::Windows11(inner) => inner,
+        match $os.clone() {
+            Os::AlpineLinux(inner) => inner.size,
+            Os::ArchLinux(inner) => inner.size,
+            Os::Debian(inner) => inner.size,
+            Os::Nix(inner) => inner.size,
+            Os::Windows10(inner) => inner.size,
+            Os::Windows11(inner) => inner.size,
         }
     };
 }

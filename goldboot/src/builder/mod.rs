@@ -3,6 +3,7 @@ use self::{fabricators::Fabricator, os::Os};
 use crate::builder::os::BuildImage;
 use crate::cli::cmd::Commands;
 use crate::library::ImageLibrary;
+use crate::size;
 
 use anyhow::{Result, anyhow, bail};
 use byte_unit::Byte;
@@ -90,7 +91,11 @@ impl Builder {
     pub fn run(&mut self, cli: Commands) -> Result<()> {
         self.start_time = Some(SystemTime::now());
 
-        let qcow_size: u64 = self.elements.iter().map(|element| 0 /*TODO*/).sum();
+        let qcow_size: u64 = self
+            .elements
+            .iter()
+            .map(|element| -> u64 { size!(element).into() })
+            .sum();
 
         match cli {
             Commands::Build {

@@ -1,13 +1,14 @@
 use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 use std::{collections::HashMap, path::PathBuf};
 use validator::Validate;
 
 use crate::{
     builder::{
         Builder,
-        options::iso::Iso,
+        options::{arch::Arch, iso::Iso, size::Size},
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
@@ -23,28 +24,24 @@ use super::BuildImage;
 ///
 /// Upstream: https://www.nixos.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Nix {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
+
     /// Path to /etc/nixos/configuration.nix
+    #[default(ConfigurationPath("configuration.nix".parse().unwrap()))]
     pub configuration: ConfigurationPath,
 
     /// Path to /etc/nixos/hardware-configuration.nix
     pub hardware_configuration: Option<ConfigurationPath>,
 
+    #[default(Iso {
+        url: "http://example.com".parse().unwrap(),
+        checksum: None,
+    })]
     pub iso: Iso,
-}
-
-impl Default for Nix {
-    fn default() -> Self {
-        Self {
-            configuration: ConfigurationPath(PathBuf::from("configuration.nix")),
-            hardware_configuration: None,
-            iso: Iso {
-                url: "https://example.com".parse().unwrap(),
-                checksum: None,
-            },
-        }
-    }
 }
 
 impl BuildImage for Nix {

@@ -2,6 +2,7 @@ use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_win_unattend::*;
+use smart_default::SmartDefault;
 use std::collections::HashMap;
 use tracing::debug;
 use validator::Validate;
@@ -9,7 +10,7 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{hostname::Hostname, iso::Iso},
+        options::{arch::Arch, hostname::Hostname, iso::Iso, size::Size},
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
@@ -22,25 +23,19 @@ use super::BuildImage;
 ///
 /// Upstream: https://microsoft.com
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Windows11 {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
     #[serde(flatten)]
     pub hostname: Hostname,
 
+    #[default(Iso {
+        url: "http://example.com".parse().unwrap(),
+        checksum: None,
+    })]
     pub iso: Iso,
-}
-
-impl Default for Windows11 {
-    fn default() -> Self {
-        // TODO? https://github.com/pbatard/Fido
-        Self {
-            hostname: Hostname::default(),
-            iso: Iso {
-                url: "https://example.com".parse().unwrap(),
-                checksum: None,
-            },
-        }
-    }
 }
 
 impl BuildImage for Windows11 {

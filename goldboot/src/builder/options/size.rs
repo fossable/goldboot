@@ -48,6 +48,16 @@ impl Validate for Size {
     }
 }
 
+impl Into<u64> for Size {
+    fn into(self) -> u64 {
+        // Assume Size was validated previously
+        self.0
+            .parse::<Byte>()
+            .expect("Size was not validated")
+            .as_u64()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,19 +66,8 @@ mod tests {
     fn test_valid_sizes() {
         // Test various valid size formats
         let sizes = vec![
-            "16G",
-            "16GB",
-            "512M",
-            "512MB",
-            "1T",
-            "1TB",
-            "2048K",
-            "2048KB",
-            "1024",
-            "1 GB",
-            "1.5 GB",
-            "100 MiB",
-            "16GiB",
+            "16G", "16GB", "512M", "512MB", "1T", "1TB", "2048K", "2048KB", "1024", "1 GB",
+            "1.5 GB", "100 MiB", "16GiB",
         ];
 
         for size_str in sizes {
@@ -85,10 +84,10 @@ mod tests {
     fn test_invalid_sizes() {
         // Test various invalid size formats
         let invalid_sizes = vec![
-            "",           // Empty string
-            "abc",        // No numbers
-            "G16",        // Unit before number
-            "16X",        // Invalid unit
+            "",            // Empty string
+            "abc",         // No numbers
+            "G16",         // Unit before number
+            "16X",         // Invalid unit
             "hello world", // Completely invalid
         ];
 
@@ -106,16 +105,10 @@ mod tests {
     fn test_zero_size() {
         // Test that zero size is rejected
         let size = Size("0".to_string());
-        assert!(
-            size.validate().is_err(),
-            "Expected zero size to be invalid"
-        );
+        assert!(size.validate().is_err(), "Expected zero size to be invalid");
 
         let size = Size("0GB".to_string());
-        assert!(
-            size.validate().is_err(),
-            "Expected zero size to be invalid"
-        );
+        assert!(size.validate().is_err(), "Expected zero size to be invalid");
     }
 
     #[test]
@@ -132,12 +125,7 @@ mod tests {
     #[test]
     fn test_large_sizes() {
         // Test large sizes
-        let sizes = vec![
-            "1000T",
-            "1000TB",
-            "1PB",
-            "100000GB",
-        ];
+        let sizes = vec!["1000T", "1000TB", "1PB", "100000GB"];
 
         for size_str in sizes {
             let size = Size(size_str.to_string());
