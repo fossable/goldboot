@@ -2,7 +2,7 @@
 authors = ["Tyler Cook"]
 description = "Supporting macros for goldboot"
 edition = "2024"
-license = "AGPL-3.0-only"
+license = "Unlicense"
 name = "goldboot-macros"
 rust-version = "1.85"
 version = "0.0.3"
