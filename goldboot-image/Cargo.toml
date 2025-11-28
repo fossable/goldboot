@@ -7,7 +7,7 @@ license = "Unlicense"
 name = "goldboot-image"
 repository = "https://github.com/fossable/goldboot"
 rust-version = "1.85"
-version = "0.0.5"
+version = "0.0.6"
 
 [dependencies]
 aes-gcm = { version = "0.10.3", features = ["std"] }
