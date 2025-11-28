@@ -97,7 +97,7 @@ impl ImageLibrary {
 
     /// Download a goldboot image over HTTP.
     pub fn download(&self, url: String) -> Result<ImageHandle> {
-        let path = self.directory.join("goldboot-linux.gb");
+        let path = self.directory.join("goldboot-uki.gb");
 
         let mut rs = reqwest::blocking::get(&url)?;
         if rs.status().is_success() {

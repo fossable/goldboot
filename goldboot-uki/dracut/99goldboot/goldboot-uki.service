@@ -1,0 +1,20 @@
+[Unit]
+Description=Goldboot UKI Image Deployment Tool
+DefaultDependencies=no
+After=systemd-udev-settle.service
+Before=initrd.target
+ConditionPathExists=/usr/bin/goldboot-uki
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/goldboot-uki
+StandardInput=tty
+StandardOutput=inherit
+StandardError=inherit
+TTYPath=/dev/console
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=initrd.target

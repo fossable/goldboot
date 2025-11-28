@@ -1528,25 +1528,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "goldboot-linux"
-version = "0.0.3"
-dependencies = [
- "block-utils",
- "built",
- "clap",
- "gdk-pixbuf",
- "gdk4",
- "glib",
- "glib-macros",
- "goldboot",
- "goldboot-image",
- "gtk4",
- "tracing",
- "tracing-subscriber",
- "ubyte",
-]
-
-[[package]]
 name = "goldboot-macros"
 version = "0.0.3"
 dependencies = [
@@ -1568,6 +1549,25 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "goldboot-uki"
+version = "0.0.3"
+dependencies = [
+ "block-utils",
+ "built",
+ "clap",
+ "gdk-pixbuf",
+ "gdk4",
+ "glib",
+ "glib-macros",
+ "goldboot",
+ "goldboot-image",
+ "gtk4",
+ "tracing",
+ "tracing-subscriber",
+ "ubyte",
 ]
 
 [[package]]
