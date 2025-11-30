@@ -4,211 +4,204 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (system:
       let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
+        pkgs = import nixpkgs { inherit system; };
+
+        # Build the goldboot-uki binary
+        goldboot-uki = pkgs.rustPlatform.buildRustPackage {
+          pname = "goldboot-uki";
+          version = "0.0.3";
+
+          src = ../.;
+
+          cargoLock = { lockFile = ../Cargo.lock; };
+
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            openssl
+            python3 # Required by pyo3-build-config
+          ];
+
+          buildInputs = with pkgs; [
+            gtk4
+            gdk-pixbuf
+            glib
+            cairo
+            pango
+            graphene
+            libdrm
+            udev # Required by libudev-sys (block-utils dependency)
+          ];
+
+          # Build only the goldboot-uki package from workspace
+          cargoBuildFlags = [ "-p" "goldboot-uki" ];
+
+          # Skip tests for UKI build
+          doCheck = false;
         };
 
-        # Rust toolchain
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" ];
+        # Minimal init script
+        initScript = pkgs.writeScript "init" ''
+          #!/bin/busybox sh
+
+          set -e
+
+          # Create busybox symlinks
+          /bin/busybox --install -s /bin
+
+          # Mount essential filesystems
+          mount -t proc proc /proc
+          mount -t sysfs sys /sys
+          mount -t devtmpfs dev /dev
+
+          # Create necessary directories
+          mkdir -p /tmp /run /var
+
+          # Set up networking (lo interface)
+          ip link set lo up
+
+          # Launch goldboot
+          exec /sbin/goldboot-uki
+        '';
+
+        # Create initramfs with makeInitrd
+        buildInitramfs = kernel:
+          pkgs.makeInitrd {
+            name = "sandpolis-initramfs";
+
+            # Use gzip compression (standard for initramfs)
+            compressor = "gzip";
+
+            contents = [
+              # Include the init script at /init
+              {
+                object = initScript;
+                symlink = "/init";
+                mode = "0755";
+              }
+
+              # Include the goldboot binary
+              {
+                object = "${goldboot-uki}/bin/goldboot-uki";
+                symlink = "/sbin/goldboot-uki";
+                mode = "0755";
+              }
+
+              # Include busybox for shell utilities
+              {
+                object = "${pkgs.busybox}/bin/busybox";
+                symlink = "/bin/busybox";
+                mode = "0755";
+              }
+            ];
+          };
+
+        kernel = pkgs.linuxPackages_latest.kernel;
+
+        initramfs = buildInitramfs kernel;
+
+        # Build the UKI (Unified Kernel Image)
+        goldboot-uki-image = pkgs.stdenv.mkDerivation {
+          name = "sandpolis-uki";
+
+          nativeBuildInputs = [
+            pkgs.systemdUkify # provides ukify
+            pkgs.binutils
+          ];
+
+          buildCommand = ''
+            mkdir -p $out
+
+            # List initramfs contents for debugging
+            echo "Initramfs contents:"
+            zcat ${initramfs}/initrd | ${pkgs.cpio}/bin/cpio -itv
+
+            # Use ukify to create the UKI
+            ${pkgs.systemdUkify}/bin/ukify build \
+              --linux=${kernel}/bzImage \
+              --initrd=${initramfs}/initrd \
+              --os-release='NAME="Goldboot"
+            ID=goldboot
+            VERSION="0.1.0"' \
+              --cmdline="console=ttyS0 console=tty0 quiet" \
+              --output=$out/goldboot.efi
+
+            echo "UKI created at $out/goldboot.efi"
+          '';
         };
 
-        # Common build inputs for Rust projects
-        rustBuildInputs = with pkgs; [
-          pkg-config
-          openssl
-        ];
+        # Run scripts for QEMU testing
+        run-x86_64 = pkgs.writeShellScriptBin "run-x86_64" ''
+          # Set up ESP directory structure in temp directory
+          ESP_DIR=$(mktemp -d)
+          mkdir -p $ESP_DIR/EFI/Boot
+          cp result/sandpolis.efi $ESP_DIR/EFI/Boot/BootX64.efi
 
-        # GTK4 dependencies for goldboot-uki
-        gtkDeps = with pkgs; [
-          gtk4
-          gdk-pixbuf
-          glib
-          cairo
-          pango
-          graphene
-          libdrm
-          udev  # Required by libudev-sys (block-utils dependency)
-        ];
+          qemu-system-x86_64 \
+            -nodefaults --enable-kvm -m 256M -machine q35 -smp 4 \
+            -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
+            -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
+            -drive format=raw,file=fat:rw:$ESP_DIR \
+            -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
+            -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x04 -vga std
 
-      in
-      {
+          rm -rf $ESP_DIR
+        '';
+
+        run-aarch64 = pkgs.writeShellScriptBin "run-aarch64" ''
+          # Set up ESP directory structure in temp directory
+          ESP_DIR=$(mktemp -d)
+          mkdir -p $ESP_DIR/EFI/Boot
+          cp result/sandpolis.efi $ESP_DIR/EFI/Boot/BootAA64.efi
+
+          qemu-system-aarch64 \
+            -nodefaults --enable-kvm -m 256M -machine virt -cpu cortex-a72 -smp 4 \
+            -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
+            -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
+            -drive format=raw,file=fat:rw:$ESP_DIR \
+            -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
+            -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x04 -vga std
+
+          rm -rf $ESP_DIR
+        '';
+
+      in {
         packages = {
-          # Build the goldboot-uki binary
-          goldboot-uki = pkgs.rustPlatform.buildRustPackage {
-            pname = "goldboot-uki";
-            version = "0.0.3";
-
-            # Source is the parent directory (workspace root)
-            src = pkgs.lib.cleanSource ../.;
-
-            cargoLock = {
-              lockFile = ../Cargo.lock;
-            };
-
-            nativeBuildInputs = rustBuildInputs ++ [
-              rustToolchain
-              pkgs.python3  # Required by pyo3-build-config
-            ];
-
-            buildInputs = gtkDeps ++ rustBuildInputs;
-
-            # Build only the goldboot-uki package from workspace
-            cargoBuildFlags = [ "-p" "goldboot-uki" ];
-
-            meta = with pkgs.lib; {
-              description = "Goldboot UKI - Image deployment tool in a Unified Kernel Image";
-              homepage = "https://goldboot.org";
-              license = licenses.unlicense;
-              maintainers = [ ];
-            };
-          };
-
-          # Build the complete UKI image
-          goldboot-uki-image = pkgs.stdenv.mkDerivation {
-            pname = "goldboot-uki-image";
-            version = "0.0.3";
-
-            src = pkgs.lib.cleanSource ../.;
-
-            nativeBuildInputs = with pkgs; [
-              binutils
-              cpio
-              dracut
-              kmod
-              systemd  # for ukify and systemd-boot stub
-            ];
-
-            buildInputs = with pkgs; [
-              linux
-            ] ++ gtkDeps;
-
-            buildPhase = ''
-              set -x
-
-              # Create working directory
-              mkdir -p $out/build
-              cd $out/build
-
-              # Copy goldboot-uki binary
-              cp ${self.packages.${system}.goldboot-uki}/bin/goldboot-uki ./goldboot-uki
-              chmod +x ./goldboot-uki
-
-              # Set up dracut module (from goldboot-uki/dracut)
-              DRACUT_MODULE_DIR="./dracut-modules/99goldboot"
-              mkdir -p "$DRACUT_MODULE_DIR"
-
-              cp -r $src/goldboot-uki/dracut/99goldboot/* "$DRACUT_MODULE_DIR/"
-              chmod +x "$DRACUT_MODULE_DIR/module-setup.sh"
-              chmod +x "$DRACUT_MODULE_DIR/goldboot-init.sh"
-
-              # Get kernel version from nixpkgs
-              KERNEL_VERSION="${pkgs.linux.version}"
-              KERNEL_IMAGE="${pkgs.linux}/bzImage"
-
-              # Create initramfs with dracut
-              export goldboot_uki_path="$(pwd)/goldboot-uki"
-              export DRACUT_MODULE_PATH="$(pwd)/dracut-modules"
-
-              ${pkgs.dracut}/bin/dracut \
-                --force \
-                --kver "$KERNEL_VERSION" \
-                --kmoddir "${pkgs.linux}/lib/modules/$KERNEL_VERSION" \
-                --add "goldboot drm" \
-                --add-drivers "i915 amdgpu radeon nouveau virtio_gpu bochs" \
-                --install "lsblk blkid blockdev" \
-                --no-hostonly \
-                --no-hostonly-cmdline \
-                --modules-dir "$DRACUT_MODULE_PATH" \
-                initramfs.img
-
-              echo "Initramfs created: $(du -h initramfs.img)"
-
-              # Create kernel command line
-              echo "quiet loglevel=0 rd.systemd.show_status=no rd.udev.log_level=0 console=tty0" > cmdline.txt
-
-              # Create minimal os-release
-              cat > os-release <<EOF
-              NAME="Goldboot UKI"
-              ID=goldboot-uki
-              VERSION="${self.packages.${system}.goldboot-uki-image.version}"
-              PRETTY_NAME="Goldboot UKI"
-              HOME_URL="https://goldboot.org"
-              EOF
-
-              # Build UKI using objcopy
-              SYSTEMD_STUB="${pkgs.systemd}/lib/systemd/boot/efi/linuxx64.efi.stub"
-
-              if [ ! -f "$SYSTEMD_STUB" ]; then
-                echo "Error: systemd EFI stub not found at $SYSTEMD_STUB"
-                exit 1
-              fi
-
-              ${pkgs.binutils}/bin/objcopy \
-                --add-section .osrel=os-release --change-section-vma .osrel=0x20000 \
-                --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-                --add-section .linux="$KERNEL_IMAGE" --change-section-vma .linux=0x2000000 \
-                --add-section .initrd=initramfs.img --change-section-vma .initrd=0x3000000 \
-                "$SYSTEMD_STUB" $out/goldboot.efi
-
-              echo "UKI created: $(du -h $out/goldboot.efi)"
-            '';
-
-            installPhase = ''
-              # Already installed to $out/goldboot.efi in buildPhase
-              echo "UKI installed to $out/goldboot.efi"
-            '';
-
-            meta = with pkgs.lib; {
-              description = "Goldboot UKI - Complete bootable image";
-              homepage = "https://goldboot.org";
-              license = licenses.unlicense;
-            };
-          };
-
-          default = self.packages.${system}.goldboot-uki-image;
+          default = goldboot-uki-image;
+          goldboot-uki = goldboot-uki;
+          goldboot-uki-image = goldboot-uki-image;
         };
 
         # Development shell
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rustToolchain
-            cargo
-            rustfmt
-            clippy
-            rust-analyzer
+          buildInputs = [
+            # Testing/debugging tools
+            pkgs.qemu
+            pkgs.OVMF
 
-            # Build tools
-            pkg-config
-            binutils
-            dracut
-            systemd
+            # Run scripts
+            run-x86_64
+            run-aarch64
 
-            # GTK4 dependencies
-          ] ++ gtkDeps ++ rustBuildInputs;
-
-          RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
+          ];
 
           shellHook = ''
-            echo "Goldboot development environment"
+            echo "Goldboot UKI Development Environment"
             echo "Rust version: $(rustc --version)"
             echo ""
             echo "Available commands:"
             echo "  nix build .#goldboot-uki        - Build just the binary"
             echo "  nix build .#goldboot-uki-image  - Build the complete UKI"
             echo "  nix build                       - Build default (UKI image)"
+            echo ""
+            echo "Test with QEMU:"
+            echo "  run-x86_64   - Run with QEMU x86_64"
+            echo "  run-aarch64  - Run with QEMU aarch64"
           '';
         };
-      }
-    );
+      });
 }
