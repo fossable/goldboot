@@ -5,7 +5,6 @@ strip = true
 members = [
   "goldboot",
   "goldboot-image",
-  "goldboot-uki",
   "goldboot-macros",
   "goldboot-registry",
 ]

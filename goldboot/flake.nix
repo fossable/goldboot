@@ -11,34 +11,28 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
-        # Build the goldboot-uki binary
-        goldboot-uki = pkgs.rustPlatform.buildRustPackage {
-          pname = "goldboot-uki";
-          version = "0.0.3";
+        # Build the goldboot binary with UKI feature
+        goldboot = pkgs.rustPlatform.buildRustPackage {
+          pname = "goldboot";
+          version = "0.0.10";
 
-          src = ../.;
+          src = ../..;
 
-          cargoLock = { lockFile = ../Cargo.lock; };
+          cargoLock = { lockFile = ../../Cargo.lock; };
 
           nativeBuildInputs = with pkgs; [
             pkg-config
-            openssl
             python3 # Required by pyo3-build-config
           ];
 
           buildInputs = with pkgs; [
-            gtk4
-            gdk-pixbuf
-            glib
-            cairo
-            pango
-            graphene
-            libdrm
+            openssl
+            openssl.dev
             udev # Required by libudev-sys (block-utils dependency)
           ];
 
-          # Build only the goldboot-uki package from workspace
-          cargoBuildFlags = [ "-p" "goldboot-uki" ];
+          # Build goldboot with UKI feature (enables GUI + UKI mode)
+          cargoBuildFlags = [ "-p" "goldboot" "--features" "uki" ];
 
           # Skip tests for UKI build
           doCheck = false;
@@ -64,14 +58,14 @@
           # Set up networking (lo interface)
           ip link set lo up
 
-          # Launch goldboot
-          exec /sbin/goldboot-uki
+          # Launch goldboot in UKI mode (runs fullscreen GUI, then reboots)
+          exec /sbin/cage /sbin/goldboot
         '';
 
         # Create initramfs with makeInitrd
         buildInitramfs = kernel:
           pkgs.makeInitrd {
-            name = "sandpolis-initramfs";
+            name = "goldboot-initramfs";
 
             # Use gzip compression (standard for initramfs)
             compressor = "gzip";
@@ -84,17 +78,24 @@
                 mode = "0755";
               }
 
-              # Include the goldboot binary
+              # Include the goldboot binary (with full closure)
               {
-                object = "${goldboot-uki}/bin/goldboot-uki";
-                symlink = "/sbin/goldboot-uki";
+                object = "${goldboot}/bin/goldboot";
+                symlink = "/sbin/goldboot";
                 mode = "0755";
               }
 
-              # Include busybox for shell utilities
+              # Include busybox for shell utilities (minimal, no deps)
               {
                 object = "${pkgs.busybox}/bin/busybox";
                 symlink = "/bin/busybox";
+                mode = "0755";
+              }
+
+              # Include cage (Wayland compositor for fullscreen GUI)
+              {
+                object = "${pkgs.cage}/bin/cage";
+                symlink = "/sbin/cage";
                 mode = "0755";
               }
             ];
@@ -105,8 +106,8 @@
         initramfs = buildInitramfs kernel;
 
         # Build the UKI (Unified Kernel Image)
-        goldboot-uki-image = pkgs.stdenv.mkDerivation {
-          name = "sandpolis-uki";
+        goldboot-uki = pkgs.stdenv.mkDerivation {
+          name = "goldboot-uki";
 
           nativeBuildInputs = [
             pkgs.systemdUkify # provides ukify
@@ -139,10 +140,10 @@
           # Set up ESP directory structure in temp directory
           ESP_DIR=$(mktemp -d)
           mkdir -p $ESP_DIR/EFI/Boot
-          cp result/sandpolis.efi $ESP_DIR/EFI/Boot/BootX64.efi
+          cp result/goldboot.efi $ESP_DIR/EFI/Boot/BootX64.efi
 
           qemu-system-x86_64 \
-            -nodefaults --enable-kvm -m 256M -machine q35 -smp 4 \
+            -nodefaults --enable-kvm -m 2G -machine q35 -smp 4 \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
@@ -156,10 +157,10 @@
           # Set up ESP directory structure in temp directory
           ESP_DIR=$(mktemp -d)
           mkdir -p $ESP_DIR/EFI/Boot
-          cp result/sandpolis.efi $ESP_DIR/EFI/Boot/BootAA64.efi
+          cp result/goldboot.efi $ESP_DIR/EFI/Boot/BootAA64.efi
 
           qemu-system-aarch64 \
-            -nodefaults --enable-kvm -m 256M -machine virt -cpu cortex-a72 -smp 4 \
+            -nodefaults --enable-kvm -m 2G -machine virt -cpu cortex-a72 -smp 4 \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
@@ -171,9 +172,9 @@
 
       in {
         packages = {
-          default = goldboot-uki-image;
+          default = goldboot-uki;
+          goldboot = goldboot;
           goldboot-uki = goldboot-uki;
-          goldboot-uki-image = goldboot-uki-image;
         };
 
         # Development shell
@@ -194,8 +195,8 @@
             echo "Rust version: $(rustc --version)"
             echo ""
             echo "Available commands:"
-            echo "  nix build .#goldboot-uki        - Build just the binary"
-            echo "  nix build .#goldboot-uki-image  - Build the complete UKI"
+            echo "  nix build .#goldboot            - Build just the binary"
+            echo "  nix build .#goldboot-uki        - Build the complete UKI"
             echo "  nix build                       - Build default (UKI image)"
             echo ""
             echo "Test with QEMU:"
