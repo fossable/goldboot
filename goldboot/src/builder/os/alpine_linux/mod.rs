@@ -19,7 +19,7 @@ use crate::{
 use super::BuildImage;
 
 /// Produces [Alpine Linux](https://www.alpinelinux.org) images.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt, goldboot_macros::StarlarkConstructor)]
 pub struct AlpineLinux {
     pub size: Size,
     pub edition: AlpineEdition,

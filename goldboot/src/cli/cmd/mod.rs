@@ -77,9 +77,6 @@ pub enum Commands {
         #[clap(long, value_enum)]
         os: Vec<Os>,
 
-        #[clap(long, default_value_t, value_enum)]
-        format: ConfigPath,
-
         // #[clap(long, num_args = 0)]
         // list: bool,
         /// Attempt to copy the configuration of the current hardware as closely

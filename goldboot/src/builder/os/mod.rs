@@ -4,8 +4,6 @@ use anyhow::Result;
 use clap::ValueEnum;
 use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
-#[cfg(feature = "config-python")]
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, sync::OnceLock};
 use strum::{EnumIter, IntoEnumIterator};
@@ -138,14 +136,6 @@ impl Display for Os {
 impl Default for Os {
     fn default() -> Self {
         Os::ArchLinux(ArchLinux::default())
-    }
-}
-
-#[cfg(feature = "config-python")]
-impl<'py> FromPyObject<'py> for Os {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        pythonize::depythonize(ob)
-            .map_err(|e| pyo3::exceptions::PyTypeError::new_err(e.to_string()))
     }
 }
 

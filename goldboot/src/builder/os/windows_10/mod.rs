@@ -24,7 +24,7 @@ use super::BuildImage;
 ///
 /// Upstream: https://microsoft.com
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt, goldboot_macros::StarlarkConstructor)]
 pub struct Windows10 {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,

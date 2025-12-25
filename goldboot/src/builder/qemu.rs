@@ -303,8 +303,8 @@ impl QemuBuilder {
                 global: vec![String::from("driver=cfi.pflash01,property=secure,value=on")],
                 machine: format!("type=pc,accel={}", worker.accel),
 
-                // TODO need to get memory setting for each element
-                memory: todo!(),
+                // Default to 4GB of memory
+                memory: String::from("4G"),
                 name: String::from("goldboot"),
                 netdev: vec!["user,id=user.0".into()],
                 smbios: None,

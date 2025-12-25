@@ -23,15 +23,20 @@ use validator::Validate;
 
 mod archinstall;
 
+fn default_arch() -> Arch {
+    Arch(ImageArch::Amd64)
+}
+
 /// Arch Linux is an independently developed x86-64 general-purpose Linux distribution
 /// that strives to provide the latest stable versions of most software by following
 /// a rolling-release model.
 ///
 /// Upstream: https://archlinux.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt, goldboot_macros::StarlarkConstructor)]
 pub struct ArchLinux {
     #[default(Arch(ImageArch::Amd64))]
+    #[serde(default = "default_arch")]
     pub arch: Arch,
     pub size: Size,
     #[serde(flatten)]

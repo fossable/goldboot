@@ -81,7 +81,14 @@ impl Builder {
     pub fn arch(&self) -> Result<ImageArch> {
         match self.elements.first() {
             Some(element) => {
-                todo!()
+                Ok(match element {
+                    Os::AlpineLinux(_) => ImageArch::Amd64,
+                    Os::ArchLinux(inner) => inner.arch.0,
+                    Os::Debian(inner) => inner.arch.0,
+                    Os::Nix(inner) => inner.arch.0,
+                    Os::Windows10(inner) => inner.arch.0,
+                    Os::Windows11(inner) => inner.arch.0,
+                })
             }
             None => bail!("No elements in builder"),
         }

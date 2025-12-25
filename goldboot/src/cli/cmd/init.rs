@@ -37,10 +37,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
         super::Commands::Init {
             name,
             os,
-            format,
             mimic_hardware: _,
         } => {
-            let mut config_path = ConfigPath::from_dir(".").unwrap_or(format);
+            let mut config_path = ConfigPath::from_dir(".").unwrap_or_default();
             let mut builder = Builder::new(os);
 
             if builder.elements.len() == 0 {
@@ -52,18 +51,6 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 println!("Get ready to create a new image configuration!");
                 println!("(it can be further edited later)");
                 println!();
-
-                // Prompt config format
-                {
-                    let formats: &[ConfigPath] = ConfigPath::value_variants();
-                    let choice_index = Select::with_theme(&theme)
-                        .with_prompt("Config format?")
-                        .default(0)
-                        .items(formats.iter())
-                        .interact()
-                        .unwrap();
-                    config_path = formats[choice_index].clone();
-                }
 
                 // Prompt image name
                 // builder.name = Input::with_theme(&theme)

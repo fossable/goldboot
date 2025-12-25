@@ -27,7 +27,7 @@ use super::BuildImage;
 ///
 /// Upstream: https://www.debian.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt, goldboot_macros::StarlarkConstructor)]
 pub struct Debian {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
