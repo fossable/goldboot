@@ -8,7 +8,7 @@ name = "goldboot"
 readme = "README.md"
 repository = "https://github.com/fossable/goldboot"
 rust-version = "1.85"
-version = "0.0.10"
+version = "0.0.11"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -33,8 +33,8 @@ fatfs = { version = "0.3.6", optional = true }
 flate2 = "1.0.28"
 fossable = { workspace = true }
 fscommon = { version = "0.1.1", optional = true }
-goldboot-image = { path = "../goldboot-image", version = "0.0.5" }
-goldboot-macros = { path = "../goldboot-macros", version = "0.0.3" }
+goldboot-image = { path = "../goldboot-image", version = "0.0.6" }
+goldboot-macros = { path = "../goldboot-macros", version = "0.0.4" }
 hex = { workspace = true }
 image = { version = "0.25", optional = true, default-features = false, features = [
   "png",
