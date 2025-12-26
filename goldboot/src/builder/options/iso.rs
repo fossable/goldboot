@@ -5,7 +5,7 @@ use url::Url;
 use validator::Validate;
 
 /// Use an ISO image as a source.
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, goldboot_macros::StarlarkConstructor)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
 pub struct Iso {
     /// The installation media URL (http, https, or file)
     pub url: Url,

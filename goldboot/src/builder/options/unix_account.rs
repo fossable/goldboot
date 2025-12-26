@@ -48,7 +48,7 @@ impl Default for UnixAccountProvisioner {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, goldboot_macros::StarlarkEnumConstructors)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum RootPassword {
     /// Simple plaintext password

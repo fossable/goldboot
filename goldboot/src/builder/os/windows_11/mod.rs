@@ -23,7 +23,7 @@ use super::BuildImage;
 ///
 /// Upstream: https://microsoft.com
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt, goldboot_macros::StarlarkConstructor)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Windows11 {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,

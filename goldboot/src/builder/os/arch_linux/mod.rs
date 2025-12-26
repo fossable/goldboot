@@ -33,7 +33,7 @@ fn default_arch() -> Arch {
 ///
 /// Upstream: https://archlinux.org
 /// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt, goldboot_macros::StarlarkConstructor)]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct ArchLinux {
     #[default(Arch(ImageArch::Amd64))]
     #[serde(default = "default_arch")]
