@@ -13,7 +13,7 @@ rust-version = "1.85"
 [dependencies]
 anyhow = "1.0.76"
 axum = "0.8.3"
-clap = { version = "4.4.7", features = ["derive", "string"] }
+clap = { version = "4.5.54", features = ["derive", "string"] }
 goldboot-image = { path = "../goldboot-image", version = "0.0.5" }
 goldboot = { path = "../goldboot", version = "0.0.10" }
 reqwest = { workspace = true, features = ["stream"] }

@@ -19,7 +19,7 @@ block-utils = { version = "0.11.1", optional = true }
 built = { version = "0.8.0", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
 chrono = "0.4.31"
-clap = { version = "4.4.7", features = ["derive", "string"] }
+clap = { version = "4.5.54", features = ["derive", "string"] }
 console = "0.16.1"
 dialoguer = "0.12.0"
 eframe = { version = "0.33.3", optional = true, default-features = false, features = [
