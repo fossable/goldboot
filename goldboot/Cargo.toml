@@ -48,7 +48,7 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["stream", "blocking", "json"] }
 ron = { version = "0.12", optional = true }
 rustls = { version = "0.23.23" }
-serde_json = { version = "1.0.108", optional = true }
+serde_json = { version = "1.0.148", optional = true }
 serde = { workspace = true }
 serde_win_unattend = { version = "0.3.3", optional = true }
 smart-default = "0.7.1"
