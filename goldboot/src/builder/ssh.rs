@@ -22,8 +22,7 @@ pub fn generate_key(directory: &Path) -> Result<PathBuf> {
         .collect();
     let key_path = directory.join(key_name);
 
-    // TODO waiting on ssh-key update for rand-core
-    let private_key = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519)?;
+    let private_key = PrivateKey::random(&mut ssh_key::rand_core::OsRng, Algorithm::Ed25519)?;
     std::fs::write(&key_path, private_key.to_openssh(LineEnding::LF)?)?;
     std::fs::write(
         &key_path.with_extension("pub"),

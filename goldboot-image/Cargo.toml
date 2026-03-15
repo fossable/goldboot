@@ -10,7 +10,7 @@ rust-version = "1.85"
 version = "0.0.5"
 
 [dependencies]
-aes-gcm = { version = "0.10.3", features = ["std"] }
+aes-gcm = { version = "0.10.3" }
 anyhow = { workspace = true }
 binrw = "0.15.0"
 flate2 = "1.0.28"
