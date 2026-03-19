@@ -16,8 +16,8 @@ pub fn render(ctx: &egui::Context, state: &mut AppState, theme: &Theme) {
             ui.add_space(10.0);
 
             ui.label("Password:");
-            let password_edit = egui::TextEdit::singleline(&mut state.registry_password)
-                .password(true);
+            let password_edit =
+                egui::TextEdit::singleline(&mut state.registry_password).password(true);
             ui.add(password_edit);
 
             ui.add_space(20.0);

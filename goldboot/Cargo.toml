@@ -48,6 +48,7 @@ regex = { workspace = true }
 reqwest = { workspace = true, features = ["stream", "blocking", "json"] }
 ron = { version = "0.12", optional = true }
 rustls = { version = "0.23.23" }
+roniker = { workspace = true, features = ["lsp"] }
 serde_json = { version = "1.0.108", optional = true }
 serde = { workspace = true }
 serde_win_unattend = { version = "0.3.3", optional = true }
@@ -82,6 +83,9 @@ built = { version = "0.8.0", features = [
   "chrono",
   "semver",
 ] }
+roniker = { workspace = true, features = ["analyze"] }
+serde_json = "1.0.134"
+walkdir = "2"
 
 [features]
 default = ["build", "include_ovmf"]

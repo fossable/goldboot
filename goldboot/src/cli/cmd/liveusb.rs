@@ -3,7 +3,7 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use std::{path::Path, process::ExitCode};
 use tracing::error;
 
-use crate::{cli::progress::ProgressBar, builder::os::Os, library::ImageLibrary};
+use crate::{builder::os::Os, cli::progress::ProgressBar, library::ImageLibrary};
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {

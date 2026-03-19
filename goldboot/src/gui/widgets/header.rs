@@ -5,7 +5,10 @@ pub fn render(ui: &mut egui::Ui, textures: &TextureCache, theme: &Theme) {
         ui.add_space(20.0);
 
         // Display logo (512px wide as per GTK version)
-        let logo_size = egui::vec2(512.0, textures.logo.size()[1] as f32 * (512.0 / textures.logo.size()[0] as f32));
+        let logo_size = egui::vec2(
+            512.0,
+            textures.logo.size()[1] as f32 * (512.0 / textures.logo.size()[0] as f32),
+        );
         ui.add(egui::Image::new(&textures.logo).max_width(logo_size.x));
 
         ui.add_space(10.0);

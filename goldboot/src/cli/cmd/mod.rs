@@ -38,7 +38,7 @@ pub enum Commands {
         #[clap(long)]
         ovmf_path: Option<PathBuf>,
 
-        /// The context directory (containing a goldboot config file)
+        /// The context directory containing goldboot.ron
         #[clap(index = 1)]
         path: String,
         // The image will be run as a virtual machine for testing
@@ -105,6 +105,9 @@ pub enum Commands {
         #[clap(long, num_args = 0)]
         confirm: bool,
     },
+
+    /// Serve the goldboot LSP
+    Lsp,
 }
 
 #[derive(clap::Subcommand, Debug, Clone)]

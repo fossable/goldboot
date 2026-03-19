@@ -360,10 +360,12 @@ impl ImageHandle {
                 let mut directory_bytes = vec![0u8; self.primary_header.directory_size as usize];
                 file.read_exact(&mut directory_bytes)?;
 
-                let directory_bytes = cipher.decrypt(
-                    Nonce::from_slice(&self.primary_header.directory_nonce),
-                    directory_bytes.as_ref(),
-                ).map_err(|e| anyhow::anyhow!("decryption failed: {e}"))? ;
+                let directory_bytes = cipher
+                    .decrypt(
+                        Nonce::from_slice(&self.primary_header.directory_nonce),
+                        directory_bytes.as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?;
                 Cursor::new(directory_bytes).read_be()?
             }
         };
@@ -379,10 +381,12 @@ impl ImageHandle {
                 let mut protected_header_bytes = vec![0u8; directory.protected_size as usize];
                 file.read_exact(&mut protected_header_bytes)?;
 
-                let protected_header_bytes = cipher.decrypt(
-                    Nonce::from_slice(&directory.protected_nonce),
-                    protected_header_bytes.as_ref(),
-                ).map_err(|e| anyhow::anyhow!("decryption failed: {e}"))? ;
+                let protected_header_bytes = cipher
+                    .decrypt(
+                        Nonce::from_slice(&directory.protected_nonce),
+                        protected_header_bytes.as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?;
                 Cursor::new(protected_header_bytes).read_be()?
             }
         };
@@ -395,10 +399,12 @@ impl ImageHandle {
                 let mut digest_table_bytes = vec![0u8; directory.digest_table_size as usize];
                 file.read_exact(&mut digest_table_bytes)?;
 
-                let digest_table_bytes = cipher.decrypt(
-                    Nonce::from_slice(&directory.digest_table_nonce),
-                    digest_table_bytes.as_ref(),
-                ).map_err(|e| anyhow::anyhow!("decryption failed: {e}"))? ;
+                let digest_table_bytes = cipher
+                    .decrypt(
+                        Nonce::from_slice(&directory.digest_table_nonce),
+                        digest_table_bytes.as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?;
                 Cursor::new(digest_table_bytes).read_be()?
             }
         };
@@ -538,10 +544,12 @@ impl ImageHandle {
                 // Reverse encryption
                 cluster.data = match protected_header.cluster_encryption {
                     ClusterEncryptionType::None => cluster.data,
-                    ClusterEncryptionType::Aes256 => cluster_cipher.decrypt(
-                        Nonce::from_slice(&protected_header.nonce_table[i]),
-                        cluster.data.as_ref(),
-                    ).map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?,
+                    ClusterEncryptionType::Aes256 => cluster_cipher
+                        .decrypt(
+                            Nonce::from_slice(&protected_header.nonce_table[i]),
+                            cluster.data.as_ref(),
+                        )
+                        .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?,
                 };
 
                 // Reverse compression
@@ -654,10 +662,12 @@ impl ImageHandle {
 
             let protected_header_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => protected_header_bytes.into_inner(),
-                HeaderEncryptionType::Aes256 => header_cipher.encrypt(
-                    Nonce::from_slice(&directory.protected_nonce),
-                    protected_header_bytes.into_inner()[..].as_ref(),
-                ).map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
+                HeaderEncryptionType::Aes256 => header_cipher
+                    .encrypt(
+                        Nonce::from_slice(&directory.protected_nonce),
+                        protected_header_bytes.into_inner()[..].as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
             };
 
             directory.protected_size = protected_header_bytes.len() as u32;
@@ -720,10 +730,12 @@ impl ImageHandle {
                         // Perform encryption
                         cluster.data = match protected_header.cluster_encryption {
                             ClusterEncryptionType::None => cluster.data,
-                            ClusterEncryptionType::Aes256 => cluster_cipher.encrypt(
-                                Nonce::from_slice(&protected_header.nonce_table[cluster_count]),
-                                cluster.data.as_ref(),
-                            ).map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
+                            ClusterEncryptionType::Aes256 => cluster_cipher
+                                .encrypt(
+                                    Nonce::from_slice(&protected_header.nonce_table[cluster_count]),
+                                    cluster.data.as_ref(),
+                                )
+                                .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
                         };
 
                         cluster.size = cluster.data.len() as u32;
@@ -761,10 +773,12 @@ impl ImageHandle {
 
             let digest_table_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => digest_table_bytes.into_inner(),
-                HeaderEncryptionType::Aes256 => header_cipher.encrypt(
-                    Nonce::from_slice(&directory.digest_table_nonce),
-                    digest_table_bytes.into_inner()[..].as_ref(),
-                ).map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
+                HeaderEncryptionType::Aes256 => header_cipher
+                    .encrypt(
+                        Nonce::from_slice(&directory.digest_table_nonce),
+                        digest_table_bytes.into_inner()[..].as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
             };
 
             directory.digest_table_offset = dest_file.stream_position()?;
@@ -779,10 +793,12 @@ impl ImageHandle {
 
             let directory_bytes = match primary_header.encryption_type {
                 HeaderEncryptionType::None => directory_bytes.into_inner(),
-                HeaderEncryptionType::Aes256 => header_cipher.encrypt(
-                    Nonce::from_slice(&primary_header.directory_nonce),
-                    directory_bytes.into_inner()[..].as_ref(),
-                ).map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
+                HeaderEncryptionType::Aes256 => header_cipher
+                    .encrypt(
+                        Nonce::from_slice(&primary_header.directory_nonce),
+                        directory_bytes.into_inner()[..].as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
             };
 
             primary_header.directory_offset = dest_file.stream_position()?;

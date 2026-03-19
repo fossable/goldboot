@@ -113,4 +113,3 @@ fn impl_build_image_size(ast: &syn::DeriveInput) -> TokenStream {
     };
     syntax.into()
 }
-

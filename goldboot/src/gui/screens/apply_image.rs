@@ -1,4 +1,9 @@
-use super::super::{resources::TextureCache, state::{AppState, BlockState}, theme::Theme, widgets};
+use super::super::{
+    resources::TextureCache,
+    state::{AppState, BlockState},
+    theme::Theme,
+    widgets,
+};
 use super::Screen;
 
 fn format_speed(bytes_per_sec: f64) -> String {
@@ -105,11 +110,7 @@ pub fn render(
                     egui::Color32::from_rgba_unmultiplied(0x33, 0x33, 0x33, 230),
                 );
 
-                painter.rect_stroke(
-                    box_rect,
-                    5.0,
-                    egui::Stroke::new(3.0, theme.accent_gold),
-                );
+                painter.rect_stroke(box_rect, 5.0, egui::Stroke::new(3.0, theme.accent_gold));
 
                 // Render content inside the box
                 ui.allocate_ui_at_rect(box_rect.shrink(20.0), |ui| {
@@ -260,10 +261,8 @@ fn render_block_grid(
             let x = start_x + col as f32 * BLOCK_TOTAL;
             let y = start_y + row as f32 * BLOCK_TOTAL;
 
-            let block_rect = egui::Rect::from_min_size(
-                egui::pos2(x, y),
-                egui::vec2(BLOCK_SIZE, BLOCK_SIZE),
-            );
+            let block_rect =
+                egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(BLOCK_SIZE, BLOCK_SIZE));
 
             painter.rect_filled(block_rect, 1.0, color);
         }

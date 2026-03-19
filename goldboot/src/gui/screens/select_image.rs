@@ -77,7 +77,11 @@ pub fn render(
                                                     // Image size
                                                     ui.label(
                                                         egui::RichText::new(
-                                                            image.primary_header.size.bytes().to_string(),
+                                                            image
+                                                                .primary_header
+                                                                .size
+                                                                .bytes()
+                                                                .to_string(),
                                                         )
                                                         .color(theme.text_primary),
                                                     );
@@ -85,7 +89,8 @@ pub fn render(
                                             );
                                         });
 
-                                        let response = response.response.interact(egui::Sense::click());
+                                        let response =
+                                            response.response.interact(egui::Sense::click());
 
                                         if response.clicked() {
                                             state.selected_image = Some(image.id.clone());
@@ -94,11 +99,14 @@ pub fn render(
                                         }
 
                                         if response.hovered() {
-                                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                                            ui.ctx()
+                                                .set_cursor_icon(egui::CursorIcon::PointingHand);
                                         }
 
                                         // Check for Enter key to select
-                                        if is_selected && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                        if is_selected
+                                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                                        {
                                             *screen = Screen::SelectDevice;
                                         }
 

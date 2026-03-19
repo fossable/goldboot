@@ -1,13 +1,13 @@
 use egui::{Color32, Style, Visuals};
 
 pub struct Theme {
-    pub bg_primary: Color32,    // #333333
-    pub bg_grid: Color32,       // #4a4a4a
-    pub accent_gold: Color32,   // #c8ab37
-    pub text_primary: Color32,  // #ffffff (white)
+    pub bg_primary: Color32,     // #333333
+    pub bg_grid: Color32,        // #4a4a4a
+    pub accent_gold: Color32,    // #c8ab37
+    pub text_primary: Color32,   // #ffffff (white)
     pub text_secondary: Color32, // #aea79f (beige)
-    pub list_bg: Color32,       // #333333 with 0.75 opacity
-    pub border: Color32,        // #c8ab37
+    pub list_bg: Color32,        // #333333 with 0.75 opacity
+    pub border: Color32,         // #c8ab37
 }
 
 impl Default for Theme {

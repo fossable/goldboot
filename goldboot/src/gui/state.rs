@@ -4,18 +4,18 @@ use std::time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlockState {
-    Pending,   // Not yet written
-    Writing,   // Currently being written
-    Written,   // Successfully written
+    Pending, // Not yet written
+    Writing, // Currently being written
+    Written, // Successfully written
 }
 
 pub struct WriteProgress {
-    pub percentage: f32,           // 0.0 to 1.0
-    pub read_speed: f64,           // Bytes per second
-    pub write_speed: f64,          // Bytes per second
-    pub blocks_total: usize,       // Total number of blocks
-    pub blocks_written: usize,     // Number of blocks written
-    pub blocks_writing: usize,     // Number of blocks currently being written
+    pub percentage: f32,               // 0.0 to 1.0
+    pub read_speed: f64,               // Bytes per second
+    pub write_speed: f64,              // Bytes per second
+    pub blocks_total: usize,           // Total number of blocks
+    pub blocks_written: usize,         // Number of blocks written
+    pub blocks_writing: usize,         // Number of blocks currently being written
     pub block_states: Vec<BlockState>, // State of each block
     pub start_time: Instant,
 }

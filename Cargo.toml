@@ -16,3 +16,4 @@ strum = { version = "0.27.1", features = ["derive"] }
 tracing = "0.1.40"
 zstd = "0.13.0"
 reqwest = "0.12.15"
+roniker = "0.2.0"

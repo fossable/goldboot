@@ -66,8 +66,12 @@ pub fn render(
 
                                             // Device icon (32x32)
                                             let icon = match device.media_type {
-                                                block_utils::MediaType::SolidState => &textures.icon_ssd,
-                                                block_utils::MediaType::Rotational => &textures.icon_hdd,
+                                                block_utils::MediaType::SolidState => {
+                                                    &textures.icon_ssd
+                                                }
+                                                block_utils::MediaType::Rotational => {
+                                                    &textures.icon_hdd
+                                                }
                                                 block_utils::MediaType::NVME => &textures.icon_nvme,
                                                 block_utils::MediaType::Ram => &textures.icon_ram,
                                                 _ => &textures.icon_hdd, // Fallback
@@ -77,11 +81,12 @@ pub fn render(
                                             ui.add_space(5.0);
 
                                             // Device name and serial
-                                            let device_label = if let Some(serial) = &device.serial_number {
-                                                format!("{} ({})", device.name, serial)
-                                            } else {
-                                                device.name.clone()
-                                            };
+                                            let device_label =
+                                                if let Some(serial) = &device.serial_number {
+                                                    format!("{} ({})", device.name, serial)
+                                                } else {
+                                                    device.name.clone()
+                                                };
 
                                             ui.label(
                                                 egui::RichText::new(device_label)
@@ -95,14 +100,17 @@ pub fn render(
 
                                                     // Device capacity
                                                     ui.label(
-                                                        egui::RichText::new(device.capacity.bytes().to_string())
-                                                            .color(theme.text_primary),
+                                                        egui::RichText::new(
+                                                            device.capacity.bytes().to_string(),
+                                                        )
+                                                        .color(theme.text_primary),
                                                     );
                                                 },
                                             );
                                         });
 
-                                        let response = response.response.interact(egui::Sense::click());
+                                        let response =
+                                            response.response.interact(egui::Sense::click());
 
                                         if response.clicked() {
                                             state.selected_device = Some(device.name.clone());
@@ -111,11 +119,14 @@ pub fn render(
                                         }
 
                                         if response.hovered() {
-                                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                                            ui.ctx()
+                                                .set_cursor_icon(egui::CursorIcon::PointingHand);
                                         }
 
                                         // Check for Enter key to select
-                                        if is_selected && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                        if is_selected
+                                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                                        {
                                             *screen = Screen::Confirm;
                                         }
 

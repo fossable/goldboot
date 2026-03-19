@@ -7,8 +7,8 @@
 
 use goldboot::gui::{
     app::GuiApp,
-    state::{AppState, BlockState, WriteProgress},
     screens::Screen,
+    state::{AppState, BlockState, WriteProgress},
 };
 use std::{
     sync::{Arc, Mutex},
@@ -69,7 +69,9 @@ fn main() -> Result<(), eframe::Error> {
 
                 // Mark completed blocks as written
                 for i in 0..current_block {
-                    if i < progress.block_states.len() && progress.block_states[i] != BlockState::Written {
+                    if i < progress.block_states.len()
+                        && progress.block_states[i] != BlockState::Written
+                    {
                         progress.block_states[i] = BlockState::Written;
                         progress.blocks_written += 1;
                     }
@@ -77,8 +79,12 @@ fn main() -> Result<(), eframe::Error> {
 
                 // Mark current block(s) as writing (simulate 2-3 blocks writing simultaneously)
                 progress.blocks_writing = 0;
-                for i in current_block..=(current_block + 2).min(progress.blocks_total.saturating_sub(1)) {
-                    if i < progress.block_states.len() && progress.block_states[i] == BlockState::Pending {
+                for i in
+                    current_block..=(current_block + 2).min(progress.blocks_total.saturating_sub(1))
+                {
+                    if i < progress.block_states.len()
+                        && progress.block_states[i] == BlockState::Pending
+                    {
                         progress.block_states[i] = BlockState::Writing;
                         progress.blocks_writing += 1;
                     }
@@ -95,7 +101,9 @@ fn main() -> Result<(), eframe::Error> {
         if let Ok(mut progress) = progress_arc.lock() {
             progress.percentage = 1.0;
             for i in 0..progress.blocks_total {
-                if i < progress.block_states.len() && progress.block_states[i] != BlockState::Written {
+                if i < progress.block_states.len()
+                    && progress.block_states[i] != BlockState::Written
+                {
                     progress.block_states[i] = BlockState::Written;
                     progress.blocks_written += 1;
                 }
@@ -103,7 +111,10 @@ fn main() -> Result<(), eframe::Error> {
             progress.blocks_writing = 0;
         }
 
-        println!("Simulated write completed in {:.2}s", start_time.elapsed().as_secs_f64());
+        println!(
+            "Simulated write completed in {:.2}s",
+            start_time.elapsed().as_secs_f64()
+        );
     });
 
     // Create and run the GUI app starting on ApplyImage screen

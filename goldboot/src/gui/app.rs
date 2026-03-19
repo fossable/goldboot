@@ -1,6 +1,6 @@
 use super::{
     resources::TextureCache,
-    screens::{registry_login, Screen},
+    screens::{Screen, registry_login},
     state::AppState,
     theme::Theme,
 };

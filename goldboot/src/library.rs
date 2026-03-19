@@ -1,4 +1,4 @@
-use crate::{cli::progress::ProgressBar, builder::os::Os};
+use crate::{builder::os::Os, cli::progress::ProgressBar};
 use anyhow::{Result, anyhow, bail};
 use goldboot_image::ImageHandle;
 use rand::Rng;

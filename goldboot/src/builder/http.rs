@@ -3,10 +3,7 @@ use axum::{Router, extract::MatchedPath, http::Request};
 use std::path::Path;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
-use tower_http::{
-    services::ServeFile,
-    trace::TraceLayer,
-};
+use tower_http::{services::ServeFile, trace::TraceLayer};
 use tracing::{debug, debug_span, info};
 
 /// Minimal HTTP server for serving files to virtual machines

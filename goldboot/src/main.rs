@@ -76,6 +76,18 @@ pub fn main() -> ExitCode {
         Some(Commands::Liveusb { .. }) => {
             goldboot::cli::cmd::liveusb::run(command_line.command.unwrap())
         }
+        Some(Commands::Lsp) => {
+            let rust_analyzer: roniker::RustAnalyzer = serde_json::from_str(include_str!(concat!(
+                env!("OUT_DIR"),
+                "/rust_analyzer.json"
+            )))
+            .expect("Failed to deserialize RustAnalyzer");
+
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(roniker::serve(rust_analyzer));
+            return ExitCode::FAILURE;
+        }
         None => {
             #[cfg(feature = "gui")]
             {
@@ -147,9 +159,7 @@ fn reboot_system() -> Result<(), String> {
     use std::process::Command;
 
     // Try systemctl first (if systemd is available)
-    let result = Command::new("systemctl")
-        .arg("reboot")
-        .status();
+    let result = Command::new("systemctl").arg("reboot").status();
 
     if result.is_ok() {
         return Ok(());
