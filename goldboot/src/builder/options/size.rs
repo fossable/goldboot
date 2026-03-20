@@ -15,7 +15,7 @@ impl Default for Size {
 }
 
 impl Prompt for Size {
-    fn prompt(&mut self, builder: &Builder) -> Result<()> {
+    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         todo!()
     }
 }

@@ -1,14 +1,12 @@
-use clap::ValueEnum;
 use console::Style;
-use dialoguer::{Confirm, Input, Password, Select, theme::ColorfulTheme};
+use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use goldboot_image::ImageArch;
 use std::process::ExitCode;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
 
 use crate::{
-    builder::{Builder, os::Os},
-    cli::prompt::Prompt,
+    builder::{Builder, os::{OsConfig, os_iter}},
     config::ConfigPath,
 };
 
@@ -35,14 +33,29 @@ pub fn theme() -> ColorfulTheme {
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Init {
-            name,
+            name: _,
             os,
             mimic_hardware: _,
         } => {
-            let mut config_path = ConfigPath::from_dir(".").unwrap_or_default();
-            let mut builder = Builder::new(os);
+            let config_path = ConfigPath::from_dir(".").unwrap_or_default();
 
-            if builder.elements.len() == 0 {
+            // If OS was specified on the command line, resolve it to an OsConfig
+            let initial_elements: Vec<OsConfig> = if let Some(os_names) = os {
+                os_names
+                    .into_iter()
+                    .filter_map(|name| {
+                        os_iter()
+                            .find(|d| d.name == name)
+                            .map(|d| OsConfig((d.default)()))
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            let mut builder = Builder::new(initial_elements);
+
+            if builder.elements.is_empty() {
                 // If no OS was given, begin interactive config
                 print_banner();
 
@@ -51,21 +64,6 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 println!("Get ready to create a new image configuration!");
                 println!("(it can be further edited later)");
                 println!();
-
-                // Prompt image name
-                // builder.name = Input::with_theme(&theme)
-                //     .with_prompt("Image name?")
-                //     .default(
-                //         std::env::current_dir()
-                //             .unwrap()
-                //             .file_name()
-                //             .unwrap()
-                //             .to_str()
-                //             .unwrap()
-                //             .to_string(),
-                //     )
-                //     .interact()
-                //     .unwrap();
 
                 // Prompt image architecture
                 let arch = {
@@ -83,31 +81,34 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 // Prompt OS
                 loop {
                     // Find operating systems suitable for the architecture
-                    let mut supported_os: Vec<Os> = Os::iter()
-                        .filter(|os| os.architectures().contains(&arch))
-                        .filter(|os| builder.elements.len() == 0 || os.alloy())
+                    let supported_descriptors: Vec<&crate::builder::os::OsDescriptor> = os_iter()
+                        .filter(|d| d.architectures.contains(&arch))
+                        .filter(|_d| builder.elements.is_empty()) // alloy: always false for now
                         .collect();
+
+                    let os_names: Vec<&str> = supported_descriptors.iter().map(|d| d.name).collect();
 
                     let choice_index = Select::with_theme(&theme)
                         .with_prompt("Operating system?")
-                        .items(&supported_os)
+                        .items(&os_names)
                         .interact()
                         .unwrap();
 
-                    let os = &mut supported_os[choice_index];
+                    let descriptor = supported_descriptors[choice_index];
+                    let mut os_config = OsConfig((descriptor.default)());
 
                     if Confirm::with_theme(&theme)
                         .with_prompt("Edit OS configuration?")
                         .interact()
                         .unwrap()
                     {
-                        // TODO show some kind of banner
-                        os.prompt(&builder).unwrap();
+                        os_config.0.prompt(&builder).unwrap();
                     }
 
-                    builder.elements.push(os.clone());
+                    let alloy = os_config.0.os_alloy();
+                    builder.elements.push(os_config);
 
-                    if !os.alloy()
+                    if !alloy
                         || !Confirm::with_theme(&theme)
                             .with_prompt("Create an alloy image (multiboot)?")
                             .interact()

@@ -1,10 +1,9 @@
 use std::process::ExitCode;
 
 use crate::library::ImageLibrary;
-use chrono::TimeZone;
-
 use ubyte::ToByteUnit;
 
+#[allow(unreachable_code)]
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Image { command } => match &command {
@@ -14,15 +13,15 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 println!(
                     "Image Name      Image Size   Build Date                      Image ID     Description"
                 );
-                for image in images {
+                for _image in images {
                     println!(
                         "{:15} {:12} {:31} {:12} {}",
-                        todo!(),
-                        image.primary_header.size.bytes().to_string(),
-                        chrono::Utc
-                            .timestamp(image.primary_header.timestamp as i64, 0)
+                        todo!("image name"),
+                        _image.primary_header.size.bytes().to_string(),
+                        chrono::DateTime::from_timestamp(_image.primary_header.timestamp as i64, 0)
+                            .unwrap_or_default()
                             .to_rfc2822(),
-                        &image.id[0..12],
+                        &_image.id[0..12],
                         "TODO",
                     );
                 }

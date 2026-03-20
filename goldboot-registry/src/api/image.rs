@@ -1,9 +1,5 @@
 use crate::extract::ImageHandle;
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::Path};
 use goldboot::registry::api::image::ImageInfoResponse;
 
 /// Get image info

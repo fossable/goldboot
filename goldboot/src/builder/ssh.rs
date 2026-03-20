@@ -226,6 +226,6 @@ impl SshConnection {
 }
 
 /// Figure out what kind of OS we're connected to
-fn query_os(session: &ssh2::Session) -> Result<OsCategory> {
+fn query_os(_session: &ssh2::Session) -> Result<OsCategory> {
     Ok(OsCategory::Linux)
 }

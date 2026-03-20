@@ -1,7 +1,6 @@
 use crate::cmd::Commands;
 use axum::{Router, routing::get};
 use clap::Parser;
-use std::{env, process::ExitCode};
 
 pub mod api;
 pub mod cmd;
@@ -19,7 +18,7 @@ pub struct RegistryState {}
 
 #[tokio::main]
 async fn main() {
-    let command_line = CommandLine::parse();
+    let _command_line = CommandLine::parse();
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();

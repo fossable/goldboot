@@ -3,13 +3,13 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use std::{path::Path, process::ExitCode};
 use tracing::error;
 
-use crate::{builder::os::Os, cli::progress::ProgressBar, library::ImageLibrary};
+use crate::{cli::progress::ProgressBar, library::ImageLibrary};
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Liveusb {
             dest,
-            include,
+            include: _,
             confirm,
         } => {
             let theme = ColorfulTheme {

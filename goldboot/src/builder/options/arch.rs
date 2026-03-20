@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Arch(pub ImageArch);
 
 impl Prompt for Arch {
-    fn prompt(&mut self, builder: &Builder) -> Result<()> {
+    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         todo!()
     }
 }

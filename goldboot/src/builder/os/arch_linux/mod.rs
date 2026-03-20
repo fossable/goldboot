@@ -1,5 +1,4 @@
 use super::BuildImage;
-use crate::builder::fabricators::Fabricate;
 use crate::builder::http::HttpServer;
 use crate::builder::options::arch::Arch;
 use crate::builder::options::hostname::Hostname;
@@ -33,17 +32,21 @@ fn default_arch() -> Arch {
 ///
 /// Upstream: https://archlinux.org
 /// Maintainer: cilki
+#[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct ArchLinux {
     #[default(Arch(ImageArch::Amd64))]
     #[serde(default = "default_arch")]
     pub arch: Arch,
     pub size: Size,
-    #[serde(flatten)]
+    #[serde(default)]
     pub hostname: Hostname,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,
     pub packages: Option<ArchLinuxPackages>,
+    #[serde(default)]
     pub root_password: RootPassword,
+
+    // TODO don't allow because screen_rect will be wrong?
     #[default(Iso {
         url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2025.10.01-x86_64.iso".parse().unwrap(),
         checksum: None,
@@ -60,7 +63,7 @@ impl BuildImage for ArchLinux {
 
         // Generate an archinstall config
         let archinstall_config = ArchinstallConfig::from(self);
-        debug!(archinstall = ?archinstall_config, "Preparing archinstall config");
+        debug!(config = %serde_json::to_string_pretty(&archinstall_config)?, "Archinstall config");
 
         let archinstall_creds = ArchinstallCredentials::from(self);
 
@@ -76,7 +79,7 @@ impl BuildImage for ArchLinux {
 			// Initial wait
 			wait!(30),
 			// Wait for login
-			wait_screen_rect!("5b3ca88689e9d671903b3040889c7fa1cb5f244a", 100, 0, 1024, 400),
+			wait_screen_rect!("3a23a076fb40333a3a59c2ccb45f212e453e519d", 100, 0, 1024, 400),
 		])?;
 
         // Wait for SSH
@@ -157,6 +160,7 @@ impl ArchLinuxMirrorlist {
 }
 
 /// Fetch the latest installation ISO
+#[allow(dead_code)]
 fn fetch_latest_iso() -> Result<Iso> {
     let rs = reqwest::blocking::get(format!(
         "http://mirrors.edge.kernel.org/archlinux/iso/latest/sha256sums.txt"
@@ -183,7 +187,7 @@ fn fetch_latest_iso() -> Result<Iso> {
 
 // TODO we can validate package names early
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
-struct ArchLinuxPackages(Vec<String>);
+pub struct ArchLinuxPackages(Vec<String>);
 
 impl Prompt for ArchLinuxPackages {
     fn prompt(&mut self, _: &Builder) -> Result<()> {

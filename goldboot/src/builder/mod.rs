@@ -1,20 +1,14 @@
 use self::qemu::{Accel, detect_accel};
-use self::{fabricators::Fabricator, os::Os};
-use crate::builder::os::BuildImage;
+use crate::builder::os::OsConfig;
 use crate::cli::cmd::Commands;
 use crate::library::ImageLibrary;
-use crate::size;
 
-use anyhow::{Result, anyhow, bail};
-use byte_unit::Byte;
+use anyhow::{Result, bail};
 use dialoguer::Password;
-use goldboot_image::ElementHeader;
 use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 use std::{
-    path::{Path, PathBuf},
-    thread,
+    path::PathBuf,
     time::SystemTime,
 };
 use tracing::info;
@@ -33,7 +27,7 @@ pub mod vnc;
 /// Machinery that creates Goldboot images from image elements.
 #[derive(Validate)]
 pub struct Builder {
-    pub elements: Vec<Os>,
+    pub elements: Vec<OsConfig>,
 
     pub accel: Accel,
 
@@ -58,7 +52,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(elements: Vec<Os>) -> Self {
+    pub fn new(elements: Vec<OsConfig>) -> Self {
         // Allocate directory for the builder to store the intermediate qcow image
         // and any other supporting files.
         let tmp = tempfile::tempdir().unwrap();
@@ -80,14 +74,7 @@ impl Builder {
     /// The system architecture
     pub fn arch(&self) -> Result<ImageArch> {
         match self.elements.first() {
-            Some(element) => Ok(match element {
-                Os::AlpineLinux(_) => ImageArch::Amd64,
-                Os::ArchLinux(inner) => inner.arch.0,
-                Os::Debian(inner) => inner.arch.0,
-                Os::Nix(inner) => inner.arch.0,
-                Os::Windows10(inner) => inner.arch.0,
-                Os::Windows11(inner) => inner.arch.0,
-            }),
+            Some(element) => Ok(element.0.os_arch()),
             None => bail!("No elements in builder"),
         }
     }
@@ -99,7 +86,7 @@ impl Builder {
         let qcow_size: u64 = self
             .elements
             .iter()
-            .map(|element| -> u64 { size!(element).into() })
+            .map(|element| element.0.os_size())
             .sum();
 
         match cli {
@@ -109,7 +96,7 @@ impl Builder {
                 read_password,
                 no_accel,
                 output,
-                path,
+                path: _,
                 ovmf_path,
             } => {
                 self.debug = debug;
@@ -164,8 +151,8 @@ impl Builder {
 
                 // Truncate the image size to a power of two for the qcow storage
                 let qcow = Qcow3::create(&self.qcow_path, qcow_size - (qcow_size % 2))?;
-                for element in self.elements.clone().into_iter() {
-                    element.build(&self)?;
+                for element in self.elements.iter() {
+                    element.0.build(&self)?;
                 }
 
                 // Convert into final immutable image

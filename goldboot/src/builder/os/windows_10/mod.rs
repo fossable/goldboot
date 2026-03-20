@@ -14,7 +14,6 @@ use crate::{
         options::{arch::Arch, hostname::Hostname, iso::Iso, size::Size},
         qemu::{OsCategory, QemuBuilder},
     },
-    cli::prompt::Prompt,
     enter, wait,
 };
 
@@ -24,12 +23,13 @@ use super::BuildImage;
 ///
 /// Upstream: https://microsoft.com
 /// Maintainer: cilki
+#[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Windows10 {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub size: Size,
-    #[serde(flatten)]
+    #[serde(default)]
     pub hostname: Hostname,
 
     // username: String,

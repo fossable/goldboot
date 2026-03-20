@@ -24,7 +24,7 @@ impl From<ImageHandle> for ImageInfoResponse {
             version: value.primary_header.version,
             size: value.primary_header.size,
             timestamp: value.primary_header.timestamp,
-            name: todo!(),
+            name: String::new(), // TODO: populate from config
             arch: value.primary_header.arch,
         }
     }

@@ -24,7 +24,6 @@ pub mod qcow;
 #[derive(
     BinRead, BinWrite, Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, EnumIter, Display,
 )]
-#[serde(tag = "arch")]
 #[brw(repr(u8))]
 pub enum ImageArch {
     Amd64,

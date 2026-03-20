@@ -24,6 +24,7 @@ use super::BuildImage;
 ///
 /// Upstream: https://www.nixos.org
 /// Maintainer: cilki
+#[goldboot_macros::Os(architectures(Amd64, Arm64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Nix {
     #[default(Arch(ImageArch::Amd64))]
@@ -79,7 +80,7 @@ impl BuildImage for Nix {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-struct ConfigurationPath(PathBuf);
+pub struct ConfigurationPath(PathBuf);
 
 impl ConfigurationPath {
     fn load(&self) -> Result<Vec<u8>> {

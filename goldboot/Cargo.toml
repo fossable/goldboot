@@ -28,7 +28,7 @@ eframe = { version = "0.33.3", optional = true, default-features = false, featur
   "persistence",
 ] }
 egui = { version = "0.33.3", optional = true }
-enum_dispatch = "0.3.12"
+inventory = "0.3"
 fatfs = { version = "0.3.6", optional = true }
 flate2 = "1.0.28"
 fossable = { workspace = true }

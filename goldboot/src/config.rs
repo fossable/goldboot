@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::builder::os::Os;
+use crate::builder::os::{OsConfig, os_config_from_ron};
 
 /// Represents a builder configuration file path
 #[derive(Clone, Debug)]
@@ -29,35 +29,43 @@ impl ConfigPath {
     }
 
     /// Read and deserialize the Ron configuration file.
-    pub fn load(&self) -> Result<Vec<Os>> {
+    pub fn load(&self) -> Result<Vec<OsConfig>> {
         let content = std::fs::read_to_string(&self.0)?;
+        let trimmed = content.trim();
 
-        // Try to deserialize as Vec<Os> first
-        if let Ok(os_vec) = ron::from_str::<Vec<Os>>(&content) {
-            return Ok(os_vec);
+        // Check if it's a list (starts with '[')
+        if trimmed.starts_with('[') {
+            // Split the list into individual elements and parse each
+            // Use ron::Value to split the array, then re-serialize each element
+            let values: Vec<ron::Value> = ron::from_str(trimmed)?;
+            let mut result = Vec::with_capacity(values.len());
+            for value in values {
+                let s = ron::to_string(&value)?;
+                result.push(os_config_from_ron(&s)?);
+            }
+            return Ok(result);
         }
 
-        // Try single Os
-        if let Ok(os) = ron::from_str::<Os>(&content) {
-            return Ok(vec![os]);
-        }
-
-        Err(anyhow::anyhow!(
-            "Failed to parse Ron config. Expected either a single OS configuration or a list of OS configurations."
-        ))
+        // Single OS config
+        Ok(vec![os_config_from_ron(trimmed)?])
     }
 
     /// Write a new Ron configuration file.
-    pub fn write(&self, elements: &Vec<Os>) -> Result<()> {
+    pub fn write(&self, elements: &Vec<OsConfig>) -> Result<()> {
         let ron_config = ron::ser::PrettyConfig::new()
             .struct_names(true)
             .enumerate_arrays(false)
             .compact_arrays(false);
 
         let ron_content = if elements.len() == 1 {
-            ron::ser::to_string_pretty(&elements[0], ron_config)?
+            elements[0].0.serialize_ron(&ron_config)?
         } else {
-            ron::ser::to_string_pretty(elements, ron_config)?
+            // Serialize each element and wrap in a list
+            let parts: Vec<String> = elements
+                .iter()
+                .map(|e| e.0.serialize_ron(&ron_config))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            format!("[\n{}\n]", parts.join(",\n"))
         };
 
         std::fs::write(&self.0, ron_content.as_bytes())?;

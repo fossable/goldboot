@@ -1,20 +1,8 @@
 use crate::builder::Builder;
 use crate::cli::prompt::Prompt;
 use anyhow::Result;
-use clap::ValueEnum;
-use enum_dispatch::enum_dispatch;
 use goldboot_image::ImageArch;
-use serde::{Deserialize, Serialize};
-use std::{fmt::Display, sync::OnceLock};
-use strum::{EnumIter, IntoEnumIterator};
-
-use alpine_linux::AlpineLinux;
-use arch_linux::ArchLinux;
-use debian::Debian;
-// use goldboot::Goldboot;
-use nix::Nix;
-use windows_10::Windows10;
-use windows_11::Windows11;
+use serde::{ser::Serializer, Serialize};
 
 pub mod alpine_linux;
 pub mod arch_linux;
@@ -24,137 +12,93 @@ pub mod nix;
 pub mod windows_10;
 pub mod windows_11;
 
-#[macro_export]
-macro_rules! size {
-    ($os:expr) => {
-        match $os.clone() {
-            Os::AlpineLinux(inner) => inner.size,
-            Os::ArchLinux(inner) => inner.size,
-            Os::Debian(inner) => inner.size,
-            Os::Nix(inner) => inner.size,
-            Os::Windows10(inner) => inner.size,
-            Os::Windows11(inner) => inner.size,
-        }
-    };
-}
-
 /// "Building" is the process of generating an immutable goldboot image from raw
 /// configuration data.
-#[enum_dispatch(Os)]
 pub trait BuildImage {
     /// Build an image.
     fn build(&self, builder: &Builder) -> Result<()>;
 }
 
-// TODO Element?
-
-/// Represents a "base configuration" that users can modify and use to build
-/// images.
-#[enum_dispatch]
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
-#[serde(tag = "os")]
-pub enum Os {
-    AlpineLinux,
-    ArchLinux,
-    // Artix,
-    // BedrockLinux,
-    // CentOs,
-    Debian,
-    // ElementaryOs,
-    // Fedora,
-    // FreeBsd,
-    // Gentoo,
-    // Goldboot,
-    // Haiku,
-    // Kali,
-    // LinuxMint,
-    // MacOs,
-    // Manjaro,
-    // NetBsd,
-    Nix,
-    // OpenBsd,
-    // OpenSuse,
-    // Oracle,
-    // Parrot,
-    // PopOs,
-    // Qubes,
-    // RedHat,
-    // RockyLinux,
-    // Slackware,
-    // SteamDeck,
-    // SteamOs,
-    // Tails,
-    // TrueNas,
-    // Ubuntu,
-    // VoidLinux,
-    Windows10,
-    Windows11,
-    // Windows7,
-    // Zorin,
-}
-
-impl Os {
-    /// Supported system architectures
-    pub fn architectures(&self) -> Vec<ImageArch> {
-        match self {
-            Os::AlpineLinux(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            Os::ArchLinux(_) => vec![ImageArch::Amd64],
-            Os::Debian(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            // Os::Goldboot(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            Os::Nix(_) => vec![ImageArch::Amd64, ImageArch::Arm64],
-            Os::Windows10(_) => vec![ImageArch::Amd64],
-            Os::Windows11(_) => vec![ImageArch::Amd64],
-        }
-    }
-
-    /// Whether the template can be combined with others in the same image
-    pub fn alloy(&self) -> bool {
+/// Combined trait for OS types that can be used as image elements.
+pub trait OsTrait: BuildImage + Prompt + Send + Sync {
+    fn os_name(&self) -> &'static str;
+    fn os_architectures(&self) -> &'static [ImageArch];
+    fn os_alloy(&self) -> bool {
         false
     }
-
-    // pub fn default_source
+    fn os_size(&self) -> u64;
+    fn os_arch(&self) -> ImageArch;
+    fn serialize_ron(&self, config: &ron::ser::PrettyConfig) -> anyhow::Result<String>;
 }
 
-impl Display for Os {
+/// Descriptor registered at link time via `inventory` for each OS type.
+pub struct OsDescriptor {
+    pub name: &'static str,
+    pub architectures: &'static [ImageArch],
+    pub default: fn() -> Box<dyn OsTrait>,
+    /// Deserialize from a raw RON string (the full `TypeName(...)` form).
+    pub deserialize_ron: fn(&str) -> anyhow::Result<Box<dyn OsTrait>>,
+}
+
+inventory::collect!(OsDescriptor);
+
+/// Iterate over all registered OS descriptors.
+pub fn os_iter() -> impl Iterator<Item = &'static OsDescriptor> {
+    inventory::iter::<OsDescriptor>()
+}
+
+/// Parse the leading struct-name identifier from a RON string.
+/// Returns the identifier before the first `(`, trimmed.
+pub fn ron_struct_name(s: &str) -> Option<&str> {
+    let name = s.trim().split('(').next()?.trim();
+    if name.is_empty() || name.starts_with('{') || name.starts_with('[') {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+/// Deserialize an `OsConfig` from a raw RON string.
+pub fn os_config_from_ron(s: &str) -> anyhow::Result<OsConfig> {
+    let name = ron_struct_name(s)
+        .ok_or_else(|| anyhow::anyhow!("RON string has no leading struct name"))?;
+
+    let descriptor = os_iter()
+        .find(|d| d.name == name)
+        .ok_or_else(|| anyhow::anyhow!("unknown OS type: {name}"))?;
+
+    let inner = (descriptor.deserialize_ron)(s)?;
+    Ok(OsConfig(inner))
+}
+
+/// A boxed OS configuration element (replaces `Os` enum).
+pub struct OsConfig(pub Box<dyn OsTrait>);
+
+impl std::fmt::Debug for OsConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Os::AlpineLinux(_) => "AlpineLinux",
-                Os::ArchLinux(_) => "ArchLinux",
-                Os::Debian(_) => "Debian",
-                // Os::Goldboot(_) => "Goldboot",
-                Os::Nix(_) => "NixOS",
-                Os::Windows10(_) => "Windows10",
-                Os::Windows11(_) => "Windows11",
-            }
-        )
+        write!(f, "OsConfig({})", self.0.os_name())
     }
 }
 
-impl Default for Os {
-    fn default() -> Self {
-        Os::ArchLinux(ArchLinux::default())
+impl Serialize for OsConfig {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        let ron_config = ron::ser::PrettyConfig::new()
+            .struct_names(true)
+            .enumerate_arrays(false)
+            .compact_arrays(false);
+
+        let s = self
+            .0
+            .serialize_ron(&ron_config)
+            .map_err(serde::ser::Error::custom)?;
+
+        // Re-parse into a ron::Value and serialize through the serializer.
+        // Note: this loses struct-name info inside ron::Value, but for serialization
+        // we only need the data — the struct name is prepended by serialize_ron.
+        let value: ron::Value = ron::from_str(&s).map_err(serde::ser::Error::custom)?;
+        value.serialize(serializer)
     }
 }
 
-static VARIANTS: OnceLock<Vec<Os>> = OnceLock::new();
-
-impl ValueEnum for Os {
-    fn value_variants<'a>() -> &'a [Self] {
-        VARIANTS.get_or_init(|| Os::iter().collect())
-    }
-
-    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
-        Some(clap::builder::PossibleValue::new(
-            Into::<clap::builder::Str>::into(self.to_string()),
-        ))
-    }
-}
-
-// impl From<Element> for ElementHeader {
-//     fn from(value: Element) -> ElementHeader {
-//         todo!()
-//     }
-// }
+// OsConfig deserialization is handled via os_config_from_ron() in ConfigPath::load,
+// not via the serde Deserialize trait, because ron::Value loses struct-name information.

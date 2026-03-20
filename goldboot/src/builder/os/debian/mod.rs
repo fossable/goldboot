@@ -27,13 +27,14 @@ use super::BuildImage;
 ///
 /// Upstream: https://www.debian.org
 /// Maintainer: cilki
+#[goldboot_macros::Os(architectures(Amd64, Arm64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Debian {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub size: Size,
     pub edition: DebianEdition,
-    #[serde(flatten)]
+    #[serde(default)]
     pub hostname: Option<Hostname>,
     pub root_password: RootPassword,
     #[default(Iso {
@@ -103,7 +104,7 @@ pub enum DebianEdition {
 }
 
 impl Prompt for DebianEdition {
-    fn prompt(&mut self, builder: &Builder) -> Result<()> {
+    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         let editions: Vec<DebianEdition> = DebianEdition::iter().collect();
         let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
             .with_prompt("Choose Debian edition")

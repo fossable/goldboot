@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use crate::builder::os::Os;
-use crate::config::ConfigPath;
 
 pub mod build;
 pub mod deploy;
@@ -74,8 +72,8 @@ pub enum Commands {
         name: Option<String>,
 
         /// Base operating system(s)
-        #[clap(long, value_enum)]
-        os: Vec<Os>,
+        #[clap(long)]
+        os: Option<Vec<String>>,
 
         // #[clap(long, num_args = 0)]
         // list: bool,

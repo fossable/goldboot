@@ -12,5 +12,7 @@ repository = "https://github.com/fossable/goldboot"
 proc-macro = true
 
 [dependencies]
+darling = "0.20"
+proc-macro2 = "1.0"
 quote = "1.0.33"
-syn = "2.0.39"
+syn = { version = "2.0.39", features = ["full"] }

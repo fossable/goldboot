@@ -1,5 +1,4 @@
 use anyhow::Result;
-use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use std::fmt::Display;
@@ -19,11 +18,12 @@ use crate::{
 use super::BuildImage;
 
 /// Produces [Alpine Linux](https://www.alpinelinux.org) images.
+#[goldboot_macros::Os(architectures(Amd64, Arm64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct AlpineLinux {
     pub size: Size,
     pub edition: AlpineEdition,
-    #[serde(flatten)]
+    #[serde(default)]
     pub hostname: Hostname,
     pub release: AlpineRelease,
     pub root_password: RootPassword,
