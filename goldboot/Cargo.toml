@@ -59,7 +59,7 @@ sha2 = { workspace = true }
 ssh2 = { version = "0.9.4" }
 ssh-key = { version = "0.6.7", features = ["ed25519"] }
 strum = { workspace = true }
-tar = "0.4.40"
+tar = "0.4.45"
 tempfile = "3.10.0"
 tokio = { version = "1.36.0", features = ["full"] }
 tower-http = { version = "0.6.6", features = ["fs", "trace"] }
