@@ -83,20 +83,26 @@ impl BuildImage for ArchLinux {
 			wait_screen_rect!("3a23a076fb40333a3a59c2ccb45f212e453e519d", 100, 0, 1024, 400),
 		])?;
 
+        qemu.checkpoint("boot")?;
+
         // Wait for SSH
         let mut ssh = qemu.ssh("root")?;
 
-        // Run install script
-        info!("Running base installation");
-        match ssh.upload_exec(
-            include_bytes!("bootstrap.sh"),
-            vec![
-                ("GB_HTTP_HOST", &http.address),
-                ("GB_HTTP_PORT", &format!("{}", &http.port)),
-            ],
-        ) {
-            Ok(0) => debug!("Installation completed successfully"),
-            _ => bail!("Installation failed"),
+        if !worker.has_checkpoint("install") {
+            // Run install script
+            info!("Running base installation");
+            match ssh.upload_exec(
+                include_bytes!("bootstrap.sh"),
+                vec![
+                    ("GB_HTTP_HOST", &http.address),
+                    ("GB_HTTP_PORT", &format!("{}", &http.port)),
+                ],
+            ) {
+                Ok(0) => debug!("Installation completed successfully"),
+                _ => bail!("Installation failed"),
+            }
+
+            qemu.checkpoint("install")?;
         }
 
         // Run remaining fabricators

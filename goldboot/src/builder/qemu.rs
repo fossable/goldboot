@@ -8,7 +8,8 @@ use rand::Rng;
 use std::{
     collections::HashMap,
     fs::OpenOptions,
-    io::Write,
+    io::{BufRead, BufReader, Write},
+    os::unix::net::UnixStream,
     path::PathBuf,
     process::{Child, Command},
     time::Duration,
@@ -100,6 +101,7 @@ pub struct QemuProcess {
     pub host_key: PathBuf,
     pub vnc: VncConnection,
     pub os_category: OsCategory,
+    pub qmp_socket: PathBuf,
 }
 
 impl Drop for QemuProcess {
@@ -134,6 +136,45 @@ impl QemuProcess {
         )?)
     }
 
+    /// Save a qcow2 snapshot of the current VM state with the given name.
+    ///
+    /// This pauses the VM, runs `savevm`, and resumes it. The snapshot can be
+    /// inspected later via `qemu-img snapshot -l` or read through the qcow
+    /// snapshot API.
+    pub fn checkpoint(&mut self, name: &str) -> Result<()> {
+        info!(name, "Taking VM checkpoint");
+
+        let mut stream = UnixStream::connect(&self.qmp_socket)?;
+        let mut reader = BufReader::new(stream.try_clone()?);
+
+        // Read the QMP greeting banner
+        let mut line = String::new();
+        reader.read_line(&mut line)?;
+        debug!(banner = %line.trim(), "QMP greeting");
+
+        // Enter capabilities negotiation mode
+        stream.write_all(b"{\"execute\": \"qmp_capabilities\"}\n")?;
+        line.clear();
+        reader.read_line(&mut line)?;
+        debug!(response = %line.trim(), "QMP capabilities");
+
+        // savevm via human-monitor-command (simpler than the QMP savevm which
+        // requires refcount table space to be pre-allocated)
+        let cmd = format!(
+            "{{\"execute\": \"human-monitor-command\", \"arguments\": {{\"command-line\": \"savevm {name}\"}}}}\n"
+        );
+        stream.write_all(cmd.as_bytes())?;
+        line.clear();
+        reader.read_line(&mut line)?;
+        debug!(response = %line.trim(), "QMP savevm response");
+
+        if line.contains("Error") || line.contains("error") {
+            bail!("QMP savevm failed: {}", line.trim());
+        }
+
+        Ok(())
+    }
+
     pub fn shutdown_wait(mut self) -> Result<()> {
         info!("Waiting for shutdown");
 
@@ -157,6 +198,7 @@ pub struct QemuArgs {
     pub global: Vec<String>,
     pub machine: String,
     pub memory: String,
+    pub mon: Vec<String>,
     pub name: String,
     pub netdev: Vec<String>,
     pub smbios: Option<String>,
@@ -233,6 +275,11 @@ impl Into<Vec<String>> for QemuArgs {
             cmdline.push(chardev.to_string());
         }
 
+        for mon in &self.mon {
+            cmdline.push(String::from("-mon"));
+            cmdline.push(mon.to_string());
+        }
+
         for tpmdev in &self.tpmdev {
             cmdline.push(String::from("-tpmdev"));
             cmdline.push(tpmdev.to_string());
@@ -262,6 +309,7 @@ pub struct QemuBuilder {
     vnc_port: u16,
     temp: PathBuf,
     os_category: OsCategory,
+    qmp_socket: PathBuf,
 }
 
 impl QemuBuilder {
@@ -269,12 +317,17 @@ impl QemuBuilder {
         let ssh_port = rand::rng().random_range(10000..11000);
         let ssh_private_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();
         let ssh_host_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();
+        let qmp_socket = worker.tmp.path().join("qmp.sock");
 
         Self {
             args: QemuArgs {
                 bios: worker.ovmf_path.display().to_string(),
                 blockdev: vec![],
-                chardev: vec![],
+                chardev: vec![format!(
+                    "socket,id=qmp,path={},server=on,wait=off",
+                    qmp_socket.display()
+                )],
+                mon: vec![String::from("chardev=qmp,mode=control")],
                 tpmdev: vec![],
                 boot: String::from("once=d"),
                 cpu: None,
@@ -322,6 +375,7 @@ impl QemuBuilder {
             ssh_host_key,
             temp: worker.tmp.path().to_path_buf(),
             vnc_port: worker.vnc_port,
+            qmp_socket,
         }
     }
 
@@ -402,7 +456,7 @@ impl QemuBuilder {
         }
 
         self.args.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=raw",
+            "file={},if=virtio,read-only=on,format=raw",
             fs_path.display()
         ));
         Ok(self)
@@ -558,6 +612,7 @@ impl QemuBuilder {
             host_key: self.ssh_host_key,
             vnc,
             os_category: self.os_category,
+            qmp_socket: self.qmp_socket,
         })
     }
 }

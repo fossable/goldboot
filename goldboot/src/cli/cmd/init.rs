@@ -53,7 +53,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 Vec::new()
             };
 
-            let mut builder = Builder::new(initial_elements);
+            let mut builder = Builder::new(initial_elements, std::env::current_dir().unwrap());
 
             if builder.elements.is_empty() {
                 // If no OS was given, begin interactive config

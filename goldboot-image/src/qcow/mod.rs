@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
 use binrw::{BinRead, BinReaderExt, io::SeekFrom};
-use snapshot::Snapshot;
 use std::{
     fs::File,
     io::BufReader,
@@ -15,7 +14,8 @@ pub use header::*;
 pub mod levels;
 use levels::*;
 
-mod snapshot;
+pub mod snapshot;
+use snapshot::Snapshot;
 
 /// Represents a (stripped down) qcow3 file on disk.
 #[derive(BinRead, Debug)]
@@ -41,7 +41,6 @@ impl Qcow3 {
     /// Open a qcow3 file from the given path.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let mut file = BufReader::new(File::open(&path)?);
-
         let mut qcow: Qcow3 = file.read_be()?;
         qcow.path = path.as_ref().to_string_lossy().to_string();
 
@@ -96,6 +95,16 @@ impl Qcow3 {
             }
         }
         Ok(count)
+    }
+
+    /// Find a snapshot by its unique ID string (e.g. "1").
+    pub fn snapshot_by_id(&self, id: &str) -> Option<&Snapshot> {
+        self.snapshots.iter().find(|s| s.unique_id == id)
+    }
+
+    /// Find a snapshot by its human-readable name.
+    pub fn snapshot_by_name(&self, name: &str) -> Option<&Snapshot> {
+        self.snapshots.iter().find(|s| s.name == name)
     }
 }
 

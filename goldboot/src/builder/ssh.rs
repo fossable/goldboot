@@ -132,7 +132,9 @@ impl SshConnection {
 
         match self.os {
             OsCategory::Darwin => todo!(),
-            OsCategory::Linux => self.exec("sh -c 'cat /dev/zero >/zero; rm /zero'")?,
+            OsCategory::Linux => {
+                self.exec("sh -c 'cat /dev/zero >/zero 2>/dev/null; rm -f /zero'")?
+            }
             OsCategory::Windows => todo!(),
         };
         Ok(())

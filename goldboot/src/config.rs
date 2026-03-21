@@ -28,6 +28,14 @@ impl ConfigPath {
         None
     }
 
+    /// Return the directory containing this config file.
+    pub fn context_dir(&self) -> PathBuf {
+        self.0
+            .parent()
+            .expect("config path has no parent")
+            .to_path_buf()
+    }
+
     /// Read and deserialize the Ron configuration file.
     pub fn load(&self) -> Result<Vec<OsConfig>> {
         let content = std::fs::read_to_string(&self.0)?;

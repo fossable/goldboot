@@ -1,5 +1,6 @@
-use super::levels::L1Entry;
+use super::levels::{L1Entry, L2Entry};
 use binrw::{BinRead, binread, io::SeekFrom};
+use std::io::{Read, Seek};
 
 /// An entry in the snapshot table representing the system state at a moment in
 /// time
@@ -8,16 +9,10 @@ use binrw::{BinRead, binread, io::SeekFrom};
 pub struct Snapshot {
     /// Offset into the image file at which the L1 table for the
     /// snapshot starts. Must be aligned to a cluster boundary.
-    #[br(temp)]
-    l1_table_offset: u64,
+    pub l1_table_offset: u64,
 
-    /// Number of entries in the L1 table of the snapshots
-    #[br(temp)]
-    l1_entry_count: u32,
-
-    /// Table of L1 entries in the screenshot
-    #[br(restore_position, seek_before = SeekFrom::Start(l1_table_offset), count = l1_entry_count)]
-    pub l1_table: Vec<L1Entry>,
+    /// Number of entries in the L1 table of the snapshot
+    pub l1_entry_count: u32,
 
     /// Length of the unique ID string describing the snapshot
     #[br(temp)]
@@ -58,6 +53,13 @@ pub struct Snapshot {
     /// Name of the snapshot
     #[br(count = name_len, try_map = String::from_utf8)]
     pub name: String,
+
+    /// Padding to align the entry to an 8-byte boundary.
+    ///
+    /// Fixed fields are 40 bytes (8+4+2+2+8+8+4+4), then extra_data_size,
+    /// unique_id_len, and name_len bytes of variable data.
+    #[br(count = (8 - ((40u64 + extra_data_size as u64 + unique_id_len as u64 + name_len as u64) % 8)) % 8)]
+    _padding: Vec<u8>,
 }
 
 /// Optional extra snapshot data that comes from format updates
@@ -91,4 +93,68 @@ pub struct SnapshotTime {
 
     /// Subsecond portion of time in nanoseconds
     pub nanosecs: u32,
+}
+
+impl Snapshot {
+    fn read_l1(&self, reader: &mut (impl Read + Seek)) -> Option<Vec<L1Entry>> {
+        use binrw::BinReaderExt;
+        reader
+            .seek(SeekFrom::Start(self.l1_table_offset))
+            .ok()?;
+        (0..self.l1_entry_count)
+            .map(|_| reader.read_be::<L1Entry>().ok())
+            .collect()
+    }
+
+    /// Count the number of allocated clusters in this snapshot.
+    pub fn count_clusters(
+        &self,
+        reader: &mut (impl Read + Seek),
+        cluster_bits: u32,
+    ) -> u64 {
+        let mut count = 0;
+        if let Some(l1_table) = self.read_l1(reader) {
+            for l1_entry in &l1_table {
+                if let Some(l2_table) = l1_entry.read_l2(reader, cluster_bits) {
+                    for l2_entry in l2_table {
+                        if l2_entry.is_allocated() {
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+        count
+    }
+
+    /// Return all allocated clusters in this snapshot in virtual-disk order.
+    ///
+    /// Each item is `(block_offset, L2Entry)` where `block_offset` is the byte
+    /// offset within the virtual disk that the cluster corresponds to.
+    pub fn read_clusters(
+        &self,
+        reader: &mut (impl Read + Seek),
+        cluster_bits: u32,
+    ) -> Vec<(u64, L2Entry)> {
+        let cluster_size = 1u64 << cluster_bits;
+        let l2_entries_per_cluster = cluster_size / 8;
+        let mut result = Vec::new();
+
+        if let Some(l1_table) = self.read_l1(reader) {
+            for (l1_index, l1_entry) in l1_table.iter().enumerate() {
+                if let Some(l2_table) = l1_entry.read_l2(reader, cluster_bits) {
+                    for (l2_index, l2_entry) in l2_table.into_iter().enumerate() {
+                        if l2_entry.is_allocated() {
+                            let block_offset = (l1_index as u64 * l2_entries_per_cluster
+                                + l2_index as u64)
+                                * cluster_size;
+                            result.push((block_offset, l2_entry));
+                        }
+                    }
+                }
+            }
+        }
+
+        result
+    }
 }

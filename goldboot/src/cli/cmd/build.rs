@@ -34,7 +34,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
             };
 
-            let mut builder = Builder::new(elements);
+            let mut builder = Builder::new(elements, config_path.context_dir());
 
             // Include the encryption password if provided
             if read_password {

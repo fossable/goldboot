@@ -1,16 +1,13 @@
 use self::qemu::{Accel, detect_accel};
 use crate::builder::os::OsConfig;
 use crate::cli::cmd::Commands;
-use crate::library::ImageLibrary;
+use crate::library::{ImageLibrary, qcow_cache_path};
 
 use anyhow::{Result, bail};
 use dialoguer::Password;
 use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
 use rand::Rng;
-use std::{
-    path::PathBuf,
-    time::SystemTime,
-};
+use std::{path::PathBuf, time::SystemTime};
 use tracing::info;
 use validator::Validate;
 
@@ -35,11 +32,18 @@ pub struct Builder {
 
     pub record: bool,
 
-    /// A general purpose temporary directory for the run
+    /// Context directory containing goldboot.ron
+    pub context_dir: PathBuf,
+
+    /// Ephemeral directory for per-run files (SSH keys, FAT images, TPM sockets)
     pub tmp: tempfile::TempDir,
 
     pub ovmf_path: PathBuf,
+
+    /// Persistent qcow2 path derived from the context directory
     pub qcow_path: PathBuf,
+
+    pub qcow: Option<Qcow3>,
 
     /// VNC port for the VM
     pub vnc_port: u16,
@@ -52,9 +56,8 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(elements: Vec<OsConfig>) -> Self {
-        // Allocate directory for the builder to store the intermediate qcow image
-        // and any other supporting files.
+    pub fn new(elements: Vec<OsConfig>, context_dir: PathBuf) -> Self {
+        let qcow_path = qcow_cache_path(&context_dir).expect("failed to compute qcow cache path");
         let tmp = tempfile::tempdir().unwrap();
 
         Self {
@@ -62,13 +65,23 @@ impl Builder {
             debug: false,
             record: false,
             end_time: None,
-            qcow_path: tmp.path().join("image.gb.qcow2"),
+            qcow: None,
+            qcow_path,
             start_time: None,
             vnc_port: rand::rng().random_range(5900..5999),
             elements,
             ovmf_path: tmp.path().join("OVMF.fd"),
             tmp,
+            context_dir,
         }
+    }
+
+    /// Return true if the working qcow2 already contains a snapshot with the given name.
+    pub fn has_checkpoint(&self, name: &str) -> bool {
+        self.qcow
+            .as_ref()
+            .map(|q| q.snapshots.iter().any(|s| s.name == name))
+            .unwrap_or(false)
     }
 
     /// The system architecture
@@ -149,11 +162,19 @@ impl Builder {
                     bail!("No OVMF firmware found");
                 }
 
-                // Truncate the image size to a power of two for the qcow storage
-                let qcow = Qcow3::create(&self.qcow_path, qcow_size - (qcow_size % 2))?;
+                self.qcow = Some(if self.qcow_path.exists() {
+                    Qcow3::open(&self.qcow_path)?
+                } else {
+                    // Truncate the image size to a power of two for the qcow storage
+                    Qcow3::create(&self.qcow_path, qcow_size - (qcow_size % 2))?
+                });
+
                 for element in self.elements.iter() {
                     element.0.build(&self)?;
                 }
+
+                // Re-open qcow to pick up any new snapshots written during the build
+                self.qcow = Some(Qcow3::open(&self.qcow_path)?);
 
                 // Convert into final immutable image
                 let path = if let Some(output) = output.as_ref() {
@@ -162,7 +183,13 @@ impl Builder {
                     ImageLibrary::open().temporary()
                 };
 
-                ImageHandle::from_qcow(Vec::new(), &qcow, &path, password, |_, _| {})?;
+                ImageHandle::from_qcow(
+                    Vec::new(),
+                    self.qcow.as_ref().unwrap(),
+                    &path,
+                    password,
+                    |_, _| {},
+                )?;
 
                 if let None = output {
                     ImageLibrary::open().add_move(path.clone())?;

@@ -10,6 +10,27 @@ use std::{
 };
 use tracing::info;
 
+/// Return the path to the goldboot build cache directory, creating it if needed.
+pub fn cache_dir() -> PathBuf {
+    let dir =
+        PathBuf::from(std::env::var("HOME").expect("HOME not set")).join(".cache/goldboot/images");
+    std::fs::create_dir_all(&dir).expect("failed to create cache directory");
+    dir
+}
+
+/// Return the persistent qcow2 path for a given context directory.
+///
+/// The path is stable across runs: `~/.goldboot/cache/<sha256(canonical_path)>.qcow2`.
+pub fn qcow_cache_path(context_dir: &Path) -> Result<PathBuf> {
+    let canonical = context_dir.canonicalize()?;
+    let hash = hex::encode(
+        Sha256::new()
+            .chain_update(canonical.to_string_lossy().as_bytes())
+            .finalize(),
+    );
+    Ok(cache_dir().join(format!("{hash}.qcow2")))
+}
+
 /// Represents the local image library.
 ///
 /// Depending on the platform, the directory will be located at:
