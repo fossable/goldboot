@@ -52,6 +52,7 @@ pub struct ArchLinux {
         checksum: None,
     })]
     pub iso: Iso,
+    // TODO if someone specifies an archinstall config, then merge ours
 }
 
 impl BuildImage for ArchLinux {

@@ -23,6 +23,9 @@ impl L1Entry {
         reader: &mut (impl Read + Seek),
         cluster_bits: u32,
     ) -> Option<Vec<L2Entry>> {
+        if !self.is_used() {
+            return None;
+        }
         reader.seek(SeekFrom::Start(self.l2_offset())).ok()?;
         let L2Entries(entries) = reader.read_be_args((cluster_bits,)).ok()?;
 
@@ -79,6 +82,16 @@ impl L2Entry {
         }
     }
 
+    /// Returns true if this entry refers to an allocated cluster with data.
+    /// This is distinct from `is_used` (the "copied" bit), which is false for
+    /// compressed clusters even when they contain data.
+    pub fn is_allocated(&self) -> bool {
+        match &self.cluster_descriptor {
+            ClusterDescriptor::Standard(c) => c.host_cluster_offset != 0,
+            ClusterDescriptor::Compressed(_) => true,
+        }
+    }
+
     /// Read the contents of a given L2 Entry from `reader`.
     pub fn read_contents(
         &self,
@@ -97,20 +110,23 @@ impl L2Entry {
                     reader.take(cluster_size).read_to_end(&mut buf)?;
                 }
             }
-            ClusterDescriptor::Compressed(cluster) => match comp_type {
-                CompressionType::Zlib => {
-                    reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
-                    flate2::read::DeflateDecoder::new(reader)
-                        .take(cluster_size)
-                        .read_to_end(&mut buf)?;
+            ClusterDescriptor::Compressed(cluster) => {
+                let compressed_size = (cluster.additional_sector_count + 1) * 512;
+                reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
+                let mut compressed = reader.take(compressed_size);
+                match comp_type {
+                    CompressionType::Zlib => {
+                        flate2::read::ZlibDecoder::new(&mut compressed)
+                            .take(cluster_size)
+                            .read_to_end(&mut buf)?;
+                    }
+                    CompressionType::Zstd => {
+                        zstd::Decoder::new(&mut compressed)?
+                            .take(cluster_size)
+                            .read_to_end(&mut buf)?;
+                    }
                 }
-                CompressionType::Zstd => {
-                    reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
-                    zstd::Decoder::new(reader)?
-                        .take(cluster_size)
-                        .read_to_end(&mut buf)?;
-                }
-            },
+            }
         }
 
         Ok(buf)

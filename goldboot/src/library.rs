@@ -47,8 +47,6 @@ impl ImageLibrary {
     /// Add an image to the library. The image will be hashed and copied to the
     /// library with the appropriate name.
     pub fn add_copy(&self, image_path: impl AsRef<Path>) -> Result<()> {
-        info!("Saving image to library");
-
         let mut hasher = Sha256::new();
         ProgressBar::Hash.copy(
             &mut File::open(&image_path)?,
@@ -56,16 +54,16 @@ impl ImageLibrary {
             std::fs::metadata(&image_path)?.len(),
         )?;
         let hash = hex::encode(hasher.finalize());
+        let dest = self.directory.join(format!("{hash}.gb"));
 
-        std::fs::copy(&image_path, self.directory.join(format!("{hash}.gb")))?;
+        info!(path = %dest.display(), "Copying image to library");
+        std::fs::copy(&image_path, &dest)?;
         Ok(())
     }
 
     /// Add an image to the library. The image will be hashed and moved to the
     /// library with the appropriate name.
     pub fn add_move(&self, image_path: impl AsRef<Path>) -> Result<()> {
-        info!("Saving image to library");
-
         let mut hasher = Sha256::new();
         ProgressBar::Hash.copy(
             &mut File::open(&image_path)?,
@@ -73,8 +71,10 @@ impl ImageLibrary {
             std::fs::metadata(&image_path)?.len(),
         )?;
         let hash = hex::encode(hasher.finalize());
+        let dest = self.directory.join(format!("{hash}.gb"));
 
-        std::fs::rename(&image_path, self.directory.join(format!("{hash}.gb")))?;
+        info!(path = %dest.display(), "Moving image to library");
+        std::fs::rename(&image_path, &dest)?;
         Ok(())
     }
 

@@ -89,7 +89,7 @@ impl Qcow3 {
                 l1_entry.read_l2(&mut File::open(&self.path)?, self.header.cluster_bits)
             {
                 for l2_entry in l2_table {
-                    if l2_entry.is_used {
+                    if l2_entry.is_allocated() {
                         count += 1;
                     }
                 }
@@ -107,7 +107,40 @@ mod tests {
     fn test_open() -> Result<()> {
         let qcow = Qcow3::open("test/empty.qcow2")?;
         assert_eq!(qcow.header.cluster_bits, 16);
-        assert_eq!(qcow.header.cluster_size(), 65536);
+        assert_eq!(qcow.header.size, 1048576); // 1 MiB virtual disk
+        assert_eq!(qcow.header.nb_snapshots, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn count_clusters_empty() -> Result<()> {
+        // An image with no allocated clusters (all blocks are zero)
+        let qcow = Qcow3::open("test/empty.qcow2")?;
+        assert_eq!(qcow.count_clusters()?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn count_clusters_uncompressed() -> Result<()> {
+        // small.qcow2 has 2 allocated standard clusters
+        let qcow = Qcow3::open("test/small.qcow2")?;
+        assert_eq!(qcow.count_clusters()?, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn count_clusters_zlib_compressed() -> Result<()> {
+        // compressed_zlib.qcow2 has 64 allocated compressed clusters (full 4 MiB)
+        let qcow = Qcow3::open("test/compressed_zlib.qcow2")?;
+        assert_eq!(qcow.count_clusters()?, 64);
+        Ok(())
+    }
+
+    #[test]
+    fn count_clusters_zstd_compressed() -> Result<()> {
+        // compressed_zstd.qcow2 has 1 allocated compressed cluster (64 KiB)
+        let qcow = Qcow3::open("test/compressed_zstd.qcow2")?;
+        assert_eq!(qcow.count_clusters()?, 1);
         Ok(())
     }
 }
