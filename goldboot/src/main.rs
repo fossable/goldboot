@@ -19,10 +19,10 @@ struct CommandLine {
 
 /// Determine whether builds should be headless or not for debugging.
 pub fn build_headless_debug() -> bool {
-    if env::var("CI").is_ok() {
+    if std::env::var("CI").is_ok() {
         return true;
     }
-    if env::var("GOLDBOOT_DEBUG").is_ok() {
+    if std::env::var("GOLDBOOT_DEBUG").is_ok() {
         return false;
     }
     return true;
@@ -42,6 +42,7 @@ pub fn main() -> ExitCode {
     #[cfg(not(feature = "uki"))]
     {
         let _default_filter = match &command_line.command {
+            #[cfg(feature = "build")]
             Some(Commands::Build { debug, .. }) => {
                 if *debug {
                     "debug"
@@ -60,7 +61,9 @@ pub fn main() -> ExitCode {
     // Dispatch command
     #[cfg(not(feature = "uki"))]
     match &command_line.command {
+        #[cfg(feature = "build")]
         Some(Commands::Init { .. }) => goldboot::cli::cmd::init::run(command_line.command.unwrap()),
+        #[cfg(feature = "build")]
         Some(Commands::Build { .. }) => {
             goldboot::cli::cmd::build::run(command_line.command.unwrap())
         }
@@ -73,8 +76,8 @@ pub fn main() -> ExitCode {
         Some(Commands::Deploy { .. }) => {
             goldboot::cli::cmd::deploy::run(command_line.command.unwrap())
         }
-        Some(Commands::Liveusb { .. }) => {
-            goldboot::cli::cmd::liveusb::run(command_line.command.unwrap())
+        Some(Commands::Install { .. }) => {
+            goldboot::cli::cmd::install::run(command_line.command.unwrap())
         }
         Some(Commands::Lsp) => {
             let rust_analyzer: roniker::RustAnalyzer = serde_json::from_str(include_str!(concat!(

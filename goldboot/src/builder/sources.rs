@@ -22,17 +22,17 @@ impl SourceCache {
         let directory = if cfg!(target_os = "linux") {
             PathBuf::from(format!(
                 "/home/{}/.cache/goldboot/sources",
-                whoami::username()
+                whoami::username()?
             ))
         } else if cfg!(target_os = "macos") {
             PathBuf::from(format!(
                 "/Users/{}/.cache/goldboot/sources",
-                whoami::username()
+                whoami::username()?
             ))
         } else if cfg!(target_os = "windows") {
             PathBuf::from(format!(
                 "C:/Users/{}/AppData/Local/goldboot/cache/sources",
-                whoami::username()
+                whoami::username()?
             ))
         } else {
             bail!("Unsupported platform");

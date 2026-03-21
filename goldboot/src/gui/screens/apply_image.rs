@@ -110,7 +110,7 @@ pub fn render(
                     egui::Color32::from_rgba_unmultiplied(0x33, 0x33, 0x33, 230),
                 );
 
-                painter.rect_stroke(box_rect, 5.0, egui::Stroke::new(3.0, theme.accent_gold));
+                painter.rect_stroke(box_rect, 5.0, egui::Stroke::new(3.0, theme.accent_gold), egui::StrokeKind::Outside);
 
                 // Render content inside the box
                 ui.allocate_ui_at_rect(box_rect.shrink(20.0), |ui| {

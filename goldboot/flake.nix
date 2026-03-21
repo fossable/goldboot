@@ -16,14 +16,11 @@
           pname = "goldboot";
           version = "0.0.10";
 
-          src = ../..;
+          src = ../.;
 
-          cargoLock = { lockFile = ../../Cargo.lock; };
+          cargoLock = { lockFile = ../Cargo.lock; };
 
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-            python3 # Required by pyo3-build-config
-          ];
+          nativeBuildInputs = with pkgs; [ pkg-config ];
 
           buildInputs = with pkgs; [
             openssl
@@ -135,6 +132,52 @@
           '';
         };
 
+        # Create bootable ISO image with the UKI
+        goldboot-iso = pkgs.stdenv.mkDerivation {
+          name = "goldboot-iso";
+
+          nativeBuildInputs = [ pkgs.xorriso pkgs.dosfstools pkgs.mtools ];
+
+          buildCommand = ''
+            mkdir -p iso/EFI/BOOT
+
+            # Copy UKI to the ESP (EFI System Partition) location
+            ${if system == "x86_64-linux" then ''
+              cp ${goldboot-uki}/sandpolis.efi iso/EFI/BOOT/BOOTX64.EFI
+            '' else ''
+              cp ${goldboot-uki}/sandpolis.efi iso/EFI/BOOT/BOOTAA64.EFI
+            ''}
+
+            # Create the ISO image
+            ${pkgs.xorriso}/bin/xorriso \
+              -as mkisofs \
+              -o $out/sandpolis.iso \
+              -isohybrid-mbr ${pkgs.syslinux}/share/syslinux/isohdpfx.bin \
+              -c boot.cat \
+              -b EFI/BOOT/${
+                if system == "x86_64-linux" then
+                  "BOOTX64.EFI"
+                else
+                  "BOOTAA64.EFI"
+              } \
+              -no-emul-boot \
+              -boot-load-size 4 \
+              -boot-info-table \
+              --efi-boot EFI/BOOT/${
+                if system == "x86_64-linux" then
+                  "BOOTX64.EFI"
+                else
+                  "BOOTAA64.EFI"
+              } \
+              -efi-boot-part \
+              --efi-boot-image \
+              --protective-msdos-label \
+              iso
+
+            echo "ISO created at $out/goldboot.iso"
+          '';
+        };
+
         # Run scripts for QEMU testing
         run-x86_64 = pkgs.writeShellScriptBin "run-x86_64" ''
           # Set up ESP directory structure in temp directory
@@ -148,7 +191,9 @@
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
             -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
-            -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x04 -vga std
+            -serial stdio \
+            -device virtio-gpu-pci \
+            -display gtk,gl=off
 
           rm -rf $ESP_DIR
         '';
@@ -175,6 +220,7 @@
           default = goldboot-uki;
           goldboot = goldboot;
           goldboot-uki = goldboot-uki;
+          goldboot-iso = goldboot-iso;
         };
 
         # Development shell

@@ -2,9 +2,9 @@ use rand::Rng;
 
 use std::net::TcpListener;
 
+#[cfg(feature = "build")]
 pub mod builder;
 pub mod cli;
-pub mod config;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod library;

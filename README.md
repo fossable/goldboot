@@ -205,37 +205,21 @@ Initialize the directory and choose `ArchLinux` to start with:
 goldboot init \
   --name Test \
   --os ArchLinux \
-  --size 10G \
-  --format json
+  --size 10G
 ```
 
-This will create `goldboot.json` which contains configuration options that can
-be tweaked to suit your needs. For example:
+This will create `goldboot.ron` which contains configuration options that can be
+tweaked to suit your needs. For example:
 
-```json
-{
-  "alloy": [
-    {
-      "os": {
-        "ArchLinux": {
-          "hostname": "YeahIUseArch",
-          "root_password": {
-            "plaintext": "123456"
-          }
-        }
-      },
-      "source": {
-        "Iso": {
-          "url": "https://mirrors.edge.kernel.org/archlinux/iso/2024.01.01/archlinux-2024.01.01-x86_64.iso",
-          "checksum": "sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155"
-        }
-      }
-    }
-  ],
-  "arch": "Amd64",
-  "name": "Test",
-  "size": "10G"
-}
+```ron
+ArchLinux(
+    arch: Arch(Amd64),
+    size: Size("20 GiB"),
+    iso: (
+        url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2026.03.01-x86_64.iso",
+        checksum: None,
+    ),
+)
 ```
 
 There are many ways to customize the image, but for now just build it:
@@ -245,20 +229,45 @@ goldboot build .
 ```
 
 Once the build succeeds, the image will be saved to the system's library
-directory. To deploy it to a physical disk, you can include the image on a new
-bootable USB drive:
+directory. To deploy the image to the local machine, install goldboot along with
+the image to your boot partition:
 
 ```sh
-# THIS WILL OVERWRITE /dev/sdX!
-goldboot liveusb --output /dev/sdX --include Test
+goldboot install --include Test
 ```
 
-Once the USB is created, you can use it to boot into the goldboot live
-environment and select an image to deploy:
+If you don't have enough storage space under `/boot`, you can alternatively
+install to a USB drive by setting `--dest`.
+
+Now you should be able to boot into goldboot:
 
 <p align="center">
 	<img src="https://raw.githubusercontent.com/goldboot/goldboot/master/.github/images/select_image.png" />
 </p>
 
-Once the image has been deployed, remove the bootable USB drive and reboot the
-machine.
+Select the source image and target disk and off you go.
+
+## Configuring `goldboot.ron` the easy way
+
+Goldboot comes with an LSP server to make editing `goldboot.ron` easier. To use
+it, configure your editor to use `goldboot lsp` as an LSP server for files named
+`goldboot.ron`.
+
+### Helix
+
+```toml
+[language-server]
+goldboot-lsp = { command = "goldboot", args = ["lsp"] }
+
+[[language]]
+name = "ron"
+auto-format = true
+scope = "source.ron"
+injection-regex = "ron"
+file-types = ["ron", { glob = "goldboot.ron" }]
+comment-token = "//"
+block-comment-tokens = { start = "/*", end = "*/" }
+indent = { tab-width = 4, unit = "    " }
+roots = ["Cargo.toml"]
+language-servers = ["goldboot-lsp"]
+```

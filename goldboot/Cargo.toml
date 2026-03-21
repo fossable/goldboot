@@ -26,6 +26,7 @@ eframe = { version = "0.33.3", optional = true, default-features = false, featur
   "default_fonts",
   "glow",
   "persistence",
+  "wayland",
 ] }
 egui = { version = "0.33.3", optional = true }
 inventory = "0.3"
@@ -42,14 +43,14 @@ image = { version = "0.25", optional = true, default-features = false, features 
 indicatif = "0.18.0"
 png = { version = "0.18.0", optional = true }
 poll-promise = { version = "0.3", optional = true }
-quick-xml = { version = "0.38.3", features = ["serialize"] }
+quick-xml = { version = "0.39.2", features = ["serialize"] }
 rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["stream", "blocking", "json"] }
 ron = { version = "0.12", optional = true }
 rustls = { version = "0.23.23" }
 roniker = { workspace = true, features = ["lsp"] }
-serde_json = { version = "1.0.108", optional = true }
+serde_json = { version = "1.0.108" }
 serde = { workspace = true }
 serde_win_unattend = { version = "0.3.3", optional = true }
 smart-default = "0.7.1"
@@ -70,7 +71,7 @@ url = { version = "2.4.1", features = ["serde"] }
 uuid = { version = "1.7.0", features = ["v4"] }
 validator = { version = "0.20.0", features = ["derive"] }
 vnc = { version = "0.4.0", optional = true }
-whoami = "1.4.1"
+whoami = "2.1.1"
 zstd = { workspace = true }
 
 [dev-dependencies]
@@ -96,7 +97,6 @@ registry = []
 # Support for building images
 build = [
   "dep:ron",
-  "dep:serde_json",
   "dep:fatfs",
   "dep:fscommon",
   "dep:png",

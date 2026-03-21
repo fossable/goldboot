@@ -5,10 +5,7 @@ use std::process::ExitCode;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
 
-use crate::{
-    builder::{Builder, os::{OsConfig, os_iter}},
-    config::ConfigPath,
-};
+use crate::builder::{Builder, config::ConfigPath, os::{OsConfig, os_iter}};
 
 fn print_banner() {
     if console::colors_enabled() {

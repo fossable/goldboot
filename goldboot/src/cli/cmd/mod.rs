@@ -1,16 +1,18 @@
 use std::path::PathBuf;
 
-
+#[cfg(feature = "build")]
 pub mod build;
 pub mod deploy;
 pub mod image;
+#[cfg(feature = "build")]
 pub mod init;
-pub mod liveusb;
+pub mod install;
 pub mod registry;
 
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum Commands {
     /// Build a new image
+    #[cfg(feature = "build")]
     Build {
         /// Save a screenshot to ./screenshots after each boot command for
         /// debugging
@@ -66,6 +68,7 @@ pub enum Commands {
     },
 
     /// Initialize the current directory as a new goldboot project
+    #[cfg(feature = "build")]
     Init {
         /// New image name
         #[clap(long)]
@@ -89,19 +92,15 @@ pub enum Commands {
         command: RegistryCommands,
     },
 
-    /// Create a bootable live USB
-    Liveusb {
+    /// Install goldboot to a boot partition.
+    Install {
         /// Destination device path
         #[clap(long)]
         dest: String,
 
-        /// Images to include in the live USB
+        /// Optional images to include
         #[clap(long, value_enum)]
         include: Vec<String>,
-
-        /// Do not prompt for confirmation (be extremely careful with this)
-        #[clap(long, num_args = 0)]
-        confirm: bool,
     },
 
     /// Serve the goldboot LSP

@@ -11,6 +11,7 @@ use std::{path::PathBuf, time::SystemTime};
 use tracing::info;
 use validator::Validate;
 
+pub mod config;
 pub mod fabricators;
 pub mod http;
 pub mod options;

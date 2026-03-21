@@ -1,5 +1,5 @@
 use crate::builder::Builder;
-use crate::config::ConfigPath;
+use crate::builder::config::ConfigPath;
 use std::process::ExitCode;
 use tracing::{debug, error};
 use validator::Validate;
