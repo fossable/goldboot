@@ -38,6 +38,10 @@ pub enum Commands {
         #[clap(long)]
         ovmf_path: Option<PathBuf>,
 
+        /// Delete any cached build state and start fresh
+        #[clap(long, num_args = 0)]
+        clean: bool,
+
         /// The context directory containing goldboot.ron
         #[clap(index = 1)]
         path: String,
@@ -130,4 +134,10 @@ pub enum ImageCommands {
 
     /// Get detailed image info
     Info { image: Option<String> },
+
+    /// Delete local images
+    Delete {
+        #[clap(required = true)]
+        images: Vec<String>,
+    },
 }

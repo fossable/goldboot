@@ -36,5 +36,7 @@ fn main() {
     let dest = PathBuf::from(&out_dir).join("rust_analyzer.json");
     std::fs::write(&dest, json).expect("Failed to write rust_analyzer.json");
 
-    println!("cargo:rerun-if-changed=../");
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/builder/os");
+    println!("cargo:rerun-if-changed=src/builder/options");
 }

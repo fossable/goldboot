@@ -50,6 +50,7 @@ pub struct AppState {
 
     // Confirmation
     pub confirm_progress: f32, // 0.0 to 1.0
+    pub confirm_char: char,    // Random ASCII char to press 100 times
 
     // Registry login
     pub registry_address: String,
@@ -68,6 +69,10 @@ impl AppState {
             devices: Vec::new(), // Loaded on-demand in select_device screen
             selected_device: None,
             confirm_progress: 0.0,
+            confirm_char: {
+                use rand::Rng;
+                rand::rng().sample(rand::distr::Uniform::new(b'a', b'z' + 1).unwrap()) as char
+            },
             registry_address: String::new(),
             registry_password: String::new(),
             show_registry_dialog: false,

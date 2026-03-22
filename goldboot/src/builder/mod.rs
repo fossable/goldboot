@@ -5,7 +5,7 @@ use crate::library::{ImageLibrary, qcow_cache_path};
 
 use anyhow::{Result, bail};
 use dialoguer::Password;
-use goldboot_image::{ImageArch, ImageHandle, qcow::Qcow3};
+use goldboot_image::{ElementHeader, ImageArch, ImageHandle, qcow::Qcow3};
 use rand::Rng;
 use std::{path::PathBuf, time::SystemTime};
 use tracing::info;
@@ -109,6 +109,7 @@ impl Builder {
                 debug,
                 read_password,
                 no_accel,
+                clean,
                 output,
                 path: _,
                 ovmf_path,
@@ -163,6 +164,10 @@ impl Builder {
                     bail!("No OVMF firmware found");
                 }
 
+                if clean && self.qcow_path.exists() {
+                    std::fs::remove_file(&self.qcow_path)?;
+                }
+
                 self.qcow = Some(if self.qcow_path.exists() {
                     Qcow3::open(&self.qcow_path)?
                 } else {
@@ -184,8 +189,14 @@ impl Builder {
                     ImageLibrary::open().temporary()
                 };
 
+                let element_headers: Vec<ElementHeader> = self
+                    .elements
+                    .iter()
+                    .map(|e| ElementHeader::new(e.0.os_name(), e.0.os_name()))
+                    .collect::<Result<_>>()?;
+
                 ImageHandle::from_qcow(
-                    Vec::new(),
+                    element_headers,
                     self.qcow.as_ref().unwrap(),
                     &path,
                     password,

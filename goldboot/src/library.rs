@@ -8,7 +8,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
 };
-use tracing::info;
+use tracing::{debug, info};
 
 /// Return the path to the goldboot build cache directory, creating it if needed.
 pub fn cache_dir() -> PathBuf {
@@ -101,18 +101,9 @@ impl ImageLibrary {
 
     /// Remove an image from the library by ID.
     pub fn delete(&self, image_id: &str) -> Result<()> {
-        for p in self.directory.read_dir()? {
-            let path = p?.path();
-            let filename = path.file_name().unwrap().to_str().unwrap();
-
-            if filename == format!("{image_id}.gb")
-                || filename == format!("{}.gb", &image_id[0..12])
-            {
-                std::fs::remove_file(path)?;
-                return Ok(());
-            }
-        }
-
+        let image = Self::find_by_id(image_id)?;
+        std::fs::remove_file(&image.path)?;
+        debug!(path = %image.path.display(), "Deleted image");
         Ok(())
     }
 
