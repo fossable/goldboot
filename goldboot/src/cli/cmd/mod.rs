@@ -117,14 +117,26 @@ pub enum Commands {
 
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum RegistryCommands {
-    /// Enter a token for a registry
-    Login {},
+    /// Authenticate with a registry
+    Login {
+        /// Registry URL (e.g. registry.example.com)
+        #[clap(index = 1)]
+        registry: String,
+    },
 
-    /// Upload a local image to a remote registry
-    Push { url: String },
+    /// Upload a local image to a remote registry (e.g. registry.example.com/archlinux:v1)
+    Push {
+        /// Image reference in the form host/name[:tag]
+        #[clap(index = 1)]
+        reference: String,
+    },
 
-    /// Download an image from a remote registry
-    Pull { url: String },
+    /// Download an image from a remote registry (e.g. registry.example.com/archlinux:latest)
+    Pull {
+        /// Image reference in the form host/name[:tag]
+        #[clap(index = 1)]
+        reference: String,
+    },
 }
 
 #[derive(clap::Subcommand, Debug, Clone)]

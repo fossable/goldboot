@@ -1956,6 +1956,7 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
+ "toml",
  "tower-http",
  "tracing",
  "tracing-subscriber",

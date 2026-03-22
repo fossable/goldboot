@@ -1,9 +1,14 @@
 pub mod image;
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Default)]
 pub struct RegistryTokenPermissions {
-    // TODO
+    pub push: bool,
+    pub pull: bool,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct RegistryToken {
     /// The token value
     pub token: String,

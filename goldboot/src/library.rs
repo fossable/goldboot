@@ -127,6 +127,24 @@ impl ImageLibrary {
         }
     }
 
+    /// Find an image in the library by name (matches `PrimaryHeader::name()`).
+    /// Returns an error if zero or more than one image matches.
+    pub fn find_by_name(name: &str) -> Result<ImageHandle> {
+        let mut matches: Vec<ImageHandle> = Self::find_all()?
+            .into_iter()
+            .filter(|image| image.primary_header.name() == name)
+            .collect();
+        match matches.len() {
+            0 => bail!("No image named '{}' found in library", name),
+            1 => Ok(matches.remove(0)),
+            n => bail!(
+                "{} images named '{}' found; use 'goldboot image list' and push by ID instead",
+                n,
+                name
+            ),
+        }
+    }
+
     /// Find images in the library by ID.
     pub fn find_by_id(image_id: &str) -> Result<ImageHandle> {
         Ok(Self::find_all()?
