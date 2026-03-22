@@ -26,10 +26,20 @@
             openssl
             openssl.dev
             udev # Required by libudev-sys (block-utils dependency)
+            # Required by winit/egui Wayland backend
+            wayland
+            wayland-protocols
+            libxkbcommon
+            # Required by glutin/glow (OpenGL)
+            libGL
           ];
 
-          # Build goldboot with UKI feature (enables GUI + UKI mode)
-          cargoBuildFlags = [ "-p" "goldboot" "--features" "uki" ];
+          # Tell winit to use the Wayland backend
+          WINIT_UNIX_BACKEND = "wayland";
+
+          # Build goldboot with UKI feature
+          cargoBuildFlags =
+            [ "-p" "goldboot" "--no-default-features" "--features" "uki" ];
 
           # Skip tests for UKI build
           doCheck = false;
@@ -49,51 +59,106 @@
           mount -t sysfs sys /sys
           mount -t devtmpfs dev /dev
 
+          # Redirect all output to serial console now that /dev exists
+          exec >/dev/ttyS0 2>&1
+          set -x
+
           # Create necessary directories
           mkdir -p /tmp /run /var
 
           # Set up networking (lo interface)
           ip link set lo up
 
+          # Load GPU kernel modules in dependency order
+          modprobe virtio_pci
+          modprobe virtio_gpu
+          ls -la /dev/dri/ || echo "WARNING: no DRM devices found"
+
+          # Load USB HID modules for keyboard input
+          modprobe virtio_input
+          modprobe xhci_pci
+          modprobe ehci_pci
+          modprobe usbhid
+          modprobe hid_generic
+
+          # Use gles2 renderer via virtio-gpu DRM device
+          export WLR_RENDERER=gles2
+          export WLR_BACKENDS=drm,libinput
+          export WLR_LIBINPUT_NO_DEVICES=1
+          export LD_LIBRARY_PATH=/run/opengl-driver/lib:/lib/wayland:/lib/xkbcommon
+          export EGL_DRIVERS_PATH=/run/opengl-driver/lib
+          export LIBGL_DRIVERS_PATH=/run/opengl-driver/lib/dri
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          export XKB_CONFIG_ROOT=${pkgs.xkeyboard_config}/etc/X11/xkb
+          export XKBCOMP_PATH=${pkgs.xorg.xkbcomp}/bin
+          export PATH=${pkgs.xorg.xkbcomp}/bin:/bin:/sbin
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 0700 "$XDG_RUNTIME_DIR"
+
           # Launch goldboot in UKI mode (runs fullscreen GUI, then reboots)
           exec /sbin/cage /sbin/goldboot
         '';
+
+        modulesClosure = pkgs.makeModulesClosure {
+          kernel = pkgs.linuxPackages_latest.kernel.modules;
+          firmware = pkgs.linux-firmware;
+          allowMissing = false;
+          rootModules = [ "virtio_gpu" "virtio_pci" "virtio_input" "drm" "drm_kms_helper" "usbhid" "hid_generic" "ehci_pci" "xhci_pci" ];
+        };
 
         # Create initramfs with makeInitrd
         buildInitramfs = kernel:
           pkgs.makeInitrd {
             name = "goldboot-initramfs";
 
-            # Use gzip compression (standard for initramfs)
             compressor = "gzip";
 
             contents = [
-              # Include the init script at /init
               {
                 object = initScript;
                 symlink = "/init";
                 mode = "0755";
               }
 
-              # Include the goldboot binary (with full closure)
               {
                 object = "${goldboot}/bin/goldboot";
                 symlink = "/sbin/goldboot";
                 mode = "0755";
               }
 
-              # Include busybox for shell utilities (minimal, no deps)
               {
                 object = "${pkgs.busybox}/bin/busybox";
                 symlink = "/bin/busybox";
                 mode = "0755";
               }
-
-              # Include cage (Wayland compositor for fullscreen GUI)
               {
                 object = "${pkgs.cage}/bin/cage";
                 symlink = "/sbin/cage";
                 mode = "0755";
+              }
+              {
+                object = "${pkgs.iproute2}/bin/ip";
+                symlink = "/bin/ip";
+              }
+              {
+                object = "${pkgs.xorg.xkbcomp}/bin/xkbcomp";
+                symlink = "/bin/xkbcomp";
+              }
+              {
+                object = pkgs.mesa;
+                symlink = "/run/opengl-driver";
+              }
+              {
+                object = "${modulesClosure}/lib/modules";
+                symlink = "/lib/modules";
+              }
+              {
+                object = "${pkgs.wayland}/lib";
+                symlink = "/lib/wayland";
+              }
+              {
+                object = "${pkgs.libxkbcommon}/lib";
+                symlink = "/lib/xkbcommon";
               }
             ];
           };
@@ -114,9 +179,9 @@
           buildCommand = ''
             mkdir -p $out
 
-            # List initramfs contents for debugging
+            # List initramfs contents for debugging (initrd may be a concatenated cpio)
             echo "Initramfs contents:"
-            zcat ${initramfs}/initrd | ${pkgs.cpio}/bin/cpio -itv
+            ${pkgs.cpio}/bin/cpio -itv --quiet < ${initramfs}/initrd 2>/dev/null || true
 
             # Use ukify to create the UKI
             ${pkgs.systemdUkify}/bin/ukify build \
@@ -125,7 +190,7 @@
               --os-release='NAME="Goldboot"
             ID=goldboot
             VERSION="0.1.0"' \
-              --cmdline="console=ttyS0 console=tty0 quiet" \
+              --cmdline="console=ttyS0 console=tty0" \
               --output=$out/goldboot.efi
 
             echo "UKI created at $out/goldboot.efi"
@@ -186,14 +251,15 @@
           cp result/goldboot.efi $ESP_DIR/EFI/Boot/BootX64.efi
 
           qemu-system-x86_64 \
-            -nodefaults --enable-kvm -m 2G -machine q35 -smp 4 \
+            -nodefaults --enable-kvm -m 8G -machine q35 -smp 4 \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
             -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
             -serial stdio \
-            -device virtio-gpu-pci \
-            -display gtk,gl=off
+            -device virtio-vga-gl \
+            -device virtio-keyboard-pci \
+            -display gtk,gl=on
 
           rm -rf $ESP_DIR
         '';
@@ -205,7 +271,7 @@
           cp result/goldboot.efi $ESP_DIR/EFI/Boot/BootAA64.efi
 
           qemu-system-aarch64 \
-            -nodefaults --enable-kvm -m 2G -machine virt -cpu cortex-a72 -smp 4 \
+            -nodefaults --enable-kvm -m 8G -machine virt -cpu cortex-a72 -smp 4 \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \

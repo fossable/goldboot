@@ -94,13 +94,17 @@ pub enum Commands {
 
     /// Install goldboot to a boot partition.
     Install {
-        /// Destination device path
-        #[clap(long)]
+        /// Destination path (EFI system partition mount point)
+        #[clap(long, default_value = "/boot")]
         dest: String,
 
         /// Optional images to include
         #[clap(long, value_enum)]
         include: Vec<String>,
+
+        /// Show what would be done without making any changes
+        #[clap(long)]
+        dryrun: bool,
     },
 
     /// Serve the goldboot LSP
