@@ -307,7 +307,9 @@ pub fn render(
                     state.confirm_progress += 0.01;
                     if state.confirm_progress >= 1.0 {
                         state.confirm_progress = 1.0;
-                        state.init_write_progress(10 * 1024 * 1024 * 1024);
+                        if let Err(e) = state.start_write() {
+                            tracing::error!(error = %e, "Failed to start write");
+                        }
                         *screen = Screen::ApplyImage;
                     }
                 }

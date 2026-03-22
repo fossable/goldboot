@@ -475,7 +475,12 @@ impl ImageHandle {
     /// TODO write backup GPT header
 
     /// Write the image contents out to disk.
-    pub fn write<F: Fn(u64, u64) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
+    ///
+    /// The progress callback receives `(cluster_index, state)` for each cluster:
+    /// - `None`        — cluster is dirty and is now being written
+    /// - `Some(true)`  — cluster was dirty and has been written
+    /// - `Some(false)` — cluster was already up to date, no write needed
+    pub fn write<F: Fn(usize, Option<bool>) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
         if self.protected_header.is_none() || self.digest_table.is_none() {
             bail!("Image not loaded");
         }
@@ -524,7 +529,12 @@ impl ImageHandle {
                 }
             };
 
-            if hash != entry.digest {
+            let is_dirty = hash != entry.digest;
+
+            if is_dirty {
+                // Signal that this cluster is now being written
+                progress(i, None);
+
                 // Read cluster
                 cluster_table.seek(SeekFrom::Start(entry.cluster_offset))?;
                 let mut cluster: Cluster = cluster_table.read_be()?;
@@ -565,10 +575,44 @@ impl ImageHandle {
                 dest.write_all(&cluster.data)?;
             }
 
-            progress(
-                protected_header.block_size as u64,
-                protected_header.cluster_count as u64 * protected_header.block_size as u64,
-            );
+            progress(i, Some(is_dirty));
+        }
+
+        Ok(())
+    }
+
+    /// Verify the image contents on disk by reading and hashing each block.
+    ///
+    /// The progress callback receives `(cluster_index, verified)`:
+    /// - `None`       — cluster is now being read/hashed
+    /// - `Some(true)` — cluster hash matched
+    /// - `Some(false)`— cluster hash did not match (corruption detected)
+    pub fn verify<F: Fn(usize, Option<bool>) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
+        if self.protected_header.is_none() || self.digest_table.is_none() {
+            bail!("Image not loaded");
+        }
+
+        let protected_header = self.protected_header.clone().unwrap();
+        let digest_table = self.digest_table.clone().unwrap().digest_table;
+
+        let mut dest = std::fs::OpenOptions::new()
+            .read(true)
+            .open(dest)?;
+
+        let mut block = vec![0u8; protected_header.block_size as usize];
+
+        for i in 0..protected_header.cluster_count as usize {
+            let entry = &digest_table[i];
+
+            progress(i, None);
+
+            dest.seek(SeekFrom::Start(entry.block_offset))?;
+            let hash: [u8; 32] = match dest.read_exact(&mut block) {
+                Ok(_) => Sha256::new().chain_update(&block).finalize().into(),
+                Err(_) => [0u8; 32],
+            };
+
+            progress(i, Some(hash == entry.digest));
         }
 
         Ok(())

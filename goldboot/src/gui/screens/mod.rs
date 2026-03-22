@@ -3,11 +3,13 @@ pub mod confirm;
 pub mod registry_login;
 pub mod select_device;
 pub mod select_image;
+pub mod sudo_confirm;
 
 use super::{resources::TextureCache, state::AppState, theme::Theme};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Screen {
+    SudoConfirm,
     SelectImage,
     SelectDevice,
     Confirm,
@@ -23,6 +25,7 @@ impl Screen {
         theme: &Theme,
     ) {
         match self {
+            Screen::SudoConfirm => sudo_confirm::render(ui, state, textures, theme, self),
             Screen::SelectImage => select_image::render(ui, state, textures, theme, self),
             Screen::SelectDevice => select_device::render(ui, state, textures, theme, self),
             Screen::Confirm => confirm::render(ui, state, textures, theme, self),

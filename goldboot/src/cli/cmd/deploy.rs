@@ -45,7 +45,12 @@ pub fn run(cmd: super::Commands) -> ExitCode {
 
             // TODO special case for GBL; select images to include
 
-            match image_handle.write(output, ProgressBar::Write.new_empty()) {
+            let total = image_handle
+                .protected_header
+                .as_ref()
+                .map(|h| h.cluster_count as usize)
+                .unwrap_or(0);
+            match image_handle.write(output, ProgressBar::Write.new_write(total)) {
                 Err(err) => {
                     error!(error = ?err, "Failed to write image");
                     ExitCode::FAILURE

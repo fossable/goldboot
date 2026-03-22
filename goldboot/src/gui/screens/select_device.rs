@@ -72,13 +72,54 @@ pub fn render(
                                                     .color(theme.text_secondary),
                                             );
                                         } else {
+                                            // Auto-select first device if nothing selected
+                                            if state.selected_device.is_none() {
+                                                if let Some(first) = state.devices.first() {
+                                                    state.selected_device =
+                                                        Some(first.name.clone());
+                                                }
+                                            }
+
+                                            // Keyboard navigation (read once, outside item loop)
+                                            let names: Vec<String> = state
+                                                .devices
+                                                .iter()
+                                                .map(|d| d.name.clone())
+                                                .collect();
+                                            let current_idx = state
+                                                .selected_device
+                                                .as_ref()
+                                                .and_then(|n| names.iter().position(|d| d == n));
+
+                                            ui.ctx().input(|inp| {
+                                                if inp.key_pressed(egui::Key::ArrowDown) {
+                                                    let next = current_idx
+                                                        .map(|i| (i + 1).min(names.len() - 1))
+                                                        .unwrap_or(0);
+                                                    state.selected_device =
+                                                        names.get(next).cloned();
+                                                }
+                                                if inp.key_pressed(egui::Key::ArrowUp) {
+                                                    let prev = current_idx
+                                                        .map(|i| i.saturating_sub(1))
+                                                        .unwrap_or(0);
+                                                    state.selected_device =
+                                                        names.get(prev).cloned();
+                                                }
+                                                if inp.key_pressed(egui::Key::Enter) {
+                                                    if state.selected_device.is_some() {
+                                                        *screen = Screen::Confirm;
+                                                    }
+                                                }
+                                            });
+
                                             for device in state.devices.iter() {
-                                                let is_selected = state
+                                                let _is_selected = state
                                                     .selected_device
                                                     .as_ref()
                                                     == Some(&device.name);
 
-                                                let response = ui.horizontal(|ui| {
+                                                ui.horizontal(|ui| {
                                                     ui.add_space(5.0);
 
                                                     // Device icon (32x32)
@@ -138,31 +179,6 @@ pub fn render(
                                                         },
                                                     );
                                                 });
-
-                                                let response = response
-                                                    .response
-                                                    .interact(egui::Sense::click());
-
-                                                if response.clicked() {
-                                                    state.selected_device =
-                                                        Some(device.name.clone());
-                                                    *screen = Screen::Confirm;
-                                                }
-
-                                                if response.hovered() {
-                                                    ui.ctx().set_cursor_icon(
-                                                        egui::CursorIcon::PointingHand,
-                                                    );
-                                                }
-
-                                                // Check for Enter key to select
-                                                if is_selected
-                                                    && ui.input(|i| {
-                                                        i.key_pressed(egui::Key::Enter)
-                                                    })
-                                                {
-                                                    *screen = Screen::Confirm;
-                                                }
 
                                                 ui.add_space(5.0);
                                             }

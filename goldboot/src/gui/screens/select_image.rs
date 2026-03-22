@@ -80,11 +80,46 @@ pub fn render(
                                                     .color(theme.text_secondary),
                                             );
                                         } else {
+                                            // Auto-select first image if nothing selected
+                                            if state.selected_image.is_none() {
+                                                if let Some(first) = state.images.first() {
+                                                    state.selected_image = Some(first.id.clone());
+                                                }
+                                            }
+
+                                            // Keyboard navigation (read once, outside item loop)
+                                            let ids: Vec<String> =
+                                                state.images.iter().map(|i| i.id.clone()).collect();
+                                            let current_idx = state
+                                                .selected_image
+                                                .as_ref()
+                                                .and_then(|id| ids.iter().position(|i| i == id));
+
+                                            ui.ctx().input(|inp| {
+                                                if inp.key_pressed(egui::Key::ArrowDown) {
+                                                    let next = current_idx
+                                                        .map(|i| (i + 1).min(ids.len() - 1))
+                                                        .unwrap_or(0);
+                                                    state.selected_image = ids.get(next).cloned();
+                                                }
+                                                if inp.key_pressed(egui::Key::ArrowUp) {
+                                                    let prev = current_idx
+                                                        .map(|i| i.saturating_sub(1))
+                                                        .unwrap_or(0);
+                                                    state.selected_image = ids.get(prev).cloned();
+                                                }
+                                                if inp.key_pressed(egui::Key::Enter) {
+                                                    if state.selected_image.is_some() {
+                                                        *screen = Screen::SelectDevice;
+                                                    }
+                                                }
+                                            });
+
                                             for image in state.images.iter() {
-                                                let is_selected = state.selected_image.as_ref()
+                                                let _is_selected = state.selected_image.as_ref()
                                                     == Some(&image.id);
 
-                                                let response = ui.horizontal(|ui| {
+                                                ui.horizontal(|ui| {
                                                     ui.add_space(5.0);
 
                                                     // All OS icons side by side
@@ -176,31 +211,6 @@ pub fn render(
                                                         },
                                                     );
                                                 });
-
-                                                let response = response
-                                                    .response
-                                                    .interact(egui::Sense::click());
-
-                                                if response.clicked() {
-                                                    state.selected_image =
-                                                        Some(image.id.clone());
-                                                    *screen = Screen::SelectDevice;
-                                                }
-
-                                                if response.hovered() {
-                                                    ui.ctx().set_cursor_icon(
-                                                        egui::CursorIcon::PointingHand,
-                                                    );
-                                                }
-
-                                                // Check for Enter key to select
-                                                if is_selected
-                                                    && ui.input(|i| {
-                                                        i.key_pressed(egui::Key::Enter)
-                                                    })
-                                                {
-                                                    *screen = Screen::SelectDevice;
-                                                }
 
                                                 ui.add_space(5.0);
                                             }

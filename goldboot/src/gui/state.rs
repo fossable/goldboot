@@ -4,34 +4,136 @@ use std::time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlockState {
-    Pending, // Not yet written
-    Writing, // Currently being written
-    Written, // Successfully written
+    Pending,    // Not yet processed
+    Writing,    // Currently being written
+    UpToDate,   // Block was already correct, no write needed
+    Written,    // Block was dirty and has been written
+    Verifying,  // Currently being read and hashed
+    Verified,   // Hash matched
+    Failed,     // Hash did not match (corruption)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PostWriteDialog {
+    Visible,    // Waiting for user choice
+    Hidden,     // Dialog dismissed (verifying or done)
 }
 
 pub struct WriteProgress {
-    pub percentage: f32,               // 0.0 to 1.0
-    pub read_speed: f64,               // Bytes per second
-    pub write_speed: f64,              // Bytes per second
-    pub blocks_total: usize,           // Total number of blocks
-    pub blocks_written: usize,         // Number of blocks written
-    pub blocks_writing: usize,         // Number of blocks currently being written
-    pub block_states: Vec<BlockState>, // State of each block
+    pub cluster_count: usize,          // Total number of clusters
+    pub block_size: u64,               // Bytes per cluster
+    pub block_states: Vec<BlockState>, // Per-cluster state
+    pub done: bool,                    // Write (or verify) thread has finished
+    pub verifying: bool,               // Verification pass is running
+    pub post_write_dialog: Option<PostWriteDialog>, // Dialog state after write completes
+    pub error: Option<String>,         // Set if write or verify failed
     pub start_time: Instant,
+
+    // Speed tracking: bytes read/written since last speed sample
+    bytes_read_total: u64,
+    bytes_written_total: u64,
+    last_sample_time: Instant,
+    last_bytes_read: u64,
+    last_bytes_written: u64,
+    pub read_speed: f64,  // bytes/sec, updated each cluster
+    pub write_speed: f64, // bytes/sec, updated each cluster
 }
 
 impl WriteProgress {
-    pub fn new(total_blocks: usize) -> Self {
+    pub fn new(cluster_count: usize, block_size: u64) -> Self {
+        let now = Instant::now();
         Self {
-            percentage: 0.0,
+            cluster_count,
+            block_size,
+            block_states: vec![BlockState::Pending; cluster_count],
+            done: false,
+            verifying: false,
+            post_write_dialog: None,
+            error: None,
+            start_time: now,
+            bytes_read_total: 0,
+            bytes_written_total: 0,
+            last_sample_time: now,
+            last_bytes_read: 0,
+            last_bytes_written: 0,
             read_speed: 0.0,
             write_speed: 0.0,
-            blocks_total: total_blocks,
-            blocks_written: 0,
-            blocks_writing: 0,
-            block_states: vec![BlockState::Pending; total_blocks],
-            start_time: Instant::now(),
         }
+    }
+
+    /// Called by the write thread for each cluster event.
+    /// `state` matches the `ImageHandle::write` callback convention:
+    /// - `None`        — cluster is dirty and is now being written
+    /// - `Some(true)`  — cluster has been written
+    /// - `Some(false)` — cluster was already up to date
+    pub fn record_cluster(&mut self, idx: usize, state: Option<bool>) {
+        self.block_states[idx] = match state {
+            None => BlockState::Writing,
+            Some(true) => BlockState::Written,
+            Some(false) => BlockState::UpToDate,
+        };
+
+        // Only update byte counters and speeds on completion events, not on Writing signal
+        if let Some(was_dirty) = state {
+            self.bytes_read_total += self.block_size;
+            if was_dirty {
+                self.bytes_written_total += self.block_size;
+            }
+
+            // Update speed estimate every ~0.25 s
+            let elapsed = self.last_sample_time.elapsed().as_secs_f64();
+            if elapsed >= 0.25 {
+                self.read_speed =
+                    (self.bytes_read_total - self.last_bytes_read) as f64 / elapsed;
+                self.write_speed =
+                    (self.bytes_written_total - self.last_bytes_written) as f64 / elapsed;
+                self.last_sample_time = Instant::now();
+                self.last_bytes_read = self.bytes_read_total;
+                self.last_bytes_written = self.bytes_written_total;
+            }
+        }
+    }
+
+    pub fn blocks_written(&self) -> usize {
+        self.block_states
+            .iter()
+            .filter(|&&s| s == BlockState::Written)
+            .count()
+    }
+
+    pub fn blocks_up_to_date(&self) -> usize {
+        self.block_states
+            .iter()
+            .filter(|&&s| s == BlockState::UpToDate)
+            .count()
+    }
+
+    pub fn blocks_processed(&self) -> usize {
+        self.block_states
+            .iter()
+            .filter(|&&s| matches!(s, BlockState::Written | BlockState::UpToDate | BlockState::Verified | BlockState::Failed))
+            .count()
+    }
+
+    pub fn blocks_verified(&self) -> usize {
+        self.block_states
+            .iter()
+            .filter(|&&s| s == BlockState::Verified)
+            .count()
+    }
+
+    pub fn blocks_failed(&self) -> usize {
+        self.block_states
+            .iter()
+            .filter(|&&s| s == BlockState::Failed)
+            .count()
+    }
+
+    pub fn percentage(&self) -> f32 {
+        if self.cluster_count == 0 {
+            return 1.0;
+        }
+        self.blocks_processed() as f32 / self.cluster_count as f32
     }
 
     pub fn elapsed_seconds(&self) -> f64 {
@@ -57,7 +159,7 @@ pub struct AppState {
     pub registry_password: String,
     pub show_registry_dialog: bool,
 
-    // Image writing - detailed progress tracking
+    // Image writing progress (shared with write thread)
     pub write_progress: Option<Arc<Mutex<WriteProgress>>>,
 }
 
@@ -66,7 +168,7 @@ impl AppState {
         Self {
             images: crate::library::ImageLibrary::find_all().unwrap_or_default(),
             selected_image: None,
-            devices: Vec::new(), // Loaded on-demand in select_device screen
+            devices: Vec::new(),
             selected_device: None,
             confirm_progress: 0.0,
             confirm_char: {
@@ -80,15 +182,119 @@ impl AppState {
         }
     }
 
-    /// Initialize write progress when entering ApplyImage screen
-    pub fn init_write_progress(&mut self, total_size_bytes: u64) {
-        // Calculate number of blocks (using 4MB blocks for visualization)
-        const BLOCK_SIZE: u64 = 4 * 1024 * 1024; // 4MB blocks
-        let total_blocks = ((total_size_bytes + BLOCK_SIZE - 1) / BLOCK_SIZE) as usize;
+    /// Load the selected image and spawn a background thread that writes it to the selected
+    /// device, updating `write_progress` per cluster.
+    pub fn start_write(&mut self) -> Result<(), String> {
+        let image_id = self
+            .selected_image
+            .clone()
+            .ok_or("No image selected")?;
+        let device_path = self
+            .selected_device
+            .clone()
+            .ok_or("No device selected")?;
 
-        // Cap at reasonable number for visualization (e.g., 1000 blocks max)
-        let total_blocks = total_blocks.min(1000);
+        let image_path = self
+            .images
+            .iter()
+            .find(|i| i.id == image_id)
+            .map(|i| i.path.clone())
+            .ok_or("Selected image not found")?;
 
-        self.write_progress = Some(Arc::new(Mutex::new(WriteProgress::new(total_blocks))));
+        let mut image = ImageHandle::open(&image_path).map_err(|e| e.to_string())?;
+        image.load(None).map_err(|e| e.to_string())?;
+
+        let cluster_count = image
+            .protected_header
+            .as_ref()
+            .map(|h| h.cluster_count as usize)
+            .unwrap_or(0);
+        let block_size = image
+            .protected_header
+            .as_ref()
+            .map(|h| h.block_size as u64)
+            .unwrap_or(0);
+
+        let progress = Arc::new(Mutex::new(WriteProgress::new(cluster_count, block_size)));
+        self.write_progress = Some(progress.clone());
+
+        std::thread::spawn(move || {
+            let result = image.write(&device_path, |idx, state| {
+                if let Ok(mut p) = progress.lock() {
+                    p.record_cluster(idx, state);
+                }
+            });
+
+            if let Ok(mut p) = progress.lock() {
+                p.done = true;
+                if let Err(e) = result {
+                    p.error = Some(e.to_string());
+                } else {
+                    p.post_write_dialog = Some(PostWriteDialog::Visible);
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Spawn a background thread that verifies the written image by hashing each block.
+    pub fn start_verify(&mut self) -> Result<(), String> {
+        let image_id = self
+            .selected_image
+            .clone()
+            .ok_or("No image selected")?;
+        let device_path = self
+            .selected_device
+            .clone()
+            .ok_or("No device selected")?;
+
+        let image_path = self
+            .images
+            .iter()
+            .find(|i| i.id == image_id)
+            .map(|i| i.path.clone())
+            .ok_or("Selected image not found")?;
+
+        let mut image = ImageHandle::open(&image_path).map_err(|e| e.to_string())?;
+        image.load(None).map_err(|e| e.to_string())?;
+
+        let progress = self
+            .write_progress
+            .clone()
+            .ok_or("No write progress to verify")?;
+
+        // Reset block states for verification pass
+        if let Ok(mut p) = progress.lock() {
+            for s in p.block_states.iter_mut() {
+                *s = BlockState::Pending;
+            }
+            p.done = false;
+            p.verifying = true;
+            p.post_write_dialog = None;
+            p.start_time = Instant::now();
+        }
+
+        std::thread::spawn(move || {
+            let result = image.verify(&device_path, |idx, state| {
+                if let Ok(mut p) = progress.lock() {
+                    p.block_states[idx] = match state {
+                        None => BlockState::Verifying,
+                        Some(true) => BlockState::Verified,
+                        Some(false) => BlockState::Failed,
+                    };
+                }
+            });
+
+            if let Ok(mut p) = progress.lock() {
+                p.done = true;
+                p.verifying = false;
+                if let Err(e) = result {
+                    p.error = Some(e.to_string());
+                }
+            }
+        });
+
+        Ok(())
     }
 }

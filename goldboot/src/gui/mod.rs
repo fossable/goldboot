@@ -8,6 +8,8 @@ pub mod widgets;
 use std::process::ExitCode;
 
 pub fn run_gui(fullscreen: bool) -> ExitCode {
+    let needs_sudo = !whoami::username().map(|u| u == "root").unwrap_or(false);
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1920.0, 1080.0])
@@ -20,7 +22,7 @@ pub fn run_gui(fullscreen: bool) -> ExitCode {
     match eframe::run_native(
         "goldboot",
         native_options,
-        Box::new(|cc| Ok(Box::new(app::GuiApp::new(cc)))),
+        Box::new(move |cc| Ok(Box::new(app::GuiApp::new(cc, needs_sudo)))),
     ) {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
