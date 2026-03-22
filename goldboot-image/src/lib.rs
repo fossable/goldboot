@@ -19,6 +19,58 @@ use tracing::{debug, info, trace};
 
 pub mod qcow;
 
+trait ReadSeek: Read + Seek {}
+impl ReadSeek for BufReader<File> {}
+impl ReadSeek for Cursor<Vec<u8>> {}
+
+/// Returns the number of bytes of available memory, or 0 if unknown.
+fn available_memory() -> u64 {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(s) = std::fs::read_to_string("/proc/meminfo") {
+            if let Some(kb) = s
+                .lines()
+                .find(|l| l.starts_with("MemAvailable:"))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse::<u64>().ok())
+            {
+                return kb * 1024;
+            }
+        }
+        0
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::mem;
+        #[allow(non_camel_case_types)]
+        #[repr(C)]
+        struct MEMORYSTATUSEX {
+            dw_length: u32,
+            dw_memory_load: u32,
+            ull_total_phys: u64,
+            ull_avail_phys: u64,
+            ull_total_page_file: u64,
+            ull_avail_page_file: u64,
+            ull_total_virtual: u64,
+            ull_avail_virtual: u64,
+            ull_avail_extended_virtual: u64,
+        }
+        extern "system" {
+            fn GlobalMemoryStatusEx(lp_buffer: *mut MEMORYSTATUSEX) -> i32;
+        }
+        let mut stat: MEMORYSTATUSEX = unsafe { mem::zeroed() };
+        stat.dw_length = mem::size_of::<MEMORYSTATUSEX>() as u32;
+        if unsafe { GlobalMemoryStatusEx(&mut stat) } != 0 {
+            return stat.ull_avail_phys;
+        }
+        0
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        0
+    }
+}
+
 /// Supported system architectures for goldboot images.
 #[derive(
     BinRead, BinWrite, Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, EnumIter, Display,
@@ -500,8 +552,16 @@ impl ImageHandle {
             .read(true)
             .open(dest)?;
 
-        // Open the cluster table for reading
-        let mut cluster_table = BufReader::new(File::open(&self.path)?);
+        // Open the cluster table for reading. If there's enough available memory
+        // (with a 2% buffer), load the entire image into memory for faster access.
+        let available_mem = available_memory();
+        let mut cluster_table: Box<dyn ReadSeek> =
+            if available_mem > 0 && self.file_size <= available_mem * 98 / 100 {
+                debug!(file_size = self.file_size, available_mem, "Loading entire image into memory");
+                Box::new(Cursor::new(std::fs::read(&self.path)?))
+            } else {
+                Box::new(BufReader::new(File::open(&self.path)?))
+            };
 
         // Extend regular files if necessary
         // TODO also check size of block devices

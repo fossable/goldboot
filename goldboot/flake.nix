@@ -2,7 +2,7 @@
   description = "Goldboot - Immutable infrastructure for bare metal";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -11,8 +11,34 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
+        # wlroots without xwayland or x11 backend
+        wlroots-no-xwayland = pkgs.wlroots_0_19.overrideAttrs (old: {
+          buildInputs = builtins.filter
+            (p: let name = p.pname or ""; in
+              !(pkgs.lib.hasPrefix "libx11" name)
+              && !(pkgs.lib.hasPrefix "libxcb" name)
+              && name != "xwayland")
+            old.buildInputs;
+          mesonFlags = [
+            "-Dxwayland=disabled"
+            "-Dbackends=drm,libinput"
+          ];
+        });
+
+        # cage without xwayland
+        cage-no-xwayland = pkgs.cage.overrideAttrs (old: {
+          buildInputs = builtins.map
+            (p: if (p.pname or "") == "wlroots" then wlroots-no-xwayland else p)
+            (builtins.filter
+              (p: let name = p.pname or ""; in
+                !(pkgs.lib.hasPrefix "libx11" name)
+                && !(pkgs.lib.hasPrefix "libxcb" name))
+              old.buildInputs);
+          postFixup = "";
+        });
+
         # Build the goldboot binary with UKI feature
-        goldboot = pkgs.rustPlatform.buildRustPackage {
+        goldboot-bin = pkgs.rustPlatform.buildRustPackage {
           pname = "goldboot";
           version = "0.0.10";
 
@@ -69,41 +95,64 @@
           # Set up networking (lo interface)
           ip link set lo up
 
-          # Load GPU kernel modules in dependency order
+          # Load GPU and input kernel modules
           modprobe virtio_pci
           modprobe virtio_gpu
-          ls -la /dev/dri/ || echo "WARNING: no DRM devices found"
-
-          # Load USB HID modules for keyboard input
           modprobe virtio_input
           modprobe xhci_pci
           modprobe ehci_pci
           modprobe usbhid
           modprobe hid_generic
 
-          # Use gles2 renderer via virtio-gpu DRM device
-          export WLR_RENDERER=gles2
-          export WLR_BACKENDS=drm,libinput
-          export WLR_LIBINPUT_NO_DEVICES=1
-          export LD_LIBRARY_PATH=/run/opengl-driver/lib:/lib/wayland:/lib/xkbcommon
-          export EGL_DRIVERS_PATH=/run/opengl-driver/lib
-          export LIBGL_DRIVERS_PATH=/run/opengl-driver/lib/dri
+
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
-          export XKB_CONFIG_ROOT=${pkgs.xkeyboard_config}/etc/X11/xkb
-          export XKBCOMP_PATH=${pkgs.xorg.xkbcomp}/bin
-          export PATH=${pkgs.xorg.xkbcomp}/bin:/bin:/sbin
           mkdir -p "$XDG_RUNTIME_DIR"
           chmod 0700 "$XDG_RUNTIME_DIR"
 
-          # Launch goldboot in UKI mode (runs fullscreen GUI, then reboots)
-          exec /sbin/cage /sbin/goldboot
+          export WLR_BACKENDS=drm
+          export WLR_LIBINPUT_NO_DEVICES=1
+          # Bypass udev enumeration — directly specify the DRM device
+          export WLR_DRM_DEVICES=/dev/dri/card0
+          # Use libseat embedded backend (root-capable, no daemon required)
+          export LIBSEAT_BACKEND=builtin
+          # Use pixman renderer for the compositor (no GL needed for cage itself)
+          export WLR_RENDERER=pixman
+          # virtio-gpu-pci has no hardware cursor planes
+          export WLR_NO_HARDWARE_CURSORS=1
+
+          exec /sbin/cage -- /sbin/goldboot-launch
+        '';
+
+        # Wrapper that sets goldboot's client-side env without affecting cage
+        goldbootLaunch = pkgs.writeScript "goldboot-launch" ''
+          #!/bin/busybox sh
+          # winit/glutin dlopen these at runtime; provide paths for dynamic loader
+          export LD_LIBRARY_PATH=/lib/wayland:/lib/xkbcommon:/lib/libgl:/run/opengl-driver/lib
+          # Point EGL/GL to mesa drivers in the initramfs
+          export LIBGL_DRIVERS_PATH=/run/opengl-driver/lib/dri
+          export EGL_DRIVERS_PATH=/run/opengl-driver/lib
+          # Use swrast (supports EGL_PLATFORM_WAYLAND); kms_swrast does not
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_LOADER_DRIVER_OVERRIDE=swrast
+          export EGL_PLATFORM=wayland
+          exec /sbin/goldboot
         '';
 
         modulesClosure = pkgs.makeModulesClosure {
           kernel = pkgs.linuxPackages_latest.kernel.modules;
           firmware = pkgs.linux-firmware;
           allowMissing = false;
-          rootModules = [ "virtio_gpu" "virtio_pci" "virtio_input" "drm" "drm_kms_helper" "usbhid" "hid_generic" "ehci_pci" "xhci_pci" ];
+          rootModules = [
+            "virtio_gpu"
+            "virtio_pci"
+            "virtio_input"
+            "drm"
+            "drm_kms_helper"
+            "usbhid"
+            "hid_generic"
+            "ehci_pci"
+            "xhci_pci"
+          ];
         };
 
         # Create initramfs with makeInitrd
@@ -121,7 +170,7 @@
               }
 
               {
-                object = "${goldboot}/bin/goldboot";
+                object = "${goldboot-bin}/bin/goldboot";
                 symlink = "/sbin/goldboot";
                 mode = "0755";
               }
@@ -132,17 +181,18 @@
                 mode = "0755";
               }
               {
-                object = "${pkgs.cage}/bin/cage";
+                object = "${cage-no-xwayland}/bin/cage";
                 symlink = "/sbin/cage";
+                mode = "0755";
+              }
+              {
+                object = goldbootLaunch;
+                symlink = "/sbin/goldboot-launch";
                 mode = "0755";
               }
               {
                 object = "${pkgs.iproute2}/bin/ip";
                 symlink = "/bin/ip";
-              }
-              {
-                object = "${pkgs.xorg.xkbcomp}/bin/xkbcomp";
-                symlink = "/bin/xkbcomp";
               }
               {
                 object = pkgs.mesa;
@@ -159,6 +209,10 @@
               {
                 object = "${pkgs.libxkbcommon}/lib";
                 symlink = "/lib/xkbcommon";
+              }
+              {
+                object = "${pkgs.libGL}/lib";
+                symlink = "/lib/libgl";
               }
             ];
           };
@@ -257,9 +311,10 @@
             -drive format=raw,file=fat:rw:$ESP_DIR \
             -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
             -serial stdio \
-            -device virtio-vga-gl \
+            -device virtio-gpu-pci \
             -device virtio-keyboard-pci \
-            -display gtk,gl=on
+            -device virtio-mouse-pci \
+            -display gtk,gl=off
 
           rm -rf $ESP_DIR
         '';
@@ -284,7 +339,8 @@
       in {
         packages = {
           default = goldboot-uki;
-          goldboot = goldboot;
+          goldboot = goldboot-bin;
+          goldboot-initramfs = initramfs;
           goldboot-uki = goldboot-uki;
           goldboot-iso = goldboot-iso;
         };
