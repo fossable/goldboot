@@ -186,9 +186,9 @@ pub fn render(
                             );
                             ui.add_space(8.0);
 
-                            if let Some(device_name) = &state.selected_device.clone() {
+                            if let Some(device_path) = &state.selected_device.clone() {
                                 if let Some(device) =
-                                    state.devices.iter().find(|d| &d.name == device_name)
+                                    state.devices.iter().find(|d| &format!("/dev/{}", d.name) == device_path)
                                 {
                                     // Device icon + name
                                     ui.horizontal(|ui| {
@@ -205,7 +205,7 @@ pub fn render(
                                         };
                                         ui.add(egui::Image::new(icon).max_width(24.0));
                                         ui.label(
-                                            egui::RichText::new(&device.name)
+                                            egui::RichText::new(device_path.as_str())
                                                 .color(theme.text_primary)
                                                 .strong()
                                                 .size(14.0),

@@ -168,7 +168,18 @@ impl AppState {
         Self {
             images: crate::library::ImageLibrary::find_all().unwrap_or_default(),
             selected_image: None,
-            devices: Vec::new(),
+            devices: {
+                let block_devices = block_utils::get_block_devices().unwrap_or_default();
+                let devices = block_utils::get_all_device_info(block_devices).unwrap_or_default();
+                let devices: Vec<_> = devices
+                    .into_iter()
+                    .filter(|d| d.media_type != block_utils::MediaType::Loopback)
+                    .collect();
+                for device in &devices {
+                    tracing::debug!(?device, "Found block device");
+                }
+                devices
+            },
             selected_device: None,
             confirm_progress: 0.0,
             confirm_char: {

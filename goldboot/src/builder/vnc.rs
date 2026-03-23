@@ -205,7 +205,7 @@ impl VncConnection {
     fn handle_breakpoint(&mut self, cmd: &VncCmd) -> Result<()> {
         loop {
             info!(
-                "(breakpoint)['c' to continue, 's' to screenshot, 'q' to quit debugging] Next command: {:?}",
+                "(breakpoint)['c' to continue, 's' to screenshot, 'q' to skip remaining breakpoints] Next command: {:?}",
                 cmd
             );
 

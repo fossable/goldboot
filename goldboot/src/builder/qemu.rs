@@ -118,7 +118,7 @@ impl Drop for QemuProcess {
 }
 
 impl QemuProcess {
-    pub fn ssh(&mut self, username: &str) -> Result<SshConnection> {
+    pub fn install_ssh(&mut self) -> Result<()> {
         #[rustfmt::skip]
         self.vnc.run(vec![
             // Mount the prepared filesystem
@@ -129,6 +129,10 @@ impl QemuProcess {
             enter!(format!("/tmp/goldboot/sshdog {} /tmp/goldboot/host_key /tmp/goldboot/public_key", self.ssh_port)),
         ])?;
 
+        Ok(())
+    }
+
+    pub fn ssh(&mut self, username: &str) -> Result<SshConnection> {
         Ok(SshConnection::new(
             username,
             &self.private_key,
@@ -314,6 +318,7 @@ pub struct QemuBuilder {
 
 impl QemuBuilder {
     pub fn new(worker: &Builder, os_category: OsCategory) -> Self {
+        // TODO deterministic port for snapshots
         let ssh_port = rand::rng().random_range(10000..11000);
         let ssh_private_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();
         let ssh_host_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();

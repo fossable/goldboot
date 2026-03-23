@@ -75,15 +75,18 @@ impl BuildImage for ArchLinux {
             .serve();
 
         // Send boot command
-        #[rustfmt::skip]
-		qemu.vnc.run(vec![
-			// Initial wait
-			wait!(30),
-			// Wait for login
-			wait_screen_rect!("3a23a076fb40333a3a59c2ccb45f212e453e519d", 100, 0, 1024, 400),
-		])?;
+        if !worker.has_checkpoint("boot") {
+            #[rustfmt::skip]
+    		qemu.vnc.run(vec![
+    			// Initial wait
+    			wait!(30),
+    			// Wait for login
+    			wait_screen_rect!("3a23a076fb40333a3a59c2ccb45f212e453e519d", 100, 0, 1024, 400),
+    		])?;
 
-        qemu.checkpoint("boot")?;
+            qemu.install_ssh()?;
+            qemu.checkpoint("boot")?;
+        }
 
         // Wait for SSH
         let mut ssh = qemu.ssh("root")?;

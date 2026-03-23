@@ -9,46 +9,46 @@ pub const ICON_NVME: &[u8] = include_bytes!("resources/icons/nvme.png");
 pub const ICON_RAM: &[u8] = include_bytes!("resources/icons/ram.png");
 
 /// OS icons keyed by the CamelCase struct name returned by OsTrait::os_name()
-const OS_ICONS: &[(&str, &[u8])] = &[
+const OS_ICONS_2X: &[(&str, &[u8])] = &[
     (
         "AlpineLinux",
-        include_bytes!("../builder/os/alpine_linux/icon.png"),
+        include_bytes!("../builder/os/alpine_linux/icon@2x.png"),
     ),
     (
         "ArchLinux",
-        include_bytes!("../builder/os/arch_linux/icon.png"),
+        include_bytes!("../builder/os/arch_linux/icon@2x.png"),
     ),
     (
         "Debian",
-        include_bytes!("../builder/os/debian/icon.png"),
+        include_bytes!("../builder/os/debian/icon@2x.png"),
     ),
     (
         "Fedora",
-        include_bytes!("../builder/os/fedora/icon.png"),
+        include_bytes!("../builder/os/fedora/icon@2x.png"),
     ),
     (
         "LinuxMint",
-        include_bytes!("../builder/os/linux_mint/icon.png"),
+        include_bytes!("../builder/os/linux_mint/icon@2x.png"),
     ),
     (
         "MacOs",
-        include_bytes!("../builder/os/mac_os/icon.png"),
+        include_bytes!("../builder/os/mac_os/icon@2x.png"),
     ),
     (
         "OpenSuse",
-        include_bytes!("../builder/os/open_suse/icon.png"),
+        include_bytes!("../builder/os/open_suse/icon@2x.png"),
     ),
     (
         "Slackware",
-        include_bytes!("../builder/os/slackware/icon.png"),
+        include_bytes!("../builder/os/slackware/icon@2x.png"),
     ),
     (
         "Ubuntu",
-        include_bytes!("../builder/os/ubuntu/icon.png"),
+        include_bytes!("../builder/os/ubuntu/icon@2x.png"),
     ),
     (
         "Windows10",
-        include_bytes!("../builder/os/windows_10/icon.png"),
+        include_bytes!("../builder/os/windows_10/icon@2x.png"),
     ),
 ];
 
@@ -82,7 +82,7 @@ pub struct TextureCache {
 impl TextureCache {
     pub fn new(ctx: &egui::Context) -> Self {
         let mut os_icons = HashMap::new();
-        for (name, bytes) in OS_ICONS {
+        for (name, bytes) in OS_ICONS_2X {
             if let Ok(img) = load_image_from_bytes(bytes) {
                 os_icons.insert(*name, ctx.load_texture(*name, img, Default::default()));
             }

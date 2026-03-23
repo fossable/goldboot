@@ -32,6 +32,9 @@ impl GuiApp {
 
 impl eframe::App for GuiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Hide the mouse cursor (keyboard-only UI)
+        ctx.set_cursor_icon(egui::CursorIcon::None);
+
         // Disable all pointer/mouse input
         ctx.input_mut(|i| {
             i.pointer = Default::default();
@@ -66,8 +69,11 @@ impl eframe::App for GuiApp {
 impl GuiApp {
     fn handle_hotkeys(&mut self, ctx: &egui::Context) {
         ctx.input(|i| {
-            // Esc - Quit application
-            if i.key_pressed(egui::Key::Escape) && !self.state.show_registry_dialog {
+            // Esc - Quit application (only on SelectImage; other screens handle Esc themselves)
+            if i.key_pressed(egui::Key::Escape)
+                && !self.state.show_registry_dialog
+                && self.screen == Screen::SelectImage
+            {
                 std::process::exit(0);
             }
 

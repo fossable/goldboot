@@ -17,7 +17,6 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             };
 
             // If we're not root, ask for confirmation and re-invoke with sudo
-            #[cfg(not(feature = "uki"))]
             if !dryrun && !whoami::username().map(|u| u == "root").unwrap_or(false) {
                 if !Confirm::with_theme(&theme)
                     .with_prompt("Root privileges are required. Re-invoke with sudo?")

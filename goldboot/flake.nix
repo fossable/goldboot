@@ -92,8 +92,38 @@
           # Create necessary directories
           mkdir -p /tmp /run /var
 
-          # Set up networking (lo interface)
+          # Mount goldboot images to /var/lib/goldboot/images.
+          # Prefer images found on the ESP (production), fall back to the
+          # dedicated images drive (QEMU simulation via virtio-blk).
+          modprobe virtio_blk
+          mkdir -p /var/lib/goldboot/images
+
+          IMAGES_MOUNTED=0
+          for dev in /dev/sd? /dev/vd? /dev/hd?; do
+            [ -e "$dev" ] || continue
+            TMP_MNT=$(mktemp -d)
+            if mount -t vfat -o ro "$dev" "$TMP_MNT" 2>/dev/null; then
+              if [ -d "$TMP_MNT/images" ]; then
+                umount "$TMP_MNT"
+                rmdir "$TMP_MNT"
+                mount -t vfat -o ro "$dev" /var/lib/goldboot/images
+                IMAGES_MOUNTED=1
+                break
+              fi
+              umount "$TMP_MNT"
+            fi
+            rmdir "$TMP_MNT"
+          done
+
+          if [ "$IMAGES_MOUNTED" = "0" ]; then
+            mount -t vfat -o ro /dev/vda /var/lib/goldboot/images
+          fi
+
+          # Set up networking
+          modprobe r8169
           ip link set lo up
+          ip link set eth0 up
+          udhcpc -i eth0 -n -q
 
           # Load GPU and input kernel modules
           modprobe virtio_pci
@@ -110,7 +140,6 @@
           chmod 0700 "$XDG_RUNTIME_DIR"
 
           export WLR_BACKENDS=drm
-          export WLR_LIBINPUT_NO_DEVICES=1
           # Bypass udev enumeration — directly specify the DRM device
           export WLR_DRM_DEVICES=/dev/dri/card0
           # Use libseat embedded backend (root-capable, no daemon required)
@@ -152,6 +181,8 @@
             "hid_generic"
             "ehci_pci"
             "xhci_pci"
+            "r8169"
+            "virtio_blk"
           ];
         };
 
@@ -309,6 +340,8 @@
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
+            -drive format=raw,file=fat:ro:/var/lib/goldboot/images,id=images,if=none \
+            -device virtio-blk-pci,drive=images \
             -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
             -serial stdio \
             -device virtio-gpu-pci \

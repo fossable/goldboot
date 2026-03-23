@@ -168,12 +168,27 @@ impl Builder {
                     std::fs::remove_file(&self.qcow_path)?;
                 }
 
+                if self.qcow_path.exists() {
+                    if let Ok(qcow) = Qcow3::open(&self.qcow_path) {
+                        if qcow.snapshots.is_empty() {
+                            std::fs::remove_file(&self.qcow_path)?;
+                        }
+                    }
+                }
+
                 self.qcow = Some(if self.qcow_path.exists() {
                     Qcow3::open(&self.qcow_path)?
                 } else {
                     // Truncate the image size to a power of two for the qcow storage
                     Qcow3::create(&self.qcow_path, qcow_size - (qcow_size % 2))?
                 });
+
+                // Revert to the last snapshot if one exists
+                if let Some(qcow) = &self.qcow {
+                    if let Some(last) = qcow.snapshots.last() {
+                        qcow.revert(&last.name)?;
+                    }
+                }
 
                 for element in self.elements.iter() {
                     element.0.build(&self)?;

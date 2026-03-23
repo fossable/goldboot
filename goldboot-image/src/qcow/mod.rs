@@ -1,8 +1,8 @@
 use anyhow::{Result, bail};
 use binrw::{BinRead, BinReaderExt, io::SeekFrom};
 use std::{
-    fs::File,
-    io::BufReader,
+    fs::{File, OpenOptions},
+    io::{BufReader, Seek, Write},
     path::Path,
     process::{Command, Stdio},
 };
@@ -105,6 +105,43 @@ impl Qcow3 {
     /// Find a snapshot by its human-readable name.
     pub fn snapshot_by_name(&self, name: &str) -> Option<&Snapshot> {
         self.snapshots.iter().find(|s| s.name == name)
+    }
+
+    /// Revert the image to the snapshot with the given name.
+    ///
+    /// This updates the active L1 table pointer and size in the image header to
+    /// point at the snapshot's L1 table, making that snapshot the active state.
+    pub fn revert(&self, name: &str) -> Result<()> {
+        let snapshot = self
+            .snapshots
+            .iter()
+            .find(|s| s.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Snapshot '{name}' not found"))?;
+
+        debug!(path = %self.path, name, "Reverting to snapshot");
+
+        // Update the virtual disk size if the snapshot recorded one
+        let new_size = snapshot
+            .extra_data
+            .virtual_disk_size
+            .unwrap_or(self.header.size);
+
+        let mut file = OpenOptions::new().write(true).open(&self.path)?;
+
+        // Write header.size at byte offset 24 (big-endian u64)
+        file.seek(SeekFrom::Start(24))?;
+        file.write_all(&new_size.to_be_bytes())?;
+
+        // Write header.l1_size at byte offset 36 (big-endian u32)
+        file.seek(SeekFrom::Start(36))?;
+        file.write_all(&snapshot.l1_entry_count.to_be_bytes())?;
+
+        // Write header.l1_table_offset at byte offset 40 (big-endian u64)
+        file.seek(SeekFrom::Start(40))?;
+        file.write_all(&snapshot.l1_table_offset.to_be_bytes())?;
+
+        file.flush()?;
+        Ok(())
     }
 }
 

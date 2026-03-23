@@ -144,7 +144,6 @@ impl TryFrom<String> for ImageArch {
 /// file. Clusters are variable in size and ideally smaller than their
 /// associated blocks (due to compression). If a block does not have an
 /// associated cluster, that block is zero.
-#[derive(Debug)]
 pub struct ImageHandle {
     /// The primary file header
     pub primary_header: PrimaryHeader,
@@ -166,6 +165,17 @@ pub struct ImageHandle {
 
     /// The image's ID (SHA256 hash)
     pub id: String,
+}
+
+impl std::fmt::Debug for ImageHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ImageHandle")
+            .field("primary_header", &self.primary_header)
+            .field("path", &self.path)
+            .field("file_size", &self.file_size)
+            .field("id", &self.id)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The cluster compression algorithm.

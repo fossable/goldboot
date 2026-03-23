@@ -34,7 +34,6 @@ pub fn render(
             widgets::hotkeys::render(ui, &hotkeys, theme);
         });
 
-    // Main content
     egui::CentralPanel::default()
         .frame(egui::Frame::new())
         .show_inside(ui, |ui| {
@@ -54,173 +53,161 @@ pub fn render(
 
                 ui.add_space(10.0);
 
-                // Image list with horizontal margins (100px as per GTK)
-                ui.horizontal(|ui| {
-                    ui.add_space(100.0);
+                // Keyboard navigation
+                if !state.images.is_empty() {
+                    if state.selected_image.is_none() {
+                        if let Some(first) = state.images.first() {
+                            state.selected_image = Some(first.id.clone());
+                        }
+                    }
 
-                    egui::ScrollArea::vertical()
-                        .auto_shrink([false, false])
-                        .show(ui, |ui| {
-                            ui.push_id("image_list", |ui| {
-                                let available_width = ui.available_width() - 200.0;
+                    let ids: Vec<String> =
+                        state.images.iter().map(|i| i.id.clone()).collect();
+                    let current_idx = state
+                        .selected_image
+                        .as_ref()
+                        .and_then(|id| ids.iter().position(|i| i == id));
 
-                                egui::Frame::new()
-                                    .stroke(egui::Stroke::new(
-                                        3.0,
-                                        theme.border.linear_multiply(0.75),
-                                    ))
-                                    .fill(theme.list_bg)
-                                    .inner_margin(15.0)
-                                    .show(ui, |ui| {
-                                        ui.set_width(available_width);
+                    ui.ctx().input(|inp| {
+                        if inp.key_pressed(egui::Key::ArrowDown) {
+                            let next = current_idx
+                                .map(|i| (i + 1).min(ids.len() - 1))
+                                .unwrap_or(0);
+                            state.selected_image = ids.get(next).cloned();
+                        }
+                        if inp.key_pressed(egui::Key::ArrowUp) {
+                            let prev = current_idx
+                                .map(|i| i.saturating_sub(1))
+                                .unwrap_or(0);
+                            state.selected_image = ids.get(prev).cloned();
+                        }
+                        if inp.key_pressed(egui::Key::Enter) {
+                            if state.selected_image.is_some() {
+                                *screen = Screen::SelectDevice;
+                            }
+                        }
+                    });
+                }
 
-                                        if state.images.is_empty() {
-                                            ui.label(
-                                                egui::RichText::new("No images found")
-                                                    .color(theme.text_secondary),
-                                            );
+                // Image list with horizontal margins
+                let margin = 100.0;
+                let list_width = ui.available_width() - margin * 2.0;
+                let list_height = ui.available_height();
+
+                let (rect, _) = ui.allocate_exact_size(
+                    egui::vec2(ui.available_width(), list_height),
+                    egui::Sense::hover(),
+                );
+
+                let mut child = ui.new_child(
+                    egui::UiBuilder::new()
+                        .max_rect(egui::Rect::from_min_size(
+                            rect.min + egui::vec2(margin, 0.0),
+                            egui::vec2(list_width, list_height),
+                        ))
+                        .layout(egui::Layout::top_down(egui::Align::LEFT)),
+                );
+
+                egui::Frame::new()
+                    .stroke(egui::Stroke::new(3.0, theme.border.linear_multiply(0.75)))
+                    .fill(theme.list_bg)
+                    .inner_margin(8.0)
+                    .show(&mut child, |ui| {
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                if state.images.is_empty() {
+                                    ui.label(
+                                        egui::RichText::new("No images found")
+                                            .color(theme.text_secondary),
+                                    );
+                                } else {
+                                    for image in state.images.iter() {
+                                        let is_selected = state.selected_image.as_ref()
+                                            == Some(&image.id);
+
+                                        let size_str = format!(
+                                            "{} compressed / {} expanded",
+                                            image.file_size.bytes(),
+                                            image.primary_header.size.bytes(),
+                                        );
+                                        let arch_str = arch_label(&image.primary_header.arch);
+
+                                        let row_fill = if is_selected {
+                                            theme.accent_gold.linear_multiply(0.2)
                                         } else {
-                                            // Auto-select first image if nothing selected
-                                            if state.selected_image.is_none() {
-                                                if let Some(first) = state.images.first() {
-                                                    state.selected_image = Some(first.id.clone());
-                                                }
-                                            }
+                                            egui::Color32::TRANSPARENT
+                                        };
 
-                                            // Keyboard navigation (read once, outside item loop)
-                                            let ids: Vec<String> =
-                                                state.images.iter().map(|i| i.id.clone()).collect();
-                                            let current_idx = state
-                                                .selected_image
-                                                .as_ref()
-                                                .and_then(|id| ids.iter().position(|i| i == id));
-
-                                            ui.ctx().input(|inp| {
-                                                if inp.key_pressed(egui::Key::ArrowDown) {
-                                                    let next = current_idx
-                                                        .map(|i| (i + 1).min(ids.len() - 1))
-                                                        .unwrap_or(0);
-                                                    state.selected_image = ids.get(next).cloned();
-                                                }
-                                                if inp.key_pressed(egui::Key::ArrowUp) {
-                                                    let prev = current_idx
-                                                        .map(|i| i.saturating_sub(1))
-                                                        .unwrap_or(0);
-                                                    state.selected_image = ids.get(prev).cloned();
-                                                }
-                                                if inp.key_pressed(egui::Key::Enter) {
-                                                    if state.selected_image.is_some() {
-                                                        *screen = Screen::SelectDevice;
-                                                    }
-                                                }
-                                            });
-
-                                            for image in state.images.iter() {
-                                                let _is_selected = state.selected_image.as_ref()
-                                                    == Some(&image.id);
-
-                                                ui.horizontal(|ui| {
-                                                    ui.add_space(5.0);
-
-                                                    // All OS icons side by side
+                                        egui::Frame::new()
+                                            .fill(row_fill)
+                                            .inner_margin(egui::Margin::symmetric(6, 4))
+                                            .corner_radius(4.0)
+                                            .show(ui, |ui| {
+                                            ui.set_min_width(ui.available_width());
+                                            ui.horizontal(|ui| {
+                                                // Left column: icon above arch badge, left-aligned
+                                                // but items centered on each other within the column
+                                                ui.allocate_ui_with_layout(
+                                                    egui::vec2(52.0, 0.0),
+                                                    egui::Layout::top_down(egui::Align::Center),
+                                                    |ui| {
                                                     let mut any_icon = false;
-                                                    for element in
-                                                        image.primary_header.elements.iter()
-                                                    {
+                                                    for element in image.primary_header.elements.iter() {
                                                         let os_name = element.os();
-                                                        if let Some(tex) =
-                                                            textures.os_icon(&os_name)
-                                                        {
+                                                        if let Some(tex) = textures.os_icon(&os_name) {
                                                             ui.add(
-                                                                egui::Image::new(tex).max_size(
-                                                                    egui::Vec2::splat(32.0),
-                                                                ),
+                                                                egui::Image::new(tex)
+                                                                    .max_size(egui::Vec2::splat(32.0)),
                                                             );
                                                             any_icon = true;
                                                         }
                                                     }
                                                     if !any_icon {
-                                                        ui.label(
-                                                            egui::RichText::new("💿").size(24.0),
-                                                        );
+                                                        ui.label(egui::RichText::new("💿").size(28.0));
                                                     }
-
-                                                    ui.add_space(8.0);
-
-                                                    // Image name
-                                                    ui.label(
-                                                        egui::RichText::new(
-                                                            image.primary_header.name(),
+                                                    egui::Frame::new()
+                                                        .fill(
+                                                            egui::Color32::from_rgb(0x1a, 0x3a, 0x5c)
+                                                                .linear_multiply(1.5),
                                                         )
-                                                        .color(theme.text_primary)
-                                                        .strong()
-                                                        .size(15.0),
-                                                    );
-
-                                                    ui.with_layout(
-                                                        egui::Layout::right_to_left(
-                                                            egui::Align::Center,
-                                                        ),
-                                                        |ui| {
-                                                            ui.add_space(5.0);
-
-                                                            // Arch badge (right-aligned)
-                                                            let arch_str = arch_label(
-                                                                &image.primary_header.arch,
-                                                            );
-                                                            egui::Frame::new()
-                                                                .fill(
-                                                                    egui::Color32::from_rgb(
-                                                                        0x1a, 0x3a, 0x5c,
-                                                                    )
-                                                                    .linear_multiply(1.5),
-                                                                )
-                                                                .inner_margin(
-                                                                    egui::Margin::symmetric(6, 2),
-                                                                )
-                                                                .corner_radius(4.0)
-                                                                .show(ui, |ui| {
-                                                                    ui.label(
-                                                                        egui::RichText::new(
-                                                                            arch_str,
-                                                                        )
-                                                                        .color(
-                                                                            egui::Color32::from_rgb(
-                                                                                0x60, 0xb4, 0xff,
-                                                                            ),
-                                                                        )
-                                                                        .monospace()
-                                                                        .size(12.0),
-                                                                    );
-                                                                });
-
-                                                            ui.add_space(12.0);
-
-                                                            // Image size: actual / expanded
-                                                            let size_str = format!(
-                                                                "{} / {}",
-                                                                image.file_size.bytes(),
-                                                                image.primary_header.size.bytes(),
-                                                            );
+                                                        .inner_margin(egui::Margin::symmetric(4, 1))
+                                                        .corner_radius(4.0)
+                                                        .show(ui, |ui| {
                                                             ui.label(
-                                                                egui::RichText::new(size_str)
-                                                                    .color(theme.text_secondary)
+                                                                egui::RichText::new(arch_str)
+                                                                    .color(egui::Color32::from_rgb(0x60, 0xb4, 0xff))
                                                                     .monospace()
-                                                                    .size(12.0),
+                                                                    .size(10.0),
                                                             );
-                                                        },
-                                                    );
+                                                        });
                                                 });
 
-                                                ui.add_space(5.0);
-                                            }
-                                        }
-                                    });
-                            });
-                        });
+                                                ui.add_space(10.0);
 
-                    ui.add_space(100.0);
-                });
+                                                // Right: two lines, left-aligned
+                                                ui.vertical(|ui| {
+                                                    ui.label(
+                                                        egui::RichText::new(image.primary_header.name())
+                                                            .color(theme.text_primary)
+                                                            .strong()
+                                                            .size(14.0),
+                                                    );
+                                                    ui.label(
+                                                        egui::RichText::new(&size_str)
+                                                            .color(theme.text_secondary)
+                                                            .monospace()
+                                                            .size(11.0),
+                                                    );
+                                                });
+                                            });
+                                        });
+
+                                        ui.add_space(2.0);
+                                    }
+                                }
+                            });
+                    });
             });
         });
 }
