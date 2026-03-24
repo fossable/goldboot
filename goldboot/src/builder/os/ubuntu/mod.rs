@@ -1,149 +1,289 @@
-use crate::{
-    build::BuildWorker,
-    cache::{MediaCache, MediaFormat},
-    provisioners::*,
-    qemu::QemuArgs,
-    templates::*,
-};
+use anyhow::{Result, bail};
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use smart_default::SmartDefault;
+use std::io::{BufRead, BufReader};
 use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter)]
-pub enum UbuntuRelease {
-    Jammy,
-    Impish,
-    Hirsute,
-    Groovy,
-    Focal,
-    Eoan,
-    Disco,
-    Cosmic,
-    Bionic,
-    Artful,
+use crate::{
+    builder::{
+        Builder,
+        http::HttpServer,
+        options::{
+            arch::Arch,
+            hostname::Hostname,
+            iso::Iso,
+            locale::Locale,
+            ntp::Ntp,
+            packages::Packages,
+            size::Size,
+            timezone::Timezone,
+            unix_account::RootPassword,
+            unix_users::UnixUsers,
+        },
+        qemu::{OsCategory, QemuBuilder},
+    },
+    cli::prompt::Prompt,
+    enter, wait_screen_rect,
+};
+
+use super::BuildImage;
+
+/// Ubuntu is a Linux distribution derived from Debian and composed mostly of
+/// free and open-source software.
+///
+/// Upstream: https://ubuntu.com
+/// Maintainer: cilki
+#[goldboot_macros::Os(architectures(Amd64, Arm64))]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+pub struct Ubuntu {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
+    pub release: UbuntuRelease,
+    #[serde(default)]
+    pub hostname: Hostname,
+    #[serde(default)]
+    pub root_password: RootPassword,
+
+    /// Additional user accounts to create
+    pub users: Option<UnixUsers>,
+
+    /// Packages to install
+    pub packages: Option<Packages>,
+
+    /// System timezone
+    #[serde(default)]
+    pub timezone: Timezone,
+
+    /// Locale and keyboard settings
+    #[serde(default)]
+    pub locale: Locale,
+
+    /// Enable NTP time synchronization
+    #[serde(default)]
+    pub ntp: Ntp,
+
+    #[default(Iso {
+        url: "https://releases.ubuntu.com/noble/ubuntu-24.04.4-live-server-amd64.iso".parse().unwrap(),
+        checksum: Some("sha256:e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433".to_string()),
+    })]
+    pub iso: Iso,
 }
 
-impl Display for UbuntuRelease {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match &self {
-                UbuntuRelease::Jammy => "22.04 LTS (Jammy Jellyfish)",
-                UbuntuRelease::Impish => "21.10     (Impish Indri)",
-                UbuntuRelease::Hirsute => "21.04     (Hirsute Hippo)",
-                UbuntuRelease::Groovy => "20.10     (Groovy Gorilla)",
+impl Ubuntu {
+    /// Generate an autoinstall user-data YAML document.
+    fn generate_autoinstall(&self) -> String {
+        let root_password = match &self.root_password {
+            RootPassword::Plaintext(p) => p.clone(),
+            RootPassword::PlaintextEnv(name) => {
+                std::env::var(name).expect("environment variable not found")
             }
+        };
+
+        let extra_packages: Vec<String> = self
+            .packages
+            .as_ref()
+            .map(|p| p.0.clone())
+            .unwrap_or_default();
+
+        let packages_yaml = if extra_packages.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "packages:\n{}\n",
+                extra_packages
+                    .iter()
+                    .map(|p| format!("  - {p}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        };
+
+        let extra_users_yaml = self
+            .users
+            .as_ref()
+            .map(|users| {
+                users
+                    .0
+                    .iter()
+                    .map(|u| {
+                        let groups = if u.sudo {
+                            "    groups: [sudo]\n"
+                        } else {
+                            ""
+                        };
+                        format!(
+                            "  - name: {}\n    passwd: {}\n    lock_passwd: false\n{}",
+                            u.username, u.password, groups
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("")
+            })
+            .unwrap_or_default();
+
+        let users_section = format!(
+            "users:\n  - name: root\n    passwd: {root_password}\n    lock_passwd: false\n{extra_users_yaml}"
+        );
+
+        format!(
+            r#"#cloud-config
+autoinstall:
+  version: 1
+  locale: {language}.{encoding}
+  keyboard:
+    layout: {keyboard}
+  network:
+    network:
+      version: 2
+      ethernets:
+        any:
+          match:
+            name: "en*"
+          dhcp4: true
+  storage:
+    layout:
+      name: direct
+  {packages_yaml}identity:
+    hostname: {hostname}
+    username: root
+    password: {root_password}
+  {users_section}
+  ntp:
+    enabled: {ntp}
+  timezone: {timezone}
+  ssh:
+    install-server: true
+    allow-pw: true
+  late-commands: []
+"#,
+            language = self.locale.language,
+            encoding = self.locale.encoding,
+            keyboard = self.locale.keyboard,
+            hostname = self.hostname.hostname,
+            root_password = root_password,
+            ntp = self.ntp.0,
+            timezone = self.timezone.0,
+            packages_yaml = packages_yaml,
+            users_section = users_section,
         )
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, EnumIter, Display)]
-pub enum UbuntuEdition {
-    Server,
-    Desktop,
-}
+impl BuildImage for Ubuntu {
+    fn build(&self, worker: &Builder) -> Result<()> {
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+            .with_iso(&self.iso)?
+            .prepare_ssh()?
+            .start()?;
 
-impl Prompt for UbuntuEdition {}
+        // Serve autoinstall config via HTTP
+        let http = HttpServer::new()?
+            .file("user-data", self.generate_autoinstall().into_bytes())?
+            .file("meta-data", b"".to_vec())?
+            .serve();
 
-/// Ubuntu is a Linux distribution derived from Debian and composed mostly of free
-/// and open-source software.
-///
-/// Upstream: https://ubuntu.com
-/// Maintainer: cilki
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct Ubuntu {
-    pub edition: UbuntuEdition,
-    pub release: UbuntuRelease,
-
-    pub source: UbuntuSource,
-    pub provisioners: Option<Vec<UbuntuProvisioner>>,
-}
-
-pub enum UbuntuSource {
-    Iso(IsoSource),
-}
-
-pub enum UbuntuProvisioner {
-    Ansible(AnsibleProvisioner),
-    Hostname(HostnameProvisoner),
-}
-
-impl Default for UbuntuTemplate {
-    fn default() -> Self {
-        Self {
-            edition: UbuntuEdition::Desktop,
-            release: UbuntuRelease::Jammy,
-            provisioners: None,
-        }
-    }
-}
-
-impl Template for UbuntuTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<()> {
-        let mut qemuargs = QemuArgs::new(&context);
-
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-            "file={},media=cdrom",
-            MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
-        ));
-
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
-
-        // Send boot command
+        // Send boot command — at the GRUB menu, append autoinstall ds= kernel param
         #[rustfmt::skip]
-		qemu.vnc.boot_command(vec![
-		])?;
+        qemu.vnc.run(vec![
+            // Wait for GRUB menu
+            wait_screen_rect!("TODO", 100, 0, 1024, 200),
+            // Select "Try or Install Ubuntu Server", append kernel params
+            enter!(format!(
+                " autoinstall ds=nocloud;s=http://{}:{}/",
+                http.address, http.port
+            )),
+            // Wait for install to complete and reach login
+            wait_screen_rect!("TODO", 100, 0, 1024, 200),
+            enter!("root"),
+            enter!(match &self.root_password {
+                RootPassword::Plaintext(p) => p.clone(),
+                RootPassword::PlaintextEnv(name) => std::env::var(name).expect("environment variable not found"),
+            }),
+        ])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
-
-        // Run provisioners
-        self.provisioners.run(&mut ssh)?;
+        let ssh = qemu.ssh("root")?;
 
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
         Ok(())
     }
+}
 
-    fn general(&self) -> GeneralContainer {
-        self.general.clone()
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Display)]
+pub enum UbuntuRelease {
+    /// 25.10 (Questing Quokka) — interim
+    #[serde(rename = "25.10")]
+    V25_10,
+    /// 24.04 LTS (Noble Numbat)
+    #[serde(rename = "24.04")]
+    V24_04,
+    /// 22.04 LTS (Jammy Jellyfish)
+    #[serde(rename = "22.04")]
+    V22_04,
+}
+
+impl Default for UbuntuRelease {
+    fn default() -> Self {
+        Self::V24_04
     }
 }
 
-impl Prompt for Ubuntu {
-    fn prompt(&mut self, _builder: &Foundry) -> Result<()> {
-        // Prompt edition
-        {
-            let editions: Vec<UbuntuEdition> = UbuntuEdition::iter().collect();
-            let edition_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
-                .with_prompt("Choose Ubuntu edition")
-                .default(0)
-                .items(&editions)
-                .interact()?;
-
-            self.edition = editions[edition_index];
+impl UbuntuRelease {
+    pub fn codename(&self) -> &'static str {
+        match self {
+            UbuntuRelease::V25_10 => "questing",
+            UbuntuRelease::V24_04 => "noble",
+            UbuntuRelease::V22_04 => "jammy",
         }
+    }
+}
 
-        // Prompt release
-        {
-            let releases: Vec<UbuntuRelease> = UbuntuRelease::iter().collect();
-            let release_index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
-                .with_prompt("Choose Ubuntu release")
-                .default(0)
-                .items(&releases)
-                .interact()?;
-
-            self.release = releases[release_index];
-        }
-
+impl Prompt for UbuntuRelease {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
+        let releases: Vec<UbuntuRelease> = UbuntuRelease::iter().collect();
+        let index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
+            .with_prompt("Choose Ubuntu release")
+            .default(0)
+            .items(&releases)
+            .interact()?;
+        *self = releases[index];
         Ok(())
     }
+}
+
+/// Fetch live-server ISO info for a given release and arch.
+pub fn fetch_ubuntu_iso(release: UbuntuRelease, arch: ImageArch) -> Result<Iso> {
+    let arch_str = match arch {
+        ImageArch::Amd64 => "amd64",
+        ImageArch::Arm64 => "arm64",
+        _ => bail!("Unsupported architecture"),
+    };
+    let codename = release.codename();
+
+    let rs = reqwest::blocking::get(format!(
+        "https://releases.ubuntu.com/{codename}/SHA256SUMS"
+    ))?;
+    if rs.status().is_success() {
+        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+            if line.contains("live-server") && line.contains(arch_str) && line.ends_with(".iso") {
+                let split: Vec<&str> = line.split_whitespace().collect();
+                if let [hash, filename] = split[..] {
+                    // SHA256SUMS uses " *filename" format — strip leading '*'
+                    let filename = filename.trim_start_matches('*');
+                    return Ok(Iso {
+                        url: format!("https://releases.ubuntu.com/{codename}/{filename}")
+                            .parse()
+                            .unwrap(),
+                        checksum: Some(format!("sha256:{hash}")),
+                    });
+                }
+            }
+        }
+    }
+    bail!("Failed to fetch Ubuntu ISO info for {codename}/{arch_str}");
 }

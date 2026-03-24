@@ -4,6 +4,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::builder::options::unix_account::RootPassword;
+use crate::builder::options::unix_users::UnixUsers;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArchinstallCredentials {
@@ -28,13 +29,26 @@ pub struct User {
 
 impl From<&super::ArchLinux> for ArchinstallCredentials {
     fn from(value: &super::ArchLinux) -> Self {
-        match &value.root_password {
-            RootPassword::Plaintext(root_password) => Self {
-                root_password: root_password.to_string(),
-                encryption_password: None,
-                users: None,
-            },
-            _ => todo!(),
+        let root_password = match &value.root_password {
+            RootPassword::Plaintext(p) => p.to_string(),
+            RootPassword::PlaintextEnv(name) => {
+                std::env::var(name).expect("environment variable not found")
+            }
+        };
+        Self {
+            root_password,
+            encryption_password: value.encryption_password.as_ref().map(|e| e.0.clone()),
+            users: value.users.as_ref().map(|users| {
+                users
+                    .0
+                    .iter()
+                    .map(|u| User {
+                        username: u.username.clone(),
+                        password: u.password.clone(),
+                        sudo: u.sudo,
+                    })
+                    .collect()
+            }),
         }
     }
 }
@@ -178,16 +192,29 @@ pub struct ArchinstallConfig {
 
 impl From<&super::ArchLinux> for ArchinstallConfig {
     fn from(value: &super::ArchLinux) -> Self {
+        use super::{ArchLinuxAudio, ArchLinuxBootloaderKind};
+
         Self {
             archinstall_language: "English".to_string(),
-            audio_config: None,
+            audio_config: value.audio.as_ref().map(|a| AudioConfig {
+                audio: match a {
+                    ArchLinuxAudio::Pipewire => "pipewire".to_string(),
+                    ArchLinuxAudio::Pulseaudio => "pulseaudio".to_string(),
+                },
+            }),
             bootloader_config: BootloaderConfig {
-                bootloader: "Grub".to_string(),
-                uki: false,
-                removable: false,
+                bootloader: match value.bootloader.kind {
+                    ArchLinuxBootloaderKind::Grub => "Grub".to_string(),
+                    ArchLinuxBootloaderKind::Systemd => "Systemd-boot".to_string(),
+                },
+                uki: value.bootloader.uki,
+                removable: value.bootloader.removable,
             },
             debug: true,
-            disk_encryption: None,
+            disk_encryption: value.encryption_password.as_ref().map(|_| DiskEncryption {
+                partitions: vec![Uuid::new_v4().to_string()],
+                encryption_type: "luks2".to_string(),
+            }),
             disk_config: DiskLayoutConfiguration {
                 config_type: "manual_partitioning".to_string(),
                 device_modifications: vec![DeviceModification {
@@ -240,32 +267,43 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
                 }],
             },
             hostname: value.hostname.hostname.clone(),
-            kernels: vec!["linux".to_string()],
+            kernels: value.kernels.0.clone(),
             locale_config: LocaleConfig {
-                kb_layout: "us".to_string(),
-                sys_enc: "UTF-8".to_string(),
-                sys_lang: "en_US".to_string(),
+                kb_layout: value.locale.keyboard.clone(),
+                sys_enc: value.locale.encoding.clone(),
+                sys_lang: value.locale.language.clone(),
             },
             mirror_config: MirrorConfig {
                 mirror_regions: serde_json::json!({}),
-                custom_servers: vec![],
+                custom_servers: value
+                    .mirrorlist
+                    .as_ref()
+                    .map(|m| m.mirrors.iter().map(|s| serde_json::json!(s)).collect())
+                    .unwrap_or_default(),
             },
             network_config: NetworkConfig {
                 type_field: "nm".to_string(),
                 nics: vec![],
             },
             no_pkg_lookups: false,
-            ntp: true,
+            ntp: value.ntp.0,
             offline: false,
             packages: value.packages.clone().unwrap_or_default().0,
-            parallel_downloads: 0,
-            profile_config: None,
+            parallel_downloads: value.parallel_downloads.0 as i64,
+            profile_config: value.profile.as_ref().map(|p| ProfileConfig {
+                gfx_driver: p.gfx_driver.clone().unwrap_or_default(),
+                greeter: p.greeter.clone().unwrap_or_default(),
+                profile: Profile {
+                    main: p.name.clone(),
+                    details: p.details.clone(),
+                },
+            }),
             silent: true,
             swap: Swap {
-                enabled: false,
-                algorithm: "zstd".to_string(),
+                enabled: value.swap.enabled,
+                algorithm: value.swap.algorithm.clone(),
             },
-            timezone: "UTC".to_string(),
+            timezone: value.timezone.0.clone(),
         }
     }
 }

@@ -1,162 +1,247 @@
-use crate::{
-    build::BuildWorker,
-    cache::{MediaCache, MediaFormat},
-    provisioners::*,
-    qemu::QemuArgs,
-    templates::*,
-};
+use anyhow::Result;
+use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use smart_default::SmartDefault;
+use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Default, Debug)]
-pub enum PopOsEdition {
-    #[default]
-    Amd,
-    Nvidia,
-}
+use crate::{
+    builder::{
+        Builder,
+        options::{
+            arch::Arch,
+            hostname::Hostname,
+            iso::Iso,
+            locale::Locale,
+            ntp::Ntp,
+            packages::Packages,
+            size::Size,
+            timezone::Timezone,
+            unix_account::RootPassword,
+            unix_users::UnixUsers,
+        },
+        qemu::{OsCategory, QemuBuilder},
+    },
+    cli::prompt::Prompt,
+    enter, input, spacebar, tab, wait, wait_screen_rect,
+};
 
-#[derive(Clone, Serialize, Deserialize, Default, Debug)]
-pub enum PopOsRelease {
-    #[serde(rename = "21.10")]
-    #[default]
-    V21_10,
+use super::BuildImage;
 
-    #[serde(rename = "22.04")]
-    V22_04,
-}
-
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
-pub struct PopOsTemplate {
-    pub id: TemplateId,
-    pub edition: PopOsEdition,
+/// Pop!\_OS is a Linux distribution developed by System76, based on Ubuntu.
+///
+/// Upstream: https://pop.system76.com
+/// Maintainer: cilki
+#[goldboot_macros::Os(architectures(Amd64))]
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+pub struct PopOs {
+    #[default(Arch(ImageArch::Amd64))]
+    pub arch: Arch,
+    pub size: Size,
     pub release: PopOsRelease,
+    pub edition: PopOsEdition,
+    #[serde(default)]
+    pub hostname: Hostname,
+    #[serde(default)]
+    pub root_password: RootPassword,
 
-    pub iso: IsoSource,
-    pub hostname: HostnameProvisioner,
+    /// Primary user account (required by the Pop!_OS installer)
+    #[serde(default)]
+    pub user: PopOsUser,
 
-    pub username: String,
+    /// Additional user accounts to create post-install
+    pub users: Option<UnixUsers>,
 
-    pub password: String,
+    /// Packages to install
+    pub packages: Option<Packages>,
 
-    pub root_password: String,
+    /// System timezone
+    #[serde(default)]
+    pub timezone: Timezone,
 
-    pub ansible: Option<Vec<AnsibleProvisioner>>,
+    /// Locale and keyboard settings
+    #[serde(default)]
+    pub locale: Locale,
+
+    /// Enable NTP time synchronization
+    #[serde(default)]
+    pub ntp: Ntp,
+
+    #[default(Iso {
+        url: "https://iso.pop-os.org/24.04/amd64/generic/23/pop-os_24.04_amd64_generic_23.iso".parse().unwrap(),
+        checksum: Some("sha256:7eb7c1a21674d0bd7d51a95b159bea25df5f97da8f2f7cd32c58dfc17746f70d".to_string()),
+    })]
+    pub iso: Iso,
 }
 
-impl Default for PopOsTemplate {
-    fn default() -> Self {
-        Self {
-			id: TemplateId::PopOs,
-			edition: PopOsEdition::Amd,
-            release: PopOsRelease::V21_10,
-            username: whoami::username(),
-            password: String::from("88Password;"),
-            root_password: String::from("root"),
-            iso: IsoContainer {
-	            url: String::from("https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.10/amd64/intel/7/pop-os_21.10_amd64_intel_7.iso"),
-	            checksum: String::from("sha256:93e8d3977d9414d7f32455af4fa38ea7a71170dc9119d2d1f8e1fba24826fae2"),
-	        },
-            general: GeneralContainer{
-				base: TemplateBase::PopOs,
-				storage_size: String::from("15 GiB"),
-				.. Default::default()
-			},
-			provisioners: ProvisionersContainer::default(),
-        }
-    }
-}
+impl BuildImage for PopOs {
+    fn build(&self, worker: &Builder) -> Result<()> {
+        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+            .with_iso(&self.iso)?
+            .prepare_ssh()?
+            .start()?;
 
-impl Template for PopOsTemplate {
-    fn build(&self, context: &BuildWorker) -> Result<()> {
-        let mut qemuargs = QemuArgs::new(&context);
+        let root_password = match &self.root_password {
+            RootPassword::Plaintext(p) => p.clone(),
+            RootPassword::PlaintextEnv(name) => {
+                std::env::var(name).expect("environment variable not found")
+            }
+        };
 
-        qemuargs.drive.push(format!(
-            "file={},if=virtio,cache=writeback,discard=ignore,format=qcow2",
-            context.image_path
-        ));
-        qemuargs.drive.push(format!(
-            "file={},media=cdrom",
-            MediaCache::get(self.iso.url.clone(), &self.iso.checksum, MediaFormat::Iso)?
-        ));
-
-        // Start VM
-        let mut qemu = qemuargs.start_process()?;
-
-        // Send boot command
-        qemu.vnc.boot_command(vec![
-            // Wait for boot
+        // Send boot command — drives the Pop!_OS graphical installer via VNC
+        #[rustfmt::skip]
+        qemu.vnc.run(vec![
+            // Wait for live environment to boot
             wait!(120),
             // Select language: English
             enter!(),
             // Select location: United States
             enter!(),
-            // Select keyboard layout: US
+            // Select keyboard layout
             enter!(),
             enter!(),
             // Select clean install
             spacebar!(),
             enter!(),
-            // Select disk
+            // Select disk (/dev/vda)
             spacebar!(),
             enter!(),
             // Configure username
-            enter!(self.username),
+            enter!(self.user.username),
             // Configure password
-            input!(self.password),
+            input!(self.user.password),
             tab!(),
-            enter!(self.password),
-            // Enable disk encryption
+            enter!(self.user.password),
+            // Skip disk encryption
             enter!(),
-            // Wait for installation (avoiding screen timeouts)
-            wait!(250),
-            spacebar!(),
-            wait!(250),
+            // Wait for installation
+            wait_screen_rect!("TODO", 100, 0, 1024, 200),
             // Reboot
             enter!(),
-            wait!(30),
-            // Unlock disk
-            enter!(self.password),
-            wait!(30),
-            // Login
-            enter!(),
-            enter!(self.password),
             wait!(60),
-            // Open terminal
-            leftSuper!(),
-            enter!("terminal"),
-            // Root login
-            enter!("sudo su -"),
-            enter!(self.password),
-            // Change root password
+            // Login as primary user
+            enter!(self.user.password),
+            wait!(30),
+            // Open terminal and escalate to root
+            enter!("sudo -i"),
+            enter!(self.user.password),
+            // Set root password
             enter!("passwd"),
-            enter!(self.root_password),
-            enter!(self.root_password),
-            // Update package cache
-            enter!("apt update"),
-            wait!(30),
-            // Install sshd
+            enter!(root_password),
+            enter!(root_password),
+            // Set hostname
+            enter!(format!("hostnamectl set-hostname {}", self.hostname.hostname)),
+            // Set timezone
+            enter!(format!("timedatectl set-timezone {}", self.timezone.0)),
+            // Enable/disable NTP
+            enter!(format!("timedatectl set-ntp {}", self.ntp.0)),
+            // Enable SSH
             enter!("apt install -y openssh-server"),
-            wait!(30),
-            // Configure sshd
             enter!("echo 'PermitRootLogin yes' >>/etc/ssh/sshd_config"),
-            // Start sshd
             enter!("systemctl restart sshd"),
         ])?;
 
         // Wait for SSH
-        let mut ssh = qemu.ssh_wait(context.ssh_port, "root", &self.root_password)?;
+        let mut ssh = qemu.ssh("root")?;
 
-        // Run provisioners
-        self.provisioners.run(&mut ssh)?;
+        // Install extra packages
+        if let Some(packages) = &self.packages {
+            if !packages.0.is_empty() {
+                ssh.exec(&format!("apt install -y {}", packages.0.join(" ")))?;
+            }
+        }
+
+        // Create extra users
+        if let Some(users) = &self.users {
+            for user in &users.0 {
+                ssh.exec(&format!("useradd -m -s /bin/bash {}", user.username))?;
+                ssh.exec(&format!(
+                    "echo '{}:{}' | chpasswd",
+                    user.username, user.password
+                ))?;
+                if user.sudo {
+                    ssh.exec(&format!("usermod -aG sudo {}", user.username))?;
+                }
+            }
+        }
 
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
         Ok(())
     }
+}
 
-    fn general(&self) -> GeneralContainer {
-        self.general.clone()
+/// The primary user account created by the Pop!_OS installer.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault)]
+pub struct PopOsUser {
+    #[default("user".to_string())]
+    pub username: String,
+    #[default("changeme".to_string())]
+    pub password: String,
+}
+
+impl Prompt for PopOsUser {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, Default, EnumIter, Display)]
+pub enum PopOsEdition {
+    /// Generic (Intel/AMD graphics)
+    #[default]
+    Generic,
+    /// NVIDIA proprietary drivers
+    Nvidia,
+}
+
+impl Prompt for PopOsEdition {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
+        let editions: Vec<PopOsEdition> = PopOsEdition::iter().collect();
+        let index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
+            .with_prompt("Choose Pop!_OS edition")
+            .default(0)
+            .items(&editions)
+            .interact()?;
+        *self = editions[index];
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Default)]
+pub enum PopOsRelease {
+    /// 24.04 LTS (current)
+    #[default]
+    #[serde(rename = "24.04")]
+    V24_04,
+    /// 22.04 LTS
+    #[serde(rename = "22.04")]
+    V22_04,
+}
+
+impl std::fmt::Display for PopOsRelease {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                PopOsRelease::V24_04 => "24.04 LTS",
+                PopOsRelease::V22_04 => "22.04 LTS",
+            }
+        )
+    }
+}
+
+impl Prompt for PopOsRelease {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
+        let releases: Vec<PopOsRelease> = PopOsRelease::iter().collect();
+        let index = dialoguer::Select::with_theme(&crate::cli::cmd::init::theme())
+            .with_prompt("Choose Pop!_OS release")
+            .default(0)
+            .items(&releases)
+            .interact()?;
+        *self = releases[index];
+        Ok(())
     }
 }

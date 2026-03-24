@@ -31,16 +31,13 @@ pub struct Nix {
     pub arch: Arch,
     pub size: Size,
 
-    /// Path to /etc/nixos/configuration.nix
+    /// Path to configuration.nix to install
     #[default(ConfigurationPath("configuration.nix".parse().unwrap()))]
     pub configuration: ConfigurationPath,
 
-    /// Path to /etc/nixos/hardware-configuration.nix
-    pub hardware_configuration: Option<ConfigurationPath>,
-
     #[default(Iso {
-        url: "http://example.com".parse().unwrap(),
-        checksum: None,
+        url: "https://channels.nixos.org/nixos-24.11/latest-nixos-minimal-x86_64-linux.iso".parse().unwrap(),
+        checksum: Some("sha256:acdcf8239f64e5acd20cf49c63f83e4c1b823b31d9f669033b48876b29b52177".to_string()),
     })]
     pub iso: Iso,
 }
@@ -49,7 +46,6 @@ impl BuildImage for Nix {
     fn build(&self, worker: &Builder) -> Result<()> {
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
             .with_iso(&self.iso)?
-            // Add Nix config
             .drive_files(HashMap::from([(
                 "configuration.nix".to_string(),
                 self.configuration.load()?,
@@ -64,13 +60,13 @@ impl BuildImage for Nix {
             // Wait for automatic login
 			wait_screen_rect!("94a2520c082650cc01a4b5eac8719b697a4bbf63", 100, 100, 100, 100),
             enter!("sudo su -"),
-            // Mount config partition and copy configuration.nix
-            enter!("mkdir /goldboot"),
-            enter!("mount /dev/vdb /goldboot"),
+            // Mount config drive and copy configuration.nix
+            enter!("mkdir /goldboot && mount /dev/vdb /goldboot"),
+            enter!("nixos-generate-config --root /mnt"),
             enter!("cp /goldboot/configuration.nix /mnt/etc/nixos/configuration.nix"),
             enter!("umount /goldboot"),
 			// Run install
-			enter!("nixos-install"),
+			enter!("nixos-install --no-root-passwd"),
 		])?;
 
         // Shutdown

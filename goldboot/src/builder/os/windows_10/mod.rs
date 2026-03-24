@@ -11,9 +11,18 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{arch::Arch, hostname::Hostname, iso::Iso, size::Size},
+        options::{
+            arch::Arch,
+            hostname::Hostname,
+            iso::Iso,
+            locale::Locale,
+            size::Size,
+            timezone::Timezone,
+            unix_users::UnixUsers,
+        },
         qemu::{OsCategory, QemuBuilder},
     },
+    cli::prompt::Prompt,
     enter, wait,
 };
 
@@ -32,18 +41,81 @@ pub struct Windows10 {
     #[serde(default)]
     pub hostname: Hostname,
 
-    // username: String,
+    /// Locale and keyboard settings
+    #[serde(default)]
+    pub locale: Locale,
 
-    // password: String,
+    /// System timezone in Windows format (e.g. "UTC", "Eastern Standard Time")
+    #[serde(default)]
+    pub timezone: Timezone,
+
+    /// Additional local user accounts to create
+    pub users: Option<UnixUsers>,
+
+    /// Windows product key (leave unset to use a generic/evaluation key)
+    pub product_key: Option<WindowsProductKey>,
+
     #[default(Iso {
         url: "http://example.com".parse().unwrap(),
         checksum: None,
     })]
-    iso: Iso,
+    pub iso: Iso,
 }
 
-impl BuildImage for Windows10 {
-    fn build(&self, worker: &Builder) -> Result<()> {
+impl Windows10 {
+    fn generate_unattend(&self) -> Result<String> {
+        let product_key = self
+            .product_key
+            .as_ref()
+            .map(|k| k.0.clone())
+            // Generic/KMS key for Windows 10 Pro
+            .unwrap_or_else(|| "W269N-WFGWX-YVC9B-4J6C9-T83GX".to_string());
+
+        let locale_tag = locale_to_windows_tag(&self.locale);
+
+        let mut first_logon_commands = vec![
+            // Set timezone
+            SynchronousCommand {
+                CommandLine: format!(
+                    r#"powershell -Command "Set-TimeZone -Id '{}'""#,
+                    self.timezone.0
+                ),
+                Description: Some("Set timezone".into()),
+                Order: "1".into(),
+                RequiresUserInput: None,
+                action: None,
+            },
+        ];
+
+        // Create extra users
+        if let Some(users) = &self.users {
+            for (i, user) in users.0.iter().enumerate() {
+                let order = (i + 2).to_string();
+                first_logon_commands.push(SynchronousCommand {
+                    CommandLine: format!(
+                        r#"powershell -Command "New-LocalUser -Name '{}' -Password (ConvertTo-SecureString '{}' -AsPlainText -Force) -FullName '{}' -PasswordNeverExpires""#,
+                        user.username, user.password, user.username
+                    ),
+                    Description: Some(format!("Create user {}", user.username)),
+                    Order: order.clone(),
+                    RequiresUserInput: None,
+                    action: None,
+                });
+                if user.sudo {
+                    first_logon_commands.push(SynchronousCommand {
+                        CommandLine: format!(
+                            r#"powershell -Command "Add-LocalGroupMember -Group 'Administrators' -Member '{}'""#,
+                            user.username
+                        ),
+                        Description: Some(format!("Add {} to Administrators", user.username)),
+                        Order: format!("{}.1", order),
+                        RequiresUserInput: None,
+                        action: None,
+                    });
+                }
+            }
+        }
+
         let unattended = UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
             settings: vec![
@@ -52,12 +124,12 @@ impl BuildImage for Windows10 {
                     component: vec![
                         Component {
                             name: "Microsoft-Windows-International-Core-WinPE".into(),
-                            UILanguage: Some("en-US".into()),
-                            UserLocale: Some("en-US".into()),
-                            SystemLocale: Some("en-US".into()),
-                            InputLocale: Some("en-US".into()),
+                            UILanguage: Some(locale_tag.clone()),
+                            UserLocale: Some(locale_tag.clone()),
+                            SystemLocale: Some(locale_tag.clone()),
+                            InputLocale: Some(self.locale.keyboard.clone()),
                             SetupUILanguage: Some(SetupUILanguage {
-                                UILanguage: "en-US".into(),
+                                UILanguage: locale_tag.clone(),
                             }),
                             ..Default::default()
                         },
@@ -116,10 +188,10 @@ impl BuildImage for Windows10 {
                             }),
                             UserData: Some(UserData {
                                 AcceptEula: "true".into(),
-                                FullName: "test".into(),
-                                Organization: "test".into(),
+                                FullName: "goldboot".into(),
+                                Organization: "goldboot".into(),
                                 ProductKey: ProductKey {
-                                    Key: "W269N-WFGWX-YVC9B-4J6C9-T83GX".into(),
+                                    Key: product_key,
                                     WillShowUI: Some("Never".into()),
                                 },
                             }),
@@ -135,12 +207,29 @@ impl BuildImage for Windows10 {
                         ..Default::default()
                     }],
                 },
+                Settings {
+                    pass: "oobeSystem".into(),
+                    component: vec![Component {
+                        name: "Microsoft-Windows-Shell-Setup".into(),
+                        FirstLogonCommands: Some(FirstLogonCommands {
+                            SynchronousCommand: first_logon_commands,
+                        }),
+                        ..Default::default()
+                    }],
+                },
             ],
         };
-        let unattended_xml = format!(
+
+        Ok(format!(
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n{}",
             quick_xml::se::to_string(&unattended)?
-        );
+        ))
+    }
+}
+
+impl BuildImage for Windows10 {
+    fn build(&self, worker: &Builder) -> Result<()> {
+        let unattended_xml = self.generate_unattend()?;
         debug!(xml = unattended_xml, "Generated Autounattend.xml");
 
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Windows)
@@ -152,18 +241,12 @@ impl BuildImage for Windows10 {
             .prepare_ssh()?
             .start()?;
 
-        // Copy powershell scripts
-        //if let Some(resource) = Resources::get("configure_winrm.ps1") {
-        //    std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
-        //}
-
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.run(vec![
-            // Initial wait
-			wait!(4),
-			enter!(),
-		])?;
+        qemu.vnc.run(vec![
+            wait!(4),
+            enter!(),
+        ])?;
 
         // Wait for SSH
         // let mut ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
@@ -173,4 +256,19 @@ impl BuildImage for Windows10 {
         qemu.shutdown_wait()?;
         Ok(())
     }
+}
+
+/// Windows product key.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct WindowsProductKey(pub String);
+
+impl Prompt for WindowsProductKey {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// Convert a IETF locale (e.g. "en_US") to a Windows locale tag (e.g. "en-US").
+fn locale_to_windows_tag(locale: &Locale) -> String {
+    locale.language.replace('_', "-")
 }

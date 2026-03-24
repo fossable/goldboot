@@ -3,7 +3,8 @@ use std::io::IsTerminal;
 use std::{
     cmp::min,
     io::{Read, Write},
-    time::Duration,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 pub enum ProgressBar {
@@ -66,19 +67,90 @@ impl ProgressBar {
         })
     }
 
-    pub fn new_write(&self, total_clusters: usize) -> Box<dyn Fn(usize, Option<bool>)> {
-        if !show_progress() {
-            return Box::new(|_, _| {});
+    pub fn new_write(
+        &self,
+        total_clusters: usize,
+        block_size: u64,
+    ) -> Box<dyn Fn(usize, Option<bool>)> {
+        let tty = std::io::stderr().is_terminal();
+
+        struct State {
+            clusters_done: usize,
+            read_start: Instant,
+            read_bytes: u64,
+            write_start: Option<Instant>,
+            write_bytes: u64,
+            last_log: Instant,
         }
 
-        let progress = self.create_progressbar(total_clusters as u64);
-        Box::new(move |_idx, state| {
-            // Only advance on completion events, not on the Writing signal
-            if state.is_some() {
-                if progress.position() + 1 >= total_clusters as u64 {
-                    progress.finish_and_clear();
+        let state = Arc::new(Mutex::new(State {
+            clusters_done: 0,
+            read_start: Instant::now(),
+            read_bytes: 0,
+            write_start: None,
+            write_bytes: 0,
+            last_log: Instant::now(),
+        }));
+
+        Box::new(move |_idx, event| {
+            let mut s = state.lock().unwrap();
+            match event {
+                None => {
+                    // Cluster is dirty, about to be written — record the read.
+                    s.read_bytes += block_size;
+                    if s.write_start.is_none() {
+                        s.write_start = Some(Instant::now());
+                    }
+                }
+                Some(true) => {
+                    // Dirty cluster written successfully.
+                    s.write_bytes += block_size;
+                    s.clusters_done += 1;
+                }
+                Some(false) => {
+                    // Clean cluster, only a read happened.
+                    s.read_bytes += block_size;
+                    s.clusters_done += 1;
+                }
+            }
+
+            let done = s.clusters_done >= total_clusters;
+            let should_print = done || tty || s.last_log.elapsed() >= Duration::from_secs(30);
+
+            if should_print {
+                let elapsed_read = s.read_start.elapsed().as_secs_f64().max(0.001);
+                let read_speed = s.read_bytes as f64 / elapsed_read;
+                let write_speed = if let Some(ws) = s.write_start {
+                    s.write_bytes as f64 / ws.elapsed().as_secs_f64().max(0.001)
                 } else {
-                    progress.inc(1);
+                    0.0
+                };
+
+                if tty {
+                    if done {
+                        eprintln!(
+                            "\rRead: {}/s  Write: {}/s  Written: {}    ",
+                            fmt_bytes(read_speed),
+                            fmt_bytes(write_speed),
+                            fmt_bytes(s.write_bytes as f64),
+                        );
+                    } else {
+                        eprint!(
+                            "\rRead: {}/s  Write: {}/s  Written: {}    ",
+                            fmt_bytes(read_speed),
+                            fmt_bytes(write_speed),
+                            fmt_bytes(s.write_bytes as f64),
+                        );
+                        let _ = std::io::stderr().flush();
+                    }
+                } else {
+                    eprintln!(
+                        "deploy: read {}/s  write {}/s  written {}",
+                        fmt_bytes(read_speed),
+                        fmt_bytes(write_speed),
+                        fmt_bytes(s.write_bytes as f64),
+                    );
+                    s.last_log = Instant::now();
                 }
             }
         })
@@ -118,4 +190,10 @@ impl ProgressBar {
 }
 fn show_progress() -> bool {
     std::io::stdout().is_terminal() && !std::env::var("CI").is_ok()
+}
+
+fn fmt_bytes(bytes: f64) -> String {
+    use byte_unit::{Byte, UnitType};
+    let unit = Byte::from_u64(bytes as u64).get_appropriate_unit(UnitType::Binary);
+    format!("{:>4.0} {}", unit.get_value(), unit.get_unit())
 }

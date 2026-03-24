@@ -9,6 +9,8 @@ pub mod arch_linux;
 pub mod debian;
 // pub mod goldboot;
 pub mod nix;
+pub mod pop_os;
+pub mod ubuntu;
 pub mod windows_10;
 pub mod windows_11;
 

@@ -16,7 +16,25 @@ impl Default for Size {
 
 impl Prompt for Size {
     fn prompt(&mut self, _builder: &Builder) -> Result<()> {
-        todo!()
+        use dialoguer::Input;
+        use validator::Validate;
+        let theme = crate::cli::cmd::init::theme();
+
+        loop {
+            let input: String = Input::with_theme(&theme)
+                .with_prompt("Disk size (e.g. 16G, 512M)")
+                .default(self.0.clone())
+                .interact_text()?;
+
+            let candidate = Size(input);
+            match candidate.validate() {
+                Ok(_) => {
+                    *self = candidate;
+                    return Ok(());
+                }
+                Err(e) => eprintln!("Invalid size: {e}"),
+            }
+        }
     }
 }
 

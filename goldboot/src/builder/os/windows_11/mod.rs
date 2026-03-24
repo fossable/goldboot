@@ -10,13 +10,23 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{arch::Arch, hostname::Hostname, iso::Iso, size::Size},
+        options::{
+            arch::Arch,
+            hostname::Hostname,
+            iso::Iso,
+            locale::Locale,
+            size::Size,
+            timezone::Timezone,
+            unix_users::UnixUsers,
+        },
         qemu::{OsCategory, QemuBuilder},
     },
+    cli::prompt::Prompt,
     enter, wait,
 };
 
 use super::BuildImage;
+use super::windows_10::WindowsProductKey;
 
 /// Windows 11 is a major release of Microsoft's Windows NT operating system.
 ///
@@ -31,6 +41,20 @@ pub struct Windows11 {
     #[serde(default)]
     pub hostname: Hostname,
 
+    /// Locale and keyboard settings
+    #[serde(default)]
+    pub locale: Locale,
+
+    /// System timezone in Windows format (e.g. "UTC", "Eastern Standard Time")
+    #[serde(default)]
+    pub timezone: Timezone,
+
+    /// Additional local user accounts to create
+    pub users: Option<UnixUsers>,
+
+    /// Windows product key (leave unset to use a generic/evaluation key)
+    pub product_key: Option<WindowsProductKey>,
+
     #[default(Iso {
         url: "http://example.com".parse().unwrap(),
         checksum: None,
@@ -38,8 +62,60 @@ pub struct Windows11 {
     pub iso: Iso,
 }
 
-impl BuildImage for Windows11 {
-    fn build(&self, worker: &Builder) -> Result<()> {
+impl Windows11 {
+    fn generate_unattend(&self) -> Result<String> {
+        let product_key = self
+            .product_key
+            .as_ref()
+            .map(|k| k.0.clone())
+            // Generic/KMS key for Windows 11 Pro
+            .unwrap_or_else(|| "W269N-WFGWX-YVC9B-4J6C9-T83GX".to_string());
+
+        let locale_tag = locale_to_windows_tag(&self.locale);
+
+        let mut first_logon_commands = vec![
+            // Set timezone
+            SynchronousCommand {
+                CommandLine: format!(
+                    r#"powershell -Command "Set-TimeZone -Id '{}'""#,
+                    self.timezone.0
+                ),
+                Description: Some("Set timezone".into()),
+                Order: "1".into(),
+                RequiresUserInput: None,
+                action: None,
+            },
+        ];
+
+        // Create extra users
+        if let Some(users) = &self.users {
+            for (i, user) in users.0.iter().enumerate() {
+                let order = (i + 2).to_string();
+                first_logon_commands.push(SynchronousCommand {
+                    CommandLine: format!(
+                        r#"powershell -Command "New-LocalUser -Name '{}' -Password (ConvertTo-SecureString '{}' -AsPlainText -Force) -FullName '{}' -PasswordNeverExpires""#,
+                        user.username, user.password, user.username
+                    ),
+                    Description: Some(format!("Create user {}", user.username)),
+                    Order: order.clone(),
+                    RequiresUserInput: None,
+                    action: None,
+                });
+                if user.sudo {
+                    first_logon_commands.push(SynchronousCommand {
+                        CommandLine: format!(
+                            r#"powershell -Command "Add-LocalGroupMember -Group 'Administrators' -Member '{}'""#,
+                            user.username
+                        ),
+                        Description: Some(format!("Add {} to Administrators", user.username)),
+                        Order: format!("{}.1", order),
+                        RequiresUserInput: None,
+                        action: None,
+                    });
+                }
+            }
+        }
+
         let unattended = UnattendXml {
             xmlns: "urn:schemas-microsoft-com:unattend".into(),
             settings: vec![
@@ -48,31 +124,32 @@ impl BuildImage for Windows11 {
                     component: vec![
                         Component {
                             name: "Microsoft-Windows-International-Core-WinPE".into(),
-                            UILanguage: Some("en-US".into()),
-                            UserLocale: Some("en-US".into()),
-                            SystemLocale: Some("en-US".into()),
-                            InputLocale: Some("en-US".into()),
+                            UILanguage: Some(locale_tag.clone()),
+                            UserLocale: Some(locale_tag.clone()),
+                            SystemLocale: Some(locale_tag.clone()),
+                            InputLocale: Some(self.locale.keyboard.clone()),
                             SetupUILanguage: Some(SetupUILanguage {
-                                UILanguage: "en-US".into(),
+                                UILanguage: locale_tag.clone(),
                             }),
                             ..Default::default()
                         },
                         Component {
                             name: "Microsoft-Windows-Setup".into(),
+                            // Bypass Windows 11 hardware requirements in VM
                             RunSynchronous: Some(RunSynchronous {
                                 RunSynchronousCommand: vec![
                                     RunSynchronousCommand {
-                                    Path: r#"cmd /c reg add "HKLM\SYSTEM\Setup\LabConfig" /v "BypassSecureBootCheck" /t REG_DWORD /d 1"#.into(),
-                                    Description: None,
-                                    Order: "1".into(),
-                                    action: Some("add".into()),
-                                },
+                                        Path: r#"cmd /c reg add "HKLM\SYSTEM\Setup\LabConfig" /v "BypassSecureBootCheck" /t REG_DWORD /d 1"#.into(),
+                                        Description: None,
+                                        Order: "1".into(),
+                                        action: Some("add".into()),
+                                    },
                                     RunSynchronousCommand {
-                                    Path: r#"cmd /c reg add "HKLM\SYSTEM\Setup\LabConfig" /v "BypassTPMCheck" /t REG_DWORD /d 1"#.into(),
-                                    Description: None,
-                                    Order: "2".into(),
-                                    action: Some("add".into()),
-                                },
+                                        Path: r#"cmd /c reg add "HKLM\SYSTEM\Setup\LabConfig" /v "BypassTPMCheck" /t REG_DWORD /d 1"#.into(),
+                                        Description: None,
+                                        Order: "2".into(),
+                                        action: Some("add".into()),
+                                    },
                                 ],
                             }),
                             DiskConfiguration: Some(DiskConfiguration {
@@ -128,10 +205,10 @@ impl BuildImage for Windows11 {
                             }),
                             UserData: Some(UserData {
                                 AcceptEula: "true".into(),
-                                FullName: "test".into(),
-                                Organization: "test".into(),
+                                FullName: "goldboot".into(),
+                                Organization: "goldboot".into(),
                                 ProductKey: ProductKey {
-                                    Key: "W269N-WFGWX-YVC9B-4J6C9-T83GX".into(),
+                                    Key: product_key,
                                     WillShowUI: Some("Never".into()),
                                 },
                             }),
@@ -147,12 +224,29 @@ impl BuildImage for Windows11 {
                         ..Default::default()
                     }],
                 },
+                Settings {
+                    pass: "oobeSystem".into(),
+                    component: vec![Component {
+                        name: "Microsoft-Windows-Shell-Setup".into(),
+                        FirstLogonCommands: Some(FirstLogonCommands {
+                            SynchronousCommand: first_logon_commands,
+                        }),
+                        ..Default::default()
+                    }],
+                },
             ],
         };
-        let unattended_xml = format!(
+
+        Ok(format!(
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n{}",
             quick_xml::se::to_string(&unattended)?
-        );
+        ))
+    }
+}
+
+impl BuildImage for Windows11 {
+    fn build(&self, worker: &Builder) -> Result<()> {
+        let unattended_xml = self.generate_unattend()?;
         debug!(xml = unattended_xml, "Generated Autounattend.xml");
 
         let mut qemu = QemuBuilder::new(&worker, OsCategory::Windows)
@@ -165,18 +259,12 @@ impl BuildImage for Windows11 {
             // .prepare_ssh()?
             .start()?;
 
-        // Copy powershell scripts
-        //if let Some(resource) = Resources::get("configure_winrm.ps1") {
-        //    std::fs::write(context.join("configure_winrm.ps1"), resource.data)?;
-        //}
-
         // Send boot command
         #[rustfmt::skip]
-		qemu.vnc.run(vec![
-            // Initial wait
-			wait!(4),
-			enter!(),
-		])?;
+        qemu.vnc.run(vec![
+            wait!(4),
+            enter!(),
+        ])?;
 
         // Wait for SSH
         // let mut ssh = qemu.ssh_wait(context.ssh_port, &self.username, &self.password)?;
@@ -186,4 +274,9 @@ impl BuildImage for Windows11 {
         qemu.shutdown_wait()?;
         Ok(())
     }
+}
+
+/// Convert a IETF locale (e.g. "en_US") to a Windows locale tag (e.g. "en-US").
+fn locale_to_windows_tag(locale: &Locale) -> String {
+    locale.language.replace('_', "-")
 }

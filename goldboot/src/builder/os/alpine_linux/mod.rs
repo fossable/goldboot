@@ -8,7 +8,17 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{hostname::Hostname, iso::Iso, size::Size, unix_account::RootPassword},
+        options::{
+            hostname::Hostname,
+            iso::Iso,
+            locale::Locale,
+            ntp::Ntp,
+            packages::Packages,
+            size::Size,
+            timezone::Timezone,
+            unix_account::RootPassword,
+            unix_users::UnixUsers,
+        },
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
@@ -26,10 +36,33 @@ pub struct AlpineLinux {
     #[serde(default)]
     pub hostname: Hostname,
     pub release: AlpineRelease,
+    #[serde(default)]
     pub root_password: RootPassword,
+
+    /// Additional user accounts to create
+    pub users: Option<UnixUsers>,
+
+    /// Packages to install
+    pub packages: Option<Packages>,
+
+    /// System timezone
+    #[serde(default)]
+    pub timezone: Timezone,
+
+    /// Locale and keyboard settings
+    #[serde(default)]
+    pub locale: Locale,
+
+    /// Enable NTP time synchronization
+    #[serde(default)]
+    pub ntp: Ntp,
+
+    /// Disk encryption passphrase (LUKS)
+    pub encryption_password: Option<AlpineEncryptionPassword>,
+
     #[default(Iso {
-        url: "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-standard-3.19.1-x86_64.iso".parse().unwrap(),
-        checksum: Some("sha256:12addd7d4154df1caf5f258b80ad72e7a724d33e75e6c2e6adc1475298d47155".to_string()),
+        url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-standard-3.23.3-x86_64.iso".parse().unwrap(),
+        checksum: Some("sha256:966d6bf4d4c79958d43abde84a3e5bbeb4f8c757c164a49d3ec8432be6d36f16".to_string()),
     })]
     pub iso: Iso,
 }
@@ -41,6 +74,13 @@ impl BuildImage for AlpineLinux {
             .prepare_ssh()?
             .start()?;
 
+        let ntp_opts = if self.ntp.0 { "-c openntpd" } else { "-c none" };
+        let disk_opts = if self.encryption_password.is_some() {
+            "-m sys -e /dev/vda"
+        } else {
+            "-m sys /dev/vda"
+        };
+
         // Send boot command
         #[rustfmt::skip]
 		qemu.vnc.run(vec![
@@ -49,7 +89,7 @@ impl BuildImage for AlpineLinux {
 			// Root login
 			enter!("root"),
 			// Configure install
-			enter!("export KEYMAPOPTS='us us'"),
+			enter!(format!("export KEYMAPOPTS='{} {}'", self.locale.keyboard, self.locale.keyboard)),
 			enter!(format!("export HOSTNAMEOPTS='-n {}'", self.hostname.hostname)),
 			enter!("export INTERFACESOPTS='
 auto lo
@@ -60,14 +100,14 @@ iface eth0 inet dhcp
     hostname alpine-test'"
 			),
 			enter!("export DNSOPTS='1.1.1.1'"),
-			enter!("export TIMEZONEOPTS='-z UTC'"),
+			enter!(format!("export TIMEZONEOPTS='-z {}'", self.timezone.0)),
 			enter!("export PROXYOPTS='none'"),
 			enter!("export APKREPOSOPTS='-r'"),
 			enter!("export SSHDOPTS='-c openssh'"),
-			enter!("export NTPOPTS='-c openntpd'"),
-			enter!("export DISKOPTS='-m sys /dev/vda'"),
+			enter!(format!("export NTPOPTS='{ntp_opts}'")),
+			enter!(format!("export DISKOPTS='{disk_opts}'")),
 			// Start install
-			enter!("echo -e 'root\nroot\ny' | setup-alpine"),
+			enter!(format!("echo -e 'root\n{}\ny' | setup-alpine", self.root_password)),
 			wait_screen_rect!("6d7b9fc9229c4f4ae8bc84f0925d8479ccd3e7d2", 668, 0, 1024, 100),
 			// Remount root partition
 			enter!("mount -t ext4 /dev/vda3 /mnt"),
@@ -76,14 +116,42 @@ iface eth0 inet dhcp
 		])?;
 
         // Wait for SSH
-        let ssh = qemu.ssh("root")?;
+        let mut ssh = qemu.ssh("root")?;
 
-        // Run provisioners
-        // TODO
+        // Install extra packages
+        if let Some(packages) = &self.packages {
+            if !packages.0.is_empty() {
+                ssh.exec(&format!("apk add {}", packages.0.join(" ")))?;
+            }
+        }
+
+        // Create extra users
+        if let Some(users) = &self.users {
+            for user in &users.0 {
+                ssh.exec(&format!("adduser -D {}", user.username))?;
+                ssh.exec(&format!(
+                    "echo '{}:{}' | chpasswd",
+                    user.username, user.password
+                ))?;
+                if user.sudo {
+                    ssh.exec(&format!("addgroup {} wheel", user.username))?;
+                }
+            }
+        }
 
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
+        Ok(())
+    }
+}
+
+/// Disk encryption passphrase (LUKS).
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct AlpineEncryptionPassword(pub String);
+
+impl Prompt for AlpineEncryptionPassword {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         Ok(())
     }
 }
@@ -115,17 +183,17 @@ impl Prompt for AlpineEdition {
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Default)]
 pub enum AlpineRelease {
     #[default]
-    Edge,
+    #[serde(rename = "v3.23")]
+    V3_23,
+    #[serde(rename = "v3.22")]
+    V3_22,
+    #[serde(rename = "v3.21")]
+    V3_21,
+    #[serde(rename = "v3.20")]
+    V3_20,
     #[serde(rename = "v3.19")]
     V3_19,
-    #[serde(rename = "v3.18")]
-    V3_18,
-    #[serde(rename = "v3.17")]
-    V3_17,
-    #[serde(rename = "v3.16")]
-    V3_16,
-    #[serde(rename = "v3.15")]
-    V3_15,
+    Edge,
 }
 
 impl Prompt for AlpineRelease {
@@ -139,41 +207,14 @@ impl Display for AlpineRelease {
         write!(
             f,
             "{}",
-            match &self {
-                AlpineRelease::Edge => "Edge",
+            match self {
+                AlpineRelease::V3_23 => "v3.23",
+                AlpineRelease::V3_22 => "v3.22",
+                AlpineRelease::V3_21 => "v3.21",
+                AlpineRelease::V3_20 => "v3.20",
                 AlpineRelease::V3_19 => "v3.19",
-                AlpineRelease::V3_18 => "v3.18",
-                AlpineRelease::V3_17 => "v3.17",
-                AlpineRelease::V3_16 => "v3.16",
-                AlpineRelease::V3_15 => "v3.15",
+                AlpineRelease::Edge => "edge",
             }
         )
     }
 }
-
-// fn fetch_latest_iso(
-//     edition: AlpineEdition,
-//     release: AlpineRelease,
-//     arch: Architecture,
-// ) -> Result<IsoSource> {
-//     let arch = match arch {
-//         Architecture::amd64 => "x86_64",
-//         Architecture::arm64 => "aarch64",
-//         _ => bail!("Unsupported architecture"),
-//     };
-
-//     let edition = match edition {
-//         AlpineEdition::Standard => "standard",
-//         AlpineEdition::Extended => "extended",
-//         AlpineEdition::Xen => "virt",
-//         AlpineEdition::RaspberryPi => "rpi",
-//     };
-
-//     let url = format!("https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/{arch}/alpine-{edition}-3.16.0-{arch}.iso");
-
-//     // Download checksum
-//     let rs = reqwest::blocking::get(format!("{url}.sha256"))?;
-//     let checksum = if rs.status().is_success() { None } else { None };
-
-//     Ok(IsoSource { url, checksum })
-// }

@@ -1,7 +1,11 @@
 pub mod arch;
 pub mod hostname;
 pub mod iso;
+pub mod locale;
 pub mod luks;
+pub mod ntp;
+pub mod packages;
 pub mod size;
 pub mod timezone;
 pub mod unix_account;
+pub mod unix_users;
