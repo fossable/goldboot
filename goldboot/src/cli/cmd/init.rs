@@ -5,7 +5,11 @@ use std::process::ExitCode;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
 
-use crate::builder::{Builder, config::ConfigPath, os::{OsConfig, os_iter}};
+use crate::builder::{
+    Builder,
+    config::ConfigPath,
+    os::{OsConfig, os_iter},
+};
 
 fn print_banner() {
     if console::colors_enabled() {
@@ -83,7 +87,8 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         .filter(|_d| builder.elements.is_empty()) // alloy: always false for now
                         .collect();
 
-                    let os_names: Vec<&str> = supported_descriptors.iter().map(|d| d.name).collect();
+                    let os_names: Vec<&str> =
+                        supported_descriptors.iter().map(|d| d.name).collect();
 
                     let choice_index = Select::with_theme(&theme)
                         .with_prompt("Operating system?")

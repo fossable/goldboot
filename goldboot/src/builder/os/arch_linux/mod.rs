@@ -5,9 +5,9 @@ use crate::builder::options::hostname::Hostname;
 use crate::builder::options::iso::Iso;
 use crate::builder::options::locale::Locale;
 use crate::builder::options::ntp::Ntp;
+use crate::builder::options::packages::Packages;
 use crate::builder::options::size::Size;
 use crate::builder::options::timezone::Timezone;
-use crate::builder::options::packages::Packages;
 use crate::builder::options::unix_account::RootPassword;
 use crate::builder::options::unix_users::UnixUsers;
 use crate::builder::os::arch_linux::archinstall::ArchinstallConfig;
@@ -42,6 +42,15 @@ fn json_merge(base: &mut serde_json::Value, overlay: serde_json::Value) {
 
 fn default_arch() -> Arch {
     Arch(ImageArch::Amd64)
+}
+
+fn default_iso() -> Iso {
+    Iso {
+        url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2026.03.01-x86_64.iso"
+            .parse()
+            .unwrap(),
+        checksum: None,
+    }
 }
 
 /// Arch Linux is an independently developed x86-64 general-purpose Linux distribution
@@ -85,6 +94,7 @@ pub struct ArchLinux {
     /// Desktop environment / window manager profile
     pub profile: Option<ArchLinuxProfile>,
 
+    // TODO grub themes
     /// Bootloader configuration
     #[serde(default)]
     pub bootloader: ArchLinuxBootloader,
@@ -109,10 +119,8 @@ pub struct ArchLinux {
     pub archinstall_config: Option<ArchLinuxConfigPath>,
 
     // TODO don't allow because screen_rect will be wrong?
-    #[default(Iso {
-        url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2025.10.01-x86_64.iso".parse().unwrap(),
-        checksum: None,
-    })]
+    #[serde(default = "default_iso")]
+    #[default(_code = "default_iso()")]
     pub iso: Iso,
 }
 
@@ -324,8 +332,9 @@ pub struct ArchLinuxBootloader {
     /// Install as a unified kernel image (UKI)
     #[default(false)]
     pub uki: bool,
-    /// Install to removable media path
-    #[default(false)]
+    /// Install to removable media path (EFI/BOOT/BOOTX64.EFI).
+    /// Defaults to true so images boot on hardware with no pre-existing NVRAM entries.
+    #[default(true)]
     pub removable: bool,
 }
 

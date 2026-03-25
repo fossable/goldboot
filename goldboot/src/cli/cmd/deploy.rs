@@ -2,10 +2,12 @@ use byte_unit::{Byte, UnitType};
 use console::Style;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use goldboot_image::ImageHandle;
-use std::{io::IsTerminal, path::Path, process::ExitCode};
+use std::{fs::OpenOptions, io::IsTerminal, path::Path, process::ExitCode};
 use tracing::error;
 
-use crate::{cli::progress::ProgressBar, library::ImageLibrary};
+use crate::{
+    can_preload, cli::progress::ProgressBar, gpt::fixup_backup_gpt, library::ImageLibrary,
+};
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
@@ -35,6 +37,32 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             }
 
             let output_path = Path::new(&output);
+
+            // Refuse to deploy to a mounted block device or any of its partitions
+            if std::fs::metadata(output_path)
+                .map(|m| {
+                    use std::os::unix::fs::FileTypeExt;
+                    m.file_type().is_block_device()
+                })
+                .unwrap_or(false)
+            {
+                let dev = output_path.to_string_lossy();
+                let mounts = std::fs::read_to_string("/proc/mounts").unwrap_or_default();
+                let mounted = mounts.lines().any(|line| {
+                    line.split_whitespace()
+                        .next()
+                        .map(|d| d == dev || d.starts_with(dev.as_ref()))
+                        .unwrap_or(false)
+                });
+                if mounted {
+                    error!(
+                        "Refusing to deploy: '{}' or one of its partitions is currently mounted",
+                        dev
+                    );
+                    return ExitCode::FAILURE;
+                }
+            }
+
             if output_path.exists() && !confirm {
                 if std::io::stderr().is_terminal() {
                     // Print everything we know about the target before asking.
@@ -148,13 +176,51 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 .as_ref()
                 .map(|h| h.block_size as u64)
                 .unwrap_or(0);
-            match image_handle.write(output, ProgressBar::Write.new_write(total, block_size)) {
-                Err(err) => {
-                    error!(error = ?err, "Failed to write image");
-                    ExitCode::FAILURE
-                }
-                _ => ExitCode::SUCCESS,
+            if let Err(err) = image_handle.write(
+                output_path,
+                can_preload(image_handle.file_size),
+                ProgressBar::Write.new_write(total, block_size),
+            ) {
+                error!(error = ?err, "Failed to write image");
+                return ExitCode::FAILURE;
             }
+
+            // Fixup backup GPT using the actual destination size.
+            // BLKGETSIZE64 (0x80081272) is used for block devices on Linux;
+            // regular files fall back to metadata.
+            let mut dest_file = match OpenOptions::new().read(true).write(true).open(output_path) {
+                Ok(f) => f,
+                Err(err) => {
+                    error!(error = ?err, "Failed to reopen output for GPT fixup");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let dest_size = {
+                use std::os::unix::fs::MetadataExt;
+                use std::os::unix::io::AsRawFd;
+                let mut size: u64 = 0;
+                // BLKGETSIZE64 = 0x80081272 — returns u64 byte count
+                let ret = unsafe {
+                    libc::ioctl(dest_file.as_raw_fd(), 0x80081272u64, &mut size as *mut u64)
+                };
+                if ret == 0 && size > 0 {
+                    size
+                } else {
+                    match dest_file.metadata() {
+                        Ok(m) => m.size(),
+                        Err(err) => {
+                            error!(error = ?err, "Failed to get output size for GPT fixup");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                }
+            };
+            if let Err(err) = fixup_backup_gpt(&mut dest_file, dest_size) {
+                error!(error = ?err, "Failed to fixup backup GPT");
+                return ExitCode::FAILURE;
+            }
+
+            ExitCode::SUCCESS
         }
         _ => panic!(),
     }

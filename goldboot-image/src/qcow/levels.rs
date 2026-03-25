@@ -87,7 +87,7 @@ impl L2Entry {
     /// compressed clusters even when they contain data.
     pub fn is_allocated(&self) -> bool {
         match &self.cluster_descriptor {
-            ClusterDescriptor::Standard(c) => c.host_cluster_offset != 0,
+            ClusterDescriptor::Standard(c) => c.host_cluster_offset != 0 || c.all_zeroes,
             ClusterDescriptor::Compressed(_) => true,
         }
     }
@@ -102,9 +102,8 @@ impl L2Entry {
         let mut buf = Vec::with_capacity(cluster_size as usize);
         match &self.cluster_descriptor {
             ClusterDescriptor::Standard(cluster) => {
-                if cluster.all_zeroes || cluster.host_cluster_offset == 0 {
-                    // TODO size properly
-                    buf.fill(0);
+                if cluster.all_zeroes {
+                    buf.resize(cluster_size as usize, 0);
                 } else {
                     reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
                     reader.take(cluster_size).read_to_end(&mut buf)?;

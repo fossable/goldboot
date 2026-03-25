@@ -25,12 +25,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         "{:40} {:12} {:31} {}",
                         elements.join(", "),
                         image.primary_header.size.bytes().to_string(),
-                        chrono::DateTime::from_timestamp(
-                            image.primary_header.timestamp as i64,
-                            0
-                        )
-                        .unwrap_or_default()
-                        .to_rfc2822(),
+                        chrono::DateTime::from_timestamp(image.primary_header.timestamp as i64, 0)
+                            .unwrap_or_default()
+                            .to_rfc2822(),
                         &image.id[0..12],
                     );
                 }
@@ -57,12 +54,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 println!("Size:        {}", image.primary_header.size.bytes());
                 println!(
                     "Date:        {}",
-                    chrono::DateTime::from_timestamp(
-                        image.primary_header.timestamp as i64,
-                        0
-                    )
-                    .unwrap_or_default()
-                    .to_rfc2822()
+                    chrono::DateTime::from_timestamp(image.primary_header.timestamp as i64, 0)
+                        .unwrap_or_default()
+                        .to_rfc2822()
                 );
                 println!("Arch:        {:?}", image.primary_header.arch);
                 println!("Encryption:  {:?}", image.primary_header.encryption_type);
@@ -82,7 +76,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         failed = true;
                     }
                 }
-                if failed { ExitCode::FAILURE } else { ExitCode::SUCCESS }
+                if failed {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
             }
         },
         _ => panic!(),

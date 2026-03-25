@@ -61,8 +61,7 @@ pub fn render(
                         }
                     }
 
-                    let ids: Vec<String> =
-                        state.images.iter().map(|i| i.id.clone()).collect();
+                    let ids: Vec<String> = state.images.iter().map(|i| i.id.clone()).collect();
                     let current_idx = state
                         .selected_image
                         .as_ref()
@@ -70,15 +69,11 @@ pub fn render(
 
                     ui.ctx().input(|inp| {
                         if inp.key_pressed(egui::Key::ArrowDown) {
-                            let next = current_idx
-                                .map(|i| (i + 1).min(ids.len() - 1))
-                                .unwrap_or(0);
+                            let next = current_idx.map(|i| (i + 1).min(ids.len() - 1)).unwrap_or(0);
                             state.selected_image = ids.get(next).cloned();
                         }
                         if inp.key_pressed(egui::Key::ArrowUp) {
-                            let prev = current_idx
-                                .map(|i| i.saturating_sub(1))
-                                .unwrap_or(0);
+                            let prev = current_idx.map(|i| i.saturating_sub(1)).unwrap_or(0);
                             state.selected_image = ids.get(prev).cloned();
                         }
                         if inp.key_pressed(egui::Key::Enter) {
@@ -123,8 +118,8 @@ pub fn render(
                                     );
                                 } else {
                                     for image in state.images.iter() {
-                                        let is_selected = state.selected_image.as_ref()
-                                            == Some(&image.id);
+                                        let is_selected =
+                                            state.selected_image.as_ref() == Some(&image.id);
 
                                         let size_str = format!(
                                             "{} compressed / {} expanded",
@@ -144,64 +139,88 @@ pub fn render(
                                             .inner_margin(egui::Margin::symmetric(6, 4))
                                             .corner_radius(4.0)
                                             .show(ui, |ui| {
-                                            ui.set_min_width(ui.available_width());
-                                            ui.horizontal(|ui| {
-                                                // Left column: icon above arch badge, left-aligned
-                                                // but items centered on each other within the column
-                                                ui.allocate_ui_with_layout(
-                                                    egui::vec2(52.0, 0.0),
-                                                    egui::Layout::top_down(egui::Align::Center),
-                                                    |ui| {
-                                                    let mut any_icon = false;
-                                                    for element in image.primary_header.elements.iter() {
-                                                        let os_name = element.os();
-                                                        if let Some(tex) = textures.os_icon(&os_name) {
-                                                            ui.add(
-                                                                egui::Image::new(tex)
-                                                                    .max_size(egui::Vec2::splat(32.0)),
-                                                            );
-                                                            any_icon = true;
-                                                        }
-                                                    }
-                                                    if !any_icon {
-                                                        ui.label(egui::RichText::new("💿").size(28.0));
-                                                    }
-                                                    egui::Frame::new()
-                                                        .fill(
-                                                            egui::Color32::from_rgb(0x1a, 0x3a, 0x5c)
-                                                                .linear_multiply(1.5),
-                                                        )
-                                                        .inner_margin(egui::Margin::symmetric(4, 1))
-                                                        .corner_radius(4.0)
-                                                        .show(ui, |ui| {
-                                                            ui.label(
-                                                                egui::RichText::new(arch_str)
-                                                                    .color(egui::Color32::from_rgb(0x60, 0xb4, 0xff))
-                                                                    .monospace()
-                                                                    .size(10.0),
-                                                            );
-                                                        });
-                                                });
+                                                ui.set_min_width(ui.available_width());
+                                                ui.horizontal(|ui| {
+                                                    // Left column: icon above arch badge, left-aligned
+                                                    // but items centered on each other within the column
+                                                    ui.allocate_ui_with_layout(
+                                                        egui::vec2(52.0, 0.0),
+                                                        egui::Layout::top_down(egui::Align::Center),
+                                                        |ui| {
+                                                            let mut any_icon = false;
+                                                            for element in
+                                                                image.primary_header.elements.iter()
+                                                            {
+                                                                let os_name = element.os();
+                                                                if let Some(tex) =
+                                                                    textures.os_icon(&os_name)
+                                                                {
+                                                                    ui.add(
+                                                                        egui::Image::new(tex)
+                                                                            .max_size(
+                                                                                egui::Vec2::splat(
+                                                                                    32.0,
+                                                                                ),
+                                                                            ),
+                                                                    );
+                                                                    any_icon = true;
+                                                                }
+                                                            }
+                                                            if !any_icon {
+                                                                ui.label(
+                                                                    egui::RichText::new("💿")
+                                                                        .size(28.0),
+                                                                );
+                                                            }
+                                                            egui::Frame::new()
+                                                                .fill(
+                                                                    egui::Color32::from_rgb(
+                                                                        0x1a, 0x3a, 0x5c,
+                                                                    )
+                                                                    .linear_multiply(1.5),
+                                                                )
+                                                                .inner_margin(
+                                                                    egui::Margin::symmetric(4, 1),
+                                                                )
+                                                                .corner_radius(4.0)
+                                                                .show(ui, |ui| {
+                                                                    ui.label(
+                                                                        egui::RichText::new(
+                                                                            arch_str,
+                                                                        )
+                                                                        .color(
+                                                                            egui::Color32::from_rgb(
+                                                                                0x60, 0xb4, 0xff,
+                                                                            ),
+                                                                        )
+                                                                        .monospace()
+                                                                        .size(10.0),
+                                                                    );
+                                                                });
+                                                        },
+                                                    );
 
-                                                ui.add_space(10.0);
+                                                    ui.add_space(10.0);
 
-                                                // Right: two lines, left-aligned
-                                                ui.vertical(|ui| {
-                                                    ui.label(
-                                                        egui::RichText::new(image.primary_header.name())
+                                                    // Right: two lines, left-aligned
+                                                    ui.vertical(|ui| {
+                                                        ui.label(
+                                                            egui::RichText::new(
+                                                                image.primary_header.name(),
+                                                            )
                                                             .color(theme.text_primary)
                                                             .strong()
                                                             .size(14.0),
-                                                    );
-                                                    ui.label(
-                                                        egui::RichText::new(&size_str)
-                                                            .color(theme.text_secondary)
-                                                            .monospace()
-                                                            .size(11.0),
-                                                    );
+                                                        );
+                                                        ui.label(
+                                                            egui::RichText::new(&size_str)
+                                                                .color(theme.text_secondary)
+                                                                .monospace()
+                                                                .size(11.0),
+                                                        );
+                                                    });
                                                 });
                                             });
-                                        });
 
                                         ui.add_space(2.0);
                                     }

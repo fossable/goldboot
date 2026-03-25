@@ -1,32 +1,33 @@
+use crate::{can_preload, gpt::fixup_backup_gpt};
 use goldboot_image::ImageHandle;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlockState {
-    Pending,    // Not yet processed
-    Writing,    // Currently being written
-    UpToDate,   // Block was already correct, no write needed
-    Written,    // Block was dirty and has been written
-    Verifying,  // Currently being read and hashed
-    Verified,   // Hash matched
-    Failed,     // Hash did not match (corruption)
+    Pending,   // Not yet processed
+    Writing,   // Currently being written
+    UpToDate,  // Block was already correct, no write needed
+    Written,   // Block was dirty and has been written
+    Verifying, // Currently being read and hashed
+    Verified,  // Hash matched
+    Failed,    // Hash did not match (corruption)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PostWriteDialog {
-    Visible,    // Waiting for user choice
-    Hidden,     // Dialog dismissed (verifying or done)
+    Visible, // Waiting for user choice
+    Hidden,  // Dialog dismissed (verifying or done)
 }
 
 pub struct WriteProgress {
-    pub cluster_count: usize,          // Total number of clusters
-    pub block_size: u64,               // Bytes per cluster
-    pub block_states: Vec<BlockState>, // Per-cluster state
-    pub done: bool,                    // Write (or verify) thread has finished
-    pub verifying: bool,               // Verification pass is running
+    pub cluster_count: usize,                       // Total number of clusters
+    pub block_size: u64,                            // Bytes per cluster
+    pub block_states: Vec<BlockState>,              // Per-cluster state
+    pub done: bool,                                 // Write (or verify) thread has finished
+    pub verifying: bool,                            // Verification pass is running
     pub post_write_dialog: Option<PostWriteDialog>, // Dialog state after write completes
-    pub error: Option<String>,         // Set if write or verify failed
+    pub error: Option<String>,                      // Set if write or verify failed
     pub start_time: Instant,
 
     // Speed tracking: bytes read/written since last speed sample
@@ -83,8 +84,7 @@ impl WriteProgress {
             // Update speed estimate every ~0.25 s
             let elapsed = self.last_sample_time.elapsed().as_secs_f64();
             if elapsed >= 0.25 {
-                self.read_speed =
-                    (self.bytes_read_total - self.last_bytes_read) as f64 / elapsed;
+                self.read_speed = (self.bytes_read_total - self.last_bytes_read) as f64 / elapsed;
                 self.write_speed =
                     (self.bytes_written_total - self.last_bytes_written) as f64 / elapsed;
                 self.last_sample_time = Instant::now();
@@ -111,7 +111,15 @@ impl WriteProgress {
     pub fn blocks_processed(&self) -> usize {
         self.block_states
             .iter()
-            .filter(|&&s| matches!(s, BlockState::Written | BlockState::UpToDate | BlockState::Verified | BlockState::Failed))
+            .filter(|&&s| {
+                matches!(
+                    s,
+                    BlockState::Written
+                        | BlockState::UpToDate
+                        | BlockState::Verified
+                        | BlockState::Failed
+                )
+            })
             .count()
     }
 
@@ -148,7 +156,7 @@ pub struct AppState {
 
     // Device selection
     pub devices: Vec<block_utils::Device>,
-    pub selected_device: Option<String>,
+    pub selected_device: Option<block_utils::Device>,
 
     // Confirmation
     pub confirm_progress: f32, // 0.0 to 1.0
@@ -196,14 +204,10 @@ impl AppState {
     /// Load the selected image and spawn a background thread that writes it to the selected
     /// device, updating `write_progress` per cluster.
     pub fn start_write(&mut self) -> Result<(), String> {
-        let image_id = self
-            .selected_image
-            .clone()
-            .ok_or("No image selected")?;
-        let device_path = self
-            .selected_device
-            .clone()
-            .ok_or("No device selected")?;
+        let image_id = self.selected_image.clone().ok_or("No image selected")?;
+        let device = self.selected_device.clone().ok_or("No device selected")?;
+        let device_path = format!("/dev/{}", device.name);
+        let device_size = device.capacity;
 
         let image_path = self
             .images
@@ -230,11 +234,19 @@ impl AppState {
         self.write_progress = Some(progress.clone());
 
         std::thread::spawn(move || {
-            let result = image.write(&device_path, |idx, state| {
-                if let Ok(mut p) = progress.lock() {
-                    p.record_cluster(idx, state);
-                }
-            });
+            let result = image
+                .write(&device_path, can_preload(image.file_size), |idx, state| {
+                    if let Ok(mut p) = progress.lock() {
+                        p.record_cluster(idx, state);
+                    }
+                })
+                .and_then(|_| {
+                    let mut f = std::fs::OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .open(&device_path)?;
+                    fixup_backup_gpt(&mut f, device_size)
+                });
 
             if let Ok(mut p) = progress.lock() {
                 p.done = true;
@@ -251,13 +263,11 @@ impl AppState {
 
     /// Spawn a background thread that verifies the written image by hashing each block.
     pub fn start_verify(&mut self) -> Result<(), String> {
-        let image_id = self
-            .selected_image
-            .clone()
-            .ok_or("No image selected")?;
+        let image_id = self.selected_image.clone().ok_or("No image selected")?;
         let device_path = self
             .selected_device
-            .clone()
+            .as_ref()
+            .map(|d| format!("/dev/{}", d.name))
             .ok_or("No device selected")?;
 
         let image_path = self

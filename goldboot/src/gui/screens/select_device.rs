@@ -40,19 +40,6 @@ pub fn render(
                 // Keyboard navigation
                 if !state.devices.is_empty() {
                     // Auto-select first device if nothing selected
-                    if state.selected_device.is_none() {
-                        let required_bytes: Option<u64> = state
-                            .selected_image
-                            .as_ref()
-                            .and_then(|id| state.images.iter().find(|i| &i.id == id))
-                            .map(|i| i.primary_header.size);
-                        if let Some(first) = state.devices.iter().find(|d| {
-                            required_bytes.map(|req| d.capacity >= req).unwrap_or(true)
-                        }) {
-                            state.selected_device = Some(format!("/dev/{}", first.name));
-                        }
-                    }
-
                     let required_bytes: Option<u64> = state
                         .selected_image
                         .as_ref()
@@ -60,29 +47,33 @@ pub fn render(
                         .map(|i| i.primary_header.size);
 
                     // Only selectable devices (sufficient capacity)
-                    let names: Vec<String> = state
+                    let selectable: Vec<&block_utils::Device> = state
                         .devices
                         .iter()
                         .filter(|d| required_bytes.map(|req| d.capacity >= req).unwrap_or(true))
-                        .map(|d| format!("/dev/{}", d.name))
                         .collect();
+
+                    if state.selected_device.is_none() {
+                        if let Some(&first) = selectable.first() {
+                            state.selected_device = Some(first.clone());
+                        }
+                    }
+
                     let current_idx = state
                         .selected_device
                         .as_ref()
-                        .and_then(|n| names.iter().position(|d| d == n));
+                        .and_then(|sel| selectable.iter().position(|d| d.name == sel.name));
 
                     ui.ctx().input(|inp| {
                         if inp.key_pressed(egui::Key::ArrowDown) {
                             let next = current_idx
-                                .map(|i| (i + 1).min(names.len() - 1))
+                                .map(|i| (i + 1).min(selectable.len() - 1))
                                 .unwrap_or(0);
-                            state.selected_device = names.get(next).cloned();
+                            state.selected_device = selectable.get(next).map(|d| (*d).clone());
                         }
                         if inp.key_pressed(egui::Key::ArrowUp) {
-                            let prev = current_idx
-                                .map(|i| i.saturating_sub(1))
-                                .unwrap_or(0);
-                            state.selected_device = names.get(prev).cloned();
+                            let prev = current_idx.map(|i| i.saturating_sub(1)).unwrap_or(0);
+                            state.selected_device = selectable.get(prev).map(|d| (*d).clone());
                         }
                         if inp.key_pressed(egui::Key::Enter) {
                             if state.selected_device.is_some() {
@@ -116,10 +107,7 @@ pub fn render(
                 );
 
                 egui::Frame::new()
-                    .stroke(egui::Stroke::new(
-                        3.0,
-                        theme.border.linear_multiply(0.75),
-                    ))
+                    .stroke(egui::Stroke::new(3.0, theme.border.linear_multiply(0.75)))
                     .fill(theme.list_bg)
                     .inner_margin(8.0)
                     .show(&mut child, |ui| {
@@ -146,18 +134,26 @@ pub fn render(
 
                                         let device_path = format!("/dev/{}", device.name);
                                         let is_selected = !too_small
-                                            && state.selected_device.as_ref()
-                                                == Some(&device_path);
+                                            && state
+                                                .selected_device
+                                                .as_ref()
+                                                .map(|sel| sel.name == device.name)
+                                                .unwrap_or(false);
 
                                         let icon = match device.media_type {
-                                            block_utils::MediaType::SolidState => &textures.icon_ssd,
-                                            block_utils::MediaType::Rotational => &textures.icon_hdd,
+                                            block_utils::MediaType::SolidState => {
+                                                &textures.icon_ssd
+                                            }
+                                            block_utils::MediaType::Rotational => {
+                                                &textures.icon_hdd
+                                            }
                                             block_utils::MediaType::NVME => &textures.icon_nvme,
                                             block_utils::MediaType::Ram => &textures.icon_ram,
                                             _ => &textures.icon_hdd,
                                         };
 
-                                        let name_line = if let Some(serial) = &device.serial_number {
+                                        let name_line = if let Some(serial) = &device.serial_number
+                                        {
                                             format!("{} ({})", device_path, serial)
                                         } else {
                                             device_path.clone()
@@ -181,43 +177,52 @@ pub fn render(
                                             .inner_margin(egui::Margin::symmetric(6, 4))
                                             .corner_radius(4.0)
                                             .show(ui, |ui| {
-                                            ui.set_min_width(ui.available_width());
-                                            ui.horizontal(|ui| {
-                                                // Left column: icon centered within fixed width
-                                                ui.allocate_ui_with_layout(
-                                                    egui::vec2(52.0, 0.0),
-                                                    egui::Layout::top_down(egui::Align::Center),
-                                                    |ui| {
-                                                        ui.add(
-                                                            egui::Image::new(icon)
-                                                                .max_size(egui::Vec2::splat(32.0))
-                                                                .tint(egui::Color32::WHITE.linear_multiply(icon_tint)),
-                                                        );
-                                                    },
-                                                );
-
-                                                ui.add_space(10.0);
-
-                                                // Right: two lines, left-aligned
-                                                ui.vertical(|ui| {
-                                                    ui.label(
-                                                        egui::RichText::new(&name_line)
-                                                            .color(text_color)
-                                                            .strong()
-                                                            .size(14.0),
+                                                ui.set_min_width(ui.available_width());
+                                                ui.horizontal(|ui| {
+                                                    // Left column: icon centered within fixed width
+                                                    ui.allocate_ui_with_layout(
+                                                        egui::vec2(52.0, 0.0),
+                                                        egui::Layout::top_down(egui::Align::Center),
+                                                        |ui| {
+                                                            ui.add(
+                                                                egui::Image::new(icon)
+                                                                    .max_size(egui::Vec2::splat(
+                                                                        32.0,
+                                                                    ))
+                                                                    .tint(
+                                                                        egui::Color32::WHITE
+                                                                            .linear_multiply(
+                                                                                icon_tint,
+                                                                            ),
+                                                                    ),
+                                                            );
+                                                        },
                                                     );
-                                                    let mut size_label = egui::RichText::new(&size_line)
-                                                        .monospace()
-                                                        .size(11.0);
-                                                    size_label = if too_small {
-                                                        size_label.color(egui::Color32::DARK_RED)
-                                                    } else {
-                                                        size_label.color(theme.text_secondary)
-                                                    };
-                                                    ui.label(size_label);
+
+                                                    ui.add_space(10.0);
+
+                                                    // Right: two lines, left-aligned
+                                                    ui.vertical(|ui| {
+                                                        ui.label(
+                                                            egui::RichText::new(&name_line)
+                                                                .color(text_color)
+                                                                .strong()
+                                                                .size(14.0),
+                                                        );
+                                                        let mut size_label =
+                                                            egui::RichText::new(&size_line)
+                                                                .monospace()
+                                                                .size(11.0);
+                                                        size_label = if too_small {
+                                                            size_label
+                                                                .color(egui::Color32::DARK_RED)
+                                                        } else {
+                                                            size_label.color(theme.text_secondary)
+                                                        };
+                                                        ui.label(size_label);
+                                                    });
                                                 });
                                             });
-                                        });
 
                                         ui.add_space(2.0);
                                     }

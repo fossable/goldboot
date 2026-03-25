@@ -11,16 +11,8 @@ use crate::{
         Builder,
         http::HttpServer,
         options::{
-            arch::Arch,
-            hostname::Hostname,
-            iso::Iso,
-            locale::Locale,
-            ntp::Ntp,
-            packages::Packages,
-            size::Size,
-            timezone::Timezone,
-            unix_account::RootPassword,
-            unix_users::UnixUsers,
+            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, ntp::Ntp, packages::Packages,
+            size::Size, timezone::Timezone, unix_account::RootPassword, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
@@ -109,11 +101,7 @@ impl Ubuntu {
                     .0
                     .iter()
                     .map(|u| {
-                        let groups = if u.sudo {
-                            "    groups: [sudo]\n"
-                        } else {
-                            ""
-                        };
+                        let groups = if u.sudo { "    groups: [sudo]\n" } else { "" };
                         format!(
                             "  - name: {}\n    passwd: {}\n    lock_passwd: false\n{}",
                             u.username, u.password, groups
@@ -265,9 +253,7 @@ pub fn fetch_ubuntu_iso(release: UbuntuRelease, arch: ImageArch) -> Result<Iso> 
     };
     let codename = release.codename();
 
-    let rs = reqwest::blocking::get(format!(
-        "https://releases.ubuntu.com/{codename}/SHA256SUMS"
-    ))?;
+    let rs = reqwest::blocking::get(format!("https://releases.ubuntu.com/{codename}/SHA256SUMS"))?;
     if rs.status().is_success() {
         for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
             if line.contains("live-server") && line.contains(arch_str) && line.ends_with(".iso") {

@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 
 fn config_path() -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_default())
-        .join(".config/goldboot/registry.toml")
+    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config/goldboot/registry.toml")
 }
 
 /// Credentials for all configured registries, keyed by registry host.
@@ -76,10 +75,16 @@ pub fn parse_image_ref(reference: &str) -> Result<(String, String, String)> {
         if potential_host.contains('.') || potential_host.contains(':') {
             (potential_host, &ref_no_tag[slash + 1..])
         } else {
-            bail!("No registry host found in reference '{}'. Use host/name[:tag]", reference);
+            bail!(
+                "No registry host found in reference '{}'. Use host/name[:tag]",
+                reference
+            );
         }
     } else {
-        bail!("No registry host found in reference '{}'. Use host/name[:tag]", reference);
+        bail!(
+            "No registry host found in reference '{}'. Use host/name[:tag]",
+            reference
+        );
     };
 
     Ok((host.to_string(), name.to_string(), tag.to_string()))
@@ -110,8 +115,7 @@ mod tests {
 
     #[test]
     fn test_parse_ref_host_port_name_tag() {
-        let (host, name, tag) =
-            parse_image_ref("localhost:5000/myimage:beta").unwrap();
+        let (host, name, tag) = parse_image_ref("localhost:5000/myimage:beta").unwrap();
         assert_eq!(host, "localhost:5000");
         assert_eq!(name, "myimage");
         assert_eq!(tag, "beta");
@@ -158,7 +162,9 @@ mod tests {
         let mut creds = RegistryCredentials::default();
         creds.registries.insert(
             "registry.example.com".to_string(),
-            RegistryEntry { token: "tok123".to_string() },
+            RegistryEntry {
+                token: "tok123".to_string(),
+            },
         );
 
         // Serialise
@@ -168,10 +174,7 @@ mod tests {
         let loaded: RegistryCredentials =
             toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
 
-        assert_eq!(
-            loaded.registries["registry.example.com"].token,
-            "tok123"
-        );
+        assert_eq!(loaded.registries["registry.example.com"].token, "tok123");
     }
 
     #[test]
@@ -198,7 +201,9 @@ mod tests {
         let mut creds = RegistryCredentials::default();
         creds.registries.insert(
             "registry.example.com".to_string(),
-            RegistryEntry { token: "secret".to_string() },
+            RegistryEntry {
+                token: "secret".to_string(),
+            },
         );
         assert_eq!(creds.token_for("registry.example.com").unwrap(), "secret");
     }
@@ -208,11 +213,15 @@ mod tests {
         let mut creds = RegistryCredentials::default();
         creds.registries.insert(
             "a.example.com".to_string(),
-            RegistryEntry { token: "token_a".to_string() },
+            RegistryEntry {
+                token: "token_a".to_string(),
+            },
         );
         creds.registries.insert(
             "b.example.com".to_string(),
-            RegistryEntry { token: "token_b".to_string() },
+            RegistryEntry {
+                token: "token_b".to_string(),
+            },
         );
 
         assert_eq!(creds.token_for("a.example.com").unwrap(), "token_a");

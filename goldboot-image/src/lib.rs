@@ -19,157 +19,9 @@ use tracing::{debug, info, trace};
 
 pub mod qcow;
 
-/// Compute a CRC32 checksum using the IEEE polynomial (same as used by GPT).
-fn crc32(data: &[u8]) -> u32 {
-    // Build the lookup table
-    let mut table = [0u32; 256];
-    for i in 0..256u32 {
-        let mut c = i;
-        for _ in 0..8 {
-            c = if c & 1 != 0 { 0xedb88320 ^ (c >> 1) } else { c >> 1 };
-        }
-        table[i as usize] = c;
-    }
-    let mut crc: u32 = 0xffffffff;
-    for &b in data {
-        crc = table[((crc ^ b as u32) & 0xff) as usize] ^ (crc >> 8);
-    }
-    crc ^ 0xffffffff
-}
-
-/// Read the primary GPT header from `dest`, construct the backup GPT header and
-/// partition entries, then write them to the correct location at the end of the
-/// disk.
-///
-/// The backup GPT header is a copy of the primary with:
-/// - `MyLBA` set to the last LBA of the disk
-/// - `AlternateLBA` set to LBA 1 (the primary)
-/// - `PartitionEntryLBA` set to `MyLBA - 32` (32 sectors before the backup header)
-/// - `HeaderCRC32` recomputed (with the field zeroed while computing)
-///
-/// The backup partition entry array is an identical copy of the primary entries
-/// placed immediately before the backup header.
-fn fixup_backup_gpt(dest: &mut (impl Read + Write + Seek)) -> Result<()> {
-    // ---- read the primary GPT header (LBA 1 = offset 512) ----
-    dest.seek(SeekFrom::Start(512))?;
-    let mut hdr = [0u8; 512];
-    dest.read_exact(&mut hdr)?;
-
-    // Verify GPT signature "EFI PART"
-    if &hdr[0..8] != b"EFI PART" {
-        trace!("No GPT signature found, skipping backup GPT fixup");
-        return Ok(());
-    }
-
-    // Parse fields (all little-endian)
-    let header_size    = u32::from_le_bytes(hdr[12..16].try_into().unwrap()) as usize;
-    let my_lba         = u64::from_le_bytes(hdr[24..32].try_into().unwrap());
-    let alternate_lba  = u64::from_le_bytes(hdr[32..40].try_into().unwrap());
-    let part_entry_lba = u64::from_le_bytes(hdr[72..80].try_into().unwrap());
-    let num_entries    = u32::from_le_bytes(hdr[80..84].try_into().unwrap());
-    let entry_size     = u32::from_le_bytes(hdr[84..88].try_into().unwrap()) as usize;
-
-    // Sanity checks
-    if my_lba != 1 || alternate_lba == 0 || header_size < 92 || entry_size == 0 || num_entries == 0 {
-        trace!(my_lba, alternate_lba, header_size, "GPT header looks invalid, skipping backup fixup");
-        return Ok(());
-    }
-
-    // ---- read the primary partition entries ----
-    dest.seek(SeekFrom::Start(part_entry_lba * 512))?;
-    let entries_size = num_entries as usize * entry_size;
-    let mut entries = vec![0u8; entries_size];
-    dest.read_exact(&mut entries)?;
-
-    // ---- compute disk size from the alternate LBA recorded in primary header ----
-    let disk_last_lba = alternate_lba; // where primary said backup lives
-    let backup_entries_lba = disk_last_lba - 32;
-
-    // ---- build the backup header ----
-    let mut backup_hdr = hdr[..header_size].to_vec();
-    backup_hdr.resize(header_size, 0);
-
-    // Swap MyLBA and AlternateLBA
-    backup_hdr[24..32].copy_from_slice(&disk_last_lba.to_le_bytes());
-    backup_hdr[32..40].copy_from_slice(&my_lba.to_le_bytes());
-
-    // Point PartitionEntryLBA to the backup entries location
-    backup_hdr[72..80].copy_from_slice(&backup_entries_lba.to_le_bytes());
-
-    // Recompute partition entries CRC32 (same entries, same data)
-    let entries_crc = crc32(&entries);
-    backup_hdr[88..92].copy_from_slice(&entries_crc.to_le_bytes());
-
-    // Recompute header CRC32 (zero out the CRC field first)
-    backup_hdr[16..20].copy_from_slice(&[0u8; 4]);
-    let header_crc = crc32(&backup_hdr);
-    backup_hdr[16..20].copy_from_slice(&header_crc.to_le_bytes());
-
-    // ---- write backup partition entries ----
-    dest.seek(SeekFrom::Start(backup_entries_lba * 512))?;
-    dest.write_all(&entries)?;
-
-    // ---- write backup header ----
-    let mut backup_sector = [0u8; 512];
-    backup_sector[..backup_hdr.len()].copy_from_slice(&backup_hdr);
-    dest.seek(SeekFrom::Start(disk_last_lba * 512))?;
-    dest.write_all(&backup_sector)?;
-
-    debug!(disk_last_lba, backup_entries_lba, "Wrote backup GPT header");
-    Ok(())
-}
-
 trait ReadSeek: Read + Seek {}
 impl ReadSeek for BufReader<File> {}
 impl ReadSeek for Cursor<Vec<u8>> {}
-
-/// Returns the number of bytes of available memory, or 0 if unknown.
-fn available_memory() -> u64 {
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(s) = std::fs::read_to_string("/proc/meminfo") {
-            if let Some(kb) = s
-                .lines()
-                .find(|l| l.starts_with("MemAvailable:"))
-                .and_then(|l| l.split_whitespace().nth(1))
-                .and_then(|v| v.parse::<u64>().ok())
-            {
-                return kb * 1024;
-            }
-        }
-        0
-    }
-    #[cfg(target_os = "windows")]
-    {
-        use std::mem;
-        #[allow(non_camel_case_types)]
-        #[repr(C)]
-        struct MEMORYSTATUSEX {
-            dw_length: u32,
-            dw_memory_load: u32,
-            ull_total_phys: u64,
-            ull_avail_phys: u64,
-            ull_total_page_file: u64,
-            ull_avail_page_file: u64,
-            ull_total_virtual: u64,
-            ull_avail_virtual: u64,
-            ull_avail_extended_virtual: u64,
-        }
-        extern "system" {
-            fn GlobalMemoryStatusEx(lp_buffer: *mut MEMORYSTATUSEX) -> i32;
-        }
-        let mut stat: MEMORYSTATUSEX = unsafe { mem::zeroed() };
-        stat.dw_length = mem::size_of::<MEMORYSTATUSEX>() as u32;
-        if unsafe { GlobalMemoryStatusEx(&mut stat) } != 0 {
-            return stat.ull_avail_phys;
-        }
-        0
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        0
-    }
-}
 
 /// Supported system architectures for goldboot images.
 #[derive(
@@ -279,7 +131,7 @@ impl std::fmt::Debug for ImageHandle {
 }
 
 /// The cluster compression algorithm.
-#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
+#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone, Copy)]
 #[brw(repr(u8))]
 pub enum ClusterCompressionType {
     /// Clusters will not be compressed
@@ -290,7 +142,7 @@ pub enum ClusterCompressionType {
 }
 
 /// The cluster encryption algorithm.
-#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
+#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone, Copy)]
 #[brw(repr(u8))]
 pub enum ClusterEncryptionType {
     /// Clusters are not encrypted
@@ -641,7 +493,12 @@ impl ImageHandle {
     /// - `None`        — cluster is dirty and is now being written
     /// - `Some(true)`  — cluster was dirty and has been written
     /// - `Some(false)` — cluster was already up to date, no write needed
-    pub fn write<F: Fn(usize, Option<bool>) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
+    pub fn write<F: Fn(usize, Option<bool>) -> ()>(
+        &self,
+        dest: impl AsRef<Path>,
+        preload: bool,
+        progress: F,
+    ) -> Result<()> {
         if self.protected_header.is_none() || self.digest_table.is_none() {
             bail!("Image not loaded");
         }
@@ -661,16 +518,17 @@ impl ImageHandle {
             .read(true)
             .open(dest)?;
 
-        // Open the cluster table for reading. If there's enough available memory
-        // (with a 2% buffer), load the entire image into memory for faster access.
-        let available_mem = available_memory();
-        let mut cluster_table: Box<dyn ReadSeek> =
-            if available_mem > 0 && self.file_size <= available_mem * 98 / 100 {
-                debug!(file_size = self.file_size, available_mem, "Loading entire image into memory");
-                Box::new(Cursor::new(std::fs::read(&self.path)?))
-            } else {
-                Box::new(BufReader::new(File::open(&self.path)?))
-            };
+        // Open the cluster table for reading, optionally loading the entire image
+        // into memory for faster access.
+        let mut cluster_table: Box<dyn ReadSeek> = if preload {
+            debug!(
+                file_size = self.file_size,
+                "Loading entire image into memory"
+            );
+            Box::new(Cursor::new(std::fs::read(&self.path)?))
+        } else {
+            Box::new(BufReader::new(File::open(&self.path)?))
+        };
 
         // Extend regular files if necessary
         // TODO also check size of block devices
@@ -747,8 +605,6 @@ impl ImageHandle {
             progress(i, Some(is_dirty));
         }
 
-        fixup_backup_gpt(&mut dest)?;
-
         Ok(())
     }
 
@@ -758,7 +614,11 @@ impl ImageHandle {
     /// - `None`       — cluster is now being read/hashed
     /// - `Some(true)` — cluster hash matched
     /// - `Some(false)`— cluster hash did not match (corruption detected)
-    pub fn verify<F: Fn(usize, Option<bool>) -> ()>(&self, dest: impl AsRef<Path>, progress: F) -> Result<()> {
+    pub fn verify<F: Fn(usize, Option<bool>) -> ()>(
+        &self,
+        dest: impl AsRef<Path>,
+        progress: F,
+    ) -> Result<()> {
         if self.protected_header.is_none() || self.digest_table.is_none() {
             bail!("Image not loaded");
         }
@@ -766,9 +626,7 @@ impl ImageHandle {
         let protected_header = self.protected_header.clone().unwrap();
         let digest_table = self.digest_table.clone().unwrap().digest_table;
 
-        let mut dest = std::fs::OpenOptions::new()
-            .read(true)
-            .open(dest)?;
+        let mut dest = std::fs::OpenOptions::new().read(true).open(dest)?;
 
         let mut block = vec![0u8; protected_header.block_size as usize];
 
@@ -1075,7 +933,7 @@ mod tests {
         )?;
 
         // Check raw content round-trips correctly
-        image.write(tmp.path().join("output.raw"), |_, _| {})?;
+        image.write(tmp.path().join("output.raw"), false, |_, _| {})?;
         let output = std::fs::read(tmp.path().join("output.raw"))?;
         assert_eq!(raw, output);
 
@@ -1106,7 +964,7 @@ mod tests {
         assert_eq!(loaded_image.digest_table.unwrap().digest_count, 2);
 
         // Check raw content
-        image.write(tmp.path().join("small.raw"), |_, _| {})?;
+        image.write(tmp.path().join("small.raw"), false, |_, _| {})?;
         assert_eq!(
             hex::encode(
                 Sha1::new()
@@ -1143,7 +1001,7 @@ mod tests {
         assert_eq!(loaded_image.digest_table.unwrap().digest_count, 2);
 
         // Check raw content
-        image.write(tmp.path().join("small.raw"), |_, _| {})?;
+        image.write(tmp.path().join("small.raw"), false, |_, _| {})?;
         assert_eq!(
             hex::encode(
                 Sha1::new()
@@ -1174,7 +1032,7 @@ mod tests {
         loaded_image.load(None)?;
 
         // Check raw content round-trips correctly
-        loaded_image.write(tmp.path().join("compressed_zlib.raw"), |_, _| {})?;
+        loaded_image.write(tmp.path().join("compressed_zlib.raw"), false, |_, _| {})?;
         assert_eq!(
             hex::encode(
                 Sha1::new()
@@ -1205,7 +1063,7 @@ mod tests {
         loaded_image.load(None)?;
 
         // Check raw content round-trips correctly
-        loaded_image.write(tmp.path().join("compressed_zstd.raw"), |_, _| {})?;
+        loaded_image.write(tmp.path().join("compressed_zstd.raw"), false, |_, _| {})?;
         assert_eq!(
             hex::encode(
                 Sha1::new()
@@ -1268,7 +1126,10 @@ mod tests {
         assert_eq!(ImageArch::try_from("amd64".to_string())?, ImageArch::Amd64);
         assert_eq!(ImageArch::try_from("x86_64".to_string())?, ImageArch::Amd64);
         assert_eq!(ImageArch::try_from("arm64".to_string())?, ImageArch::Arm64);
-        assert_eq!(ImageArch::try_from("aarch64".to_string())?, ImageArch::Arm64);
+        assert_eq!(
+            ImageArch::try_from("aarch64".to_string())?,
+            ImageArch::Arm64
+        );
         assert_eq!(ImageArch::try_from("i386".to_string())?, ImageArch::I386);
         // Case insensitivity
         assert_eq!(ImageArch::try_from("AMD64".to_string())?, ImageArch::Amd64);
@@ -1308,7 +1169,7 @@ mod tests {
 
         // digest_table is None after open() — write() must fail
         assert!(partial.digest_table.is_none());
-        let result = partial.write(tmp.path().join("should_not_exist.raw"), |_, _| {});
+        let result = partial.write(tmp.path().join("should_not_exist.raw"), false, |_, _| {});
         assert!(result.is_err());
 
         Ok(())

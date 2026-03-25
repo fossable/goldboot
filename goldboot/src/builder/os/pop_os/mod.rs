@@ -9,16 +9,8 @@ use crate::{
     builder::{
         Builder,
         options::{
-            arch::Arch,
-            hostname::Hostname,
-            iso::Iso,
-            locale::Locale,
-            ntp::Ntp,
-            packages::Packages,
-            size::Size,
-            timezone::Timezone,
-            unix_account::RootPassword,
-            unix_users::UnixUsers,
+            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, ntp::Ntp, packages::Packages,
+            size::Size, timezone::Timezone, unix_account::RootPassword, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },

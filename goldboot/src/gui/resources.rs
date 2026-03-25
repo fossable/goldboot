@@ -18,22 +18,13 @@ const OS_ICONS_2X: &[(&str, &[u8])] = &[
         "ArchLinux",
         include_bytes!("../builder/os/arch_linux/icon@2x.png"),
     ),
-    (
-        "Debian",
-        include_bytes!("../builder/os/debian/icon@2x.png"),
-    ),
-    (
-        "Fedora",
-        include_bytes!("../builder/os/fedora/icon@2x.png"),
-    ),
+    ("Debian", include_bytes!("../builder/os/debian/icon@2x.png")),
+    ("Fedora", include_bytes!("../builder/os/fedora/icon@2x.png")),
     (
         "LinuxMint",
         include_bytes!("../builder/os/linux_mint/icon@2x.png"),
     ),
-    (
-        "MacOs",
-        include_bytes!("../builder/os/mac_os/icon@2x.png"),
-    ),
+    ("MacOs", include_bytes!("../builder/os/mac_os/icon@2x.png")),
     (
         "OpenSuse",
         include_bytes!("../builder/os/open_suse/icon@2x.png"),
@@ -42,10 +33,7 @@ const OS_ICONS_2X: &[(&str, &[u8])] = &[
         "Slackware",
         include_bytes!("../builder/os/slackware/icon@2x.png"),
     ),
-    (
-        "Ubuntu",
-        include_bytes!("../builder/os/ubuntu/icon@2x.png"),
-    ),
+    ("Ubuntu", include_bytes!("../builder/os/ubuntu/icon@2x.png")),
     (
         "Windows10",
         include_bytes!("../builder/os/windows_10/icon@2x.png"),

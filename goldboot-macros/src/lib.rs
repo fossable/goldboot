@@ -253,7 +253,9 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
                 architectures: &[#(#arch_impls),*],
                 default: || Box::new(#name::default()),
                 deserialize_ron: |s| {
-                    Ok(Box::new(ron::from_str::<#name>(s)?))
+                    let opts = ron::Options::default()
+                        .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
+                    Ok(Box::new(opts.from_str::<#name>(s)?))
                 },
             }
         }

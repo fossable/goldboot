@@ -98,20 +98,14 @@ pub struct SnapshotTime {
 impl Snapshot {
     fn read_l1(&self, reader: &mut (impl Read + Seek)) -> Option<Vec<L1Entry>> {
         use binrw::BinReaderExt;
-        reader
-            .seek(SeekFrom::Start(self.l1_table_offset))
-            .ok()?;
+        reader.seek(SeekFrom::Start(self.l1_table_offset)).ok()?;
         (0..self.l1_entry_count)
             .map(|_| reader.read_be::<L1Entry>().ok())
             .collect()
     }
 
     /// Count the number of allocated clusters in this snapshot.
-    pub fn count_clusters(
-        &self,
-        reader: &mut (impl Read + Seek),
-        cluster_bits: u32,
-    ) -> u64 {
+    pub fn count_clusters(&self, reader: &mut (impl Read + Seek), cluster_bits: u32) -> u64 {
         let mut count = 0;
         if let Some(l1_table) = self.read_l1(reader) {
             for l1_entry in &l1_table {

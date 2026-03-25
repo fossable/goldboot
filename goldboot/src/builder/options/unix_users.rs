@@ -45,7 +45,11 @@ impl Prompt for UnixUsers {
                 .default(false)
                 .interact()?;
 
-            self.0.push(UnixUser { username, password, sudo });
+            self.0.push(UnixUser {
+                username,
+                password,
+                sudo,
+            });
         }
 
         Ok(())

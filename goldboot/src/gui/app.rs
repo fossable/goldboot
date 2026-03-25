@@ -38,13 +38,16 @@ impl eframe::App for GuiApp {
         // Disable all pointer/mouse input
         ctx.input_mut(|i| {
             i.pointer = Default::default();
-            i.events.retain(|e| !matches!(e,
-                egui::Event::PointerMoved(_)
-                | egui::Event::PointerButton { .. }
-                | egui::Event::PointerGone
-                | egui::Event::MouseWheel { .. }
-                | egui::Event::MouseMoved(_)
-            ));
+            i.events.retain(|e| {
+                !matches!(
+                    e,
+                    egui::Event::PointerMoved(_)
+                        | egui::Event::PointerButton { .. }
+                        | egui::Event::PointerGone
+                        | egui::Event::MouseWheel { .. }
+                        | egui::Event::MouseMoved(_)
+                )
+            });
         });
 
         // Render grid background

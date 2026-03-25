@@ -2,7 +2,7 @@ use crate::builder::Builder;
 use crate::cli::prompt::Prompt;
 use anyhow::Result;
 use goldboot_image::ImageArch;
-use serde::{ser::Serializer, Serialize};
+use serde::{Serialize, ser::Serializer};
 
 pub mod alpine_linux;
 pub mod arch_linux;

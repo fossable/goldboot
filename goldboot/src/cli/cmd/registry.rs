@@ -2,14 +2,11 @@ use dialoguer::{Password, theme::ColorfulTheme};
 use std::process::ExitCode;
 use tracing::info;
 
+use super::RegistryCommands;
 use crate::{
     library::ImageLibrary,
-    registry::{
-        RegistryCredentials, RegistryEntry,
-        parse_image_ref,
-    },
+    registry::{RegistryCredentials, RegistryEntry, parse_image_ref},
 };
-use super::RegistryCommands;
 
 pub fn run(cmd: super::Commands) -> ExitCode {
     let theme = ColorfulTheme::default();
@@ -23,7 +20,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     .unwrap();
 
                 let mut creds = RegistryCredentials::load().unwrap_or_default();
-                creds.registries.insert(registry.clone(), RegistryEntry { token });
+                creds
+                    .registries
+                    .insert(registry.clone(), RegistryEntry { token });
                 if let Err(e) = creds.save() {
                     eprintln!("Failed to save credentials: {e}");
                     return ExitCode::FAILURE;

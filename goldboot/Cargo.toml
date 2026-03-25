@@ -15,6 +15,7 @@ anyhow = { workspace = true }
 # It seems the next LTS will have a clang version new enough for bindgen
 # aws-lc-rs = { version = "1", features = ["bindgen"]}
 axum = { version = "0.8.1", optional = true }
+# TODO replace with sysinfo once it can get unmounted block devices
 block-utils = { version = "0.11.1", optional = true }
 built = { version = "0.8.0", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
@@ -30,6 +31,7 @@ eframe = { version = "0.33.3", optional = true, default-features = false, featur
 ] }
 egui = { version = "0.33.3", optional = true }
 inventory = "0.3"
+libc = "0.2"
 fatfs = { version = "0.3.6", optional = true }
 flate2 = "1.0.28"
 fossable = { workspace = true }
@@ -60,6 +62,7 @@ sha2 = { workspace = true }
 ssh2 = { version = "0.9.4" }
 ssh-key = { version = "0.6.7", features = ["ed25519"] }
 strum = { workspace = true }
+sysinfo = "0.38.4"
 tar = "0.4.40"
 tempfile = "3.10.0"
 tokio = { version = "1.36.0", features = ["full"] }

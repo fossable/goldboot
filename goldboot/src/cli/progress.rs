@@ -74,12 +74,16 @@ impl ProgressBar {
     ) -> Box<dyn Fn(usize, Option<bool>)> {
         let tty = std::io::stderr().is_terminal();
 
+        // Window size for the rolling write-speed average.
+        const WRITE_WINDOW: Duration = Duration::from_secs(1);
+
         struct State {
             clusters_done: usize,
             read_start: Instant,
             read_bytes: u64,
-            write_start: Option<Instant>,
             write_bytes: u64,
+            // Ring of (timestamp, bytes_written) samples used for the rolling window.
+            write_samples: std::collections::VecDeque<(Instant, u64)>,
             last_log: Instant,
         }
 
@@ -87,8 +91,8 @@ impl ProgressBar {
             clusters_done: 0,
             read_start: Instant::now(),
             read_bytes: 0,
-            write_start: None,
             write_bytes: 0,
+            write_samples: std::collections::VecDeque::new(),
             last_log: Instant::now(),
         }));
 
@@ -98,13 +102,11 @@ impl ProgressBar {
                 None => {
                     // Cluster is dirty, about to be written — record the read.
                     s.read_bytes += block_size;
-                    if s.write_start.is_none() {
-                        s.write_start = Some(Instant::now());
-                    }
                 }
                 Some(true) => {
                     // Dirty cluster written successfully.
                     s.write_bytes += block_size;
+                    s.write_samples.push_back((Instant::now(), block_size));
                     s.clusters_done += 1;
                 }
                 Some(false) => {
@@ -120,8 +122,15 @@ impl ProgressBar {
             if should_print {
                 let elapsed_read = s.read_start.elapsed().as_secs_f64().max(0.001);
                 let read_speed = s.read_bytes as f64 / elapsed_read;
-                let write_speed = if let Some(ws) = s.write_start {
-                    s.write_bytes as f64 / ws.elapsed().as_secs_f64().max(0.001)
+
+                // Evict samples older than WRITE_WINDOW, then sum the remainder.
+                let cutoff = Instant::now() - WRITE_WINDOW;
+                while s.write_samples.front().is_some_and(|(t, _)| *t < cutoff) {
+                    s.write_samples.pop_front();
+                }
+                let window_bytes: u64 = s.write_samples.iter().map(|(_, b)| b).sum();
+                let write_speed = if window_bytes > 0 {
+                    window_bytes as f64 / WRITE_WINDOW.as_secs_f64()
                 } else {
                     0.0
                 };
@@ -132,14 +141,14 @@ impl ProgressBar {
                             "\rRead: {}/s  Write: {}/s  Written: {}    ",
                             fmt_bytes(read_speed),
                             fmt_bytes(write_speed),
-                            fmt_bytes(s.write_bytes as f64),
+                            fmt_bytes_precise(s.write_bytes as f64),
                         );
                     } else {
                         eprint!(
                             "\rRead: {}/s  Write: {}/s  Written: {}    ",
                             fmt_bytes(read_speed),
                             fmt_bytes(write_speed),
-                            fmt_bytes(s.write_bytes as f64),
+                            fmt_bytes_precise(s.write_bytes as f64),
                         );
                         let _ = std::io::stderr().flush();
                     }
@@ -148,7 +157,7 @@ impl ProgressBar {
                         "deploy: read {}/s  write {}/s  written {}",
                         fmt_bytes(read_speed),
                         fmt_bytes(write_speed),
-                        fmt_bytes(s.write_bytes as f64),
+                        fmt_bytes_precise(s.write_bytes as f64),
                     );
                     s.last_log = Instant::now();
                 }
@@ -196,4 +205,10 @@ fn fmt_bytes(bytes: f64) -> String {
     use byte_unit::{Byte, UnitType};
     let unit = Byte::from_u64(bytes as u64).get_appropriate_unit(UnitType::Binary);
     format!("{:>4.0} {}", unit.get_value(), unit.get_unit())
+}
+
+fn fmt_bytes_precise(bytes: f64) -> String {
+    use byte_unit::{Byte, UnitType};
+    let unit = Byte::from_u64(bytes as u64).get_appropriate_unit(UnitType::Binary);
+    format!("{:.2} {}", unit.get_value(), unit.get_unit())
 }

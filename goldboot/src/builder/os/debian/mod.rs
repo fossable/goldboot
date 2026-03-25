@@ -11,16 +11,8 @@ use crate::{
         Builder,
         http::HttpServer,
         options::{
-            arch::Arch,
-            hostname::Hostname,
-            iso::Iso,
-            locale::Locale,
-            ntp::Ntp,
-            packages::Packages,
-            size::Size,
-            timezone::Timezone,
-            unix_account::RootPassword,
-            unix_users::UnixUsers,
+            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, ntp::Ntp, packages::Packages,
+            size::Size, timezone::Timezone, unix_account::RootPassword, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
@@ -179,10 +171,7 @@ d-i preseed/late_command string {late_command}
                     user.username, user.password
                 ));
                 if user.sudo {
-                    cmds.push(format!(
-                        "in-target usermod -aG sudo {}",
-                        user.username
-                    ));
+                    cmds.push(format!("in-target usermod -aG sudo {}", user.username));
                 }
             }
         }

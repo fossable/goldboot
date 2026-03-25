@@ -11,13 +11,8 @@ use crate::{
     builder::{
         Builder,
         options::{
-            arch::Arch,
-            hostname::Hostname,
-            iso::Iso,
-            locale::Locale,
-            size::Size,
-            timezone::Timezone,
-            unix_users::UnixUsers,
+            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, size::Size,
+            timezone::Timezone, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },

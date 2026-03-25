@@ -1,10 +1,12 @@
 use rand::Rng;
+use sysinfo::System;
 
 use std::net::TcpListener;
 
 #[cfg(feature = "build")]
 pub mod builder;
 pub mod cli;
+pub mod gpt;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod library;
@@ -24,6 +26,14 @@ pub fn find_open_port(lower: u16, upper: u16) -> u16 {
             Err(_) => continue,
         }
     }
+}
+
+/// Returns whether a buffer of `size` bytes can fit in available memory (with a 2% safety buffer).
+pub fn can_preload(size: u64) -> bool {
+    let mut sys = System::new();
+    sys.refresh_memory();
+    let avail = sys.available_memory();
+    avail > 0 && size <= avail * 98 / 100
 }
 
 /// Generate a random password

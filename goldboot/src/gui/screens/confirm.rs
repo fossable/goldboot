@@ -186,10 +186,8 @@ pub fn render(
                             );
                             ui.add_space(8.0);
 
-                            if let Some(device_path) = &state.selected_device.clone() {
-                                if let Some(device) =
-                                    state.devices.iter().find(|d| &format!("/dev/{}", d.name) == device_path)
-                                {
+                            if let Some(device) = &state.selected_device {
+                                    let device_path = format!("/dev/{}", device.name);
                                     // Device icon + name
                                     ui.horizontal(|ui| {
                                         let icon = match device.media_type {
@@ -205,7 +203,7 @@ pub fn render(
                                         };
                                         ui.add(egui::Image::new(icon).max_width(24.0));
                                         ui.label(
-                                            egui::RichText::new(device_path.as_str())
+                                            egui::RichText::new(&device_path)
                                                 .color(theme.text_primary)
                                                 .strong()
                                                 .size(14.0),
@@ -256,12 +254,6 @@ pub fn render(
                                                 ui.end_row();
                                             }
                                         });
-                                } else {
-                                    ui.label(
-                                        egui::RichText::new("Device not found")
-                                            .color(theme.text_secondary),
-                                    );
-                                }
                             } else {
                                 ui.label(
                                     egui::RichText::new("No device selected")

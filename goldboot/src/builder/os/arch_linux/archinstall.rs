@@ -227,14 +227,20 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
                             fs_type: "fat32".to_string(),
                             obj_id: Uuid::new_v4().to_string(),
                             size: Size {
-                                sector_size: SectorSize { value: 512, unit: "B".to_string() },
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
                                 unit: "MiB".to_string(),
                                 value: 512,
                             },
                             mount_options: vec![],
                             mountpoint: "/boot".to_string(),
                             start: Size {
-                                sector_size: SectorSize { value: 512, unit: "B".to_string() },
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
                                 unit: "MiB".to_string(),
                                 value: 1,
                             },
@@ -248,14 +254,20 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
                             fs_type: "ext4".to_string(),
                             obj_id: Uuid::new_v4().to_string(),
                             size: Size {
-                                sector_size: SectorSize { value: 512, unit: "B".to_string() },
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
                                 unit: "MiB".to_string(),
                                 value: 5120,
                             },
                             mount_options: vec![],
                             mountpoint: "/".to_string(),
                             start: Size {
-                                sector_size: SectorSize { value: 512, unit: "B".to_string() },
+                                sector_size: SectorSize {
+                                    value: 512,
+                                    unit: "B".to_string(),
+                                },
                                 unit: "MiB".to_string(),
                                 value: 513,
                             },
