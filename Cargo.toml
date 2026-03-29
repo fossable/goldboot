@@ -16,4 +16,4 @@ strum = { version = "0.28.0", features = ["derive"] }
 tracing = "0.1.40"
 zstd = "0.13.0"
 reqwest = "0.13.2"
-roniker = "0.2.0"
+roniker = { version = "0.2.0", path = "../roniker" }

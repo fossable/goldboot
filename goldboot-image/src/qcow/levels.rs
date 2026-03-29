@@ -13,17 +13,14 @@ impl L1Entry {
         self.0 & 0x00ff_ffff_ffff_fe00
     }
 
-    pub fn is_used(&self) -> bool {
-        self.0 & 0x8000_0000_0000_0000 != 0
-    }
-
     /// Reads the L2 table corresponding to this L1 entry from the given file
     pub fn read_l2(
         &self,
         reader: &mut (impl Read + Seek),
         cluster_bits: u32,
     ) -> Option<Vec<L2Entry>> {
-        if !self.is_used() {
+        // If there's no L2 table, then none of those clusters were allocated
+        if self.0 & 0x8000_0000_0000_0000 == 0 {
             return None;
         }
         reader.seek(SeekFrom::Start(self.l2_offset())).ok()?;
@@ -82,12 +79,10 @@ impl L2Entry {
         }
     }
 
-    /// Returns true if this entry refers to an allocated cluster with data.
-    /// This is distinct from `is_used` (the "copied" bit), which is false for
-    /// compressed clusters even when they contain data.
+    /// Whether this entry refers to an allocated cluster with data.
     pub fn is_allocated(&self) -> bool {
         match &self.cluster_descriptor {
-            ClusterDescriptor::Standard(c) => c.host_cluster_offset != 0 || c.all_zeroes,
+            ClusterDescriptor::Standard(c) => c.host_cluster_offset != 0 || (c.all_zeroes && self.is_used),
             ClusterDescriptor::Compressed(_) => true,
         }
     }
@@ -98,12 +93,14 @@ impl L2Entry {
         reader: &mut (impl Read + Seek),
         cluster_size: u64,
         comp_type: CompressionType,
-    ) -> std::io::Result<Vec<u8>> {
+    ) -> std::io::Result<Option<Vec<u8>>> {
         let mut buf = Vec::with_capacity(cluster_size as usize);
         match &self.cluster_descriptor {
             ClusterDescriptor::Standard(cluster) => {
-                if cluster.all_zeroes {
+                if cluster.all_zeroes && self.is_used {
                     buf.resize(cluster_size as usize, 0);
+                } else if cluster.host_cluster_offset == 0 {
+                    return Ok(None);
                 } else {
                     reader.seek(SeekFrom::Start(cluster.host_cluster_offset))?;
                     reader.take(cluster_size).read_to_end(&mut buf)?;
@@ -128,7 +125,7 @@ impl L2Entry {
             }
         }
 
-        Ok(buf)
+        Ok(Some(buf))
     }
 }
 

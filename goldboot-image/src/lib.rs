@@ -256,49 +256,48 @@ pub struct ProtectedHeader {
     /// The number of populated clusters in this image
     pub cluster_count: u32,
 
-    /// The compression algorithm used on clusters
+    /// Compression type used on clusters
     pub cluster_compression: ClusterCompressionType,
 
-    /// The encryption type for the digest table and all clusters
+    /// Encryption type for the digest table and all clusters
     pub cluster_encryption: ClusterEncryptionType,
 
-    /// The number of cluster nonces if encryption is enabled
-    pub nonce_count: u32,
-
-    /// A nonce for each cluster if encryption is enabled
-    #[br(count = nonce_count)]
+    /// Nonce values for each encrypted cluster
+    #[br(count = if cluster_encryption != ClusterEncryptionType::None { cluster_count } else { 0 })]
     pub nonce_table: Vec<[u8; 12]>,
 
-    /// The key for all clusters if encryption is enabled
+    /// Encryption key for all clusters
     pub cluster_key: [u8; 32],
 }
 
 #[derive(BinRead, BinWrite, Debug)]
 #[brw(big)]
 pub struct Directory {
-    /// Protected header nonce
+    /// Nonce value used to encrypt the protected header
     pub protected_nonce: [u8; 12],
 
-    /// The size of the protected header in bytes
+    /// Size of the protected header in bytes
     pub protected_size: u32,
 
-    /// The nonce value used to encrypt the digest table
+    /// Nonce value used to encrypt the digest table
     pub digest_table_nonce: [u8; 12],
 
-    /// The byte offset of the digest table
+    /// Byte offset of the digest table within the image
     pub digest_table_offset: u64,
 
-    /// The size of the digest table in bytes
+    /// Size of the digest table in bytes
     pub digest_table_size: u32,
 }
 
+/// Mapping of blocks to clusters within the image.
 #[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
 #[brw(big)]
 pub struct DigestTable {
-    /// The number of digests (and therefore the number of clusters)
+    /// Number of digests. This is the same as the number of blocks, but not necessarily
+    /// the same as the number of clusters.
     pub digest_count: u32,
 
-    /// A digest for each cluster
+    /// Entry for each block
     #[br(count = digest_count)]
     pub digest_table: Vec<DigestTableEntry>,
 }
@@ -310,10 +309,10 @@ pub struct DigestTableEntry {
     /// The cluster's offset in the image file
     pub cluster_offset: u64,
 
-    /// The block's offset in the real data
+    /// Byte offset into the data (blocks)
     pub block_offset: u64,
 
-    /// The SHA256 hash of the original block before compression and encryption
+    /// SHA256 hash of the block before compression and/or encryption were applied
     pub digest: [u8; 32],
 }
 
@@ -692,9 +691,10 @@ impl ImageHandle {
         };
 
         // Prepare protected header
+        let cluster_count = source.count_clusters()? as u32;
         let mut protected_header = ProtectedHeader {
             block_size: source.header.cluster_size() as u32,
-            cluster_count: source.count_clusters()? as u32,
+            cluster_count,
             cluster_compression: ClusterCompressionType::None, // TODO
             cluster_encryption: if password.is_some() {
                 ClusterEncryptionType::Aes256
@@ -702,16 +702,14 @@ impl ImageHandle {
                 ClusterEncryptionType::None
             },
             cluster_key: rng.random::<[u8; 32]>(),
-            nonce_count: 0,
-            nonce_table: vec![],
+            nonce_table: if password.is_some() {
+                (0..cluster_count)
+                    .map(|_| rng.random::<[u8; 12]>())
+                    .collect()
+            } else {
+                vec![]
+            },
         };
-
-        if password.is_some() {
-            protected_header.nonce_count = protected_header.cluster_count;
-            protected_header.nonce_table = (0..protected_header.cluster_count)
-                .map(|_| rng.random::<[u8; 12]>())
-                .collect();
-        }
 
         // Load the cluster cipher we just generated
         let cluster_cipher =
@@ -760,60 +758,80 @@ impl ImageHandle {
         for l1_entry in &source.l1_table {
             if let Some(l2_table) = l1_entry.read_l2(&mut source_file, source.header.cluster_bits) {
                 for l2_entry in l2_table {
-                    if l2_entry.is_allocated() {
+                    if let Some(contents) = l2_entry.read_contents(
+                        &mut source_file,
+                        source.header.cluster_size(),
+                        source.header.compression_type,
+                    )? {
                         // Start building the cluster
                         let mut cluster = Cluster {
-                            // The resulting size gets updated after we compress/encrypt
+                            // We don't know the final size until we compress/encrypt
                             size: 0,
-                            data: l2_entry.read_contents(
-                                &mut source_file,
-                                source.header.cluster_size(),
-                                source.header.compression_type,
-                            )?,
+                            data: contents,
                         };
 
-                        // TODO image size may exceed usize
-                        cluster
-                            .data
-                            .truncate((primary_header.size - block_offset) as usize);
+                        // Truncate the final cluster if the disk size is not cluster-aligned
+                        if block_offset + source.header.cluster_size() > primary_header.size {
+                            cluster
+                                .data
+                                .truncate((primary_header.size - block_offset) as usize);
+                        }
 
                         // Compute hash of the block which will be used when writing the block later
                         let digest = Sha256::new().chain_update(&cluster.data).finalize();
 
+                        // If the hash already exists, skip writing the cluster. TODO: faster data structure
+                        let mut existing_cluster_offset = None;
+                        for entry in digest_table.digest_table.iter() {
+                            if entry.digest == *digest {
+                                existing_cluster_offset = Some(entry.cluster_offset);
+                                break;
+                            }
+                        }
+
                         digest_table.digest_table.push(DigestTableEntry {
                             digest: digest.into(),
                             block_offset,
-                            cluster_offset,
+                            cluster_offset: existing_cluster_offset
+                                .unwrap_or_else(|| cluster_offset),
                         });
 
-                        // Perform compression
-                        cluster.data = match protected_header.cluster_compression {
-                            ClusterCompressionType::None => cluster.data,
-                            ClusterCompressionType::Zstd => {
-                                zstd::encode_all(std::io::Cursor::new(cluster.data), 0)?
-                            }
-                        };
+                        if existing_cluster_offset.is_none() {
+                            // Perform compression
+                            cluster.data = match protected_header.cluster_compression {
+                                ClusterCompressionType::None => cluster.data,
+                                ClusterCompressionType::Zstd => {
+                                    zstd::encode_all(std::io::Cursor::new(cluster.data), 0)?
+                                }
+                            };
 
-                        // Perform encryption
-                        cluster.data = match protected_header.cluster_encryption {
-                            ClusterEncryptionType::None => cluster.data,
-                            ClusterEncryptionType::Aes256 => cluster_cipher
-                                .encrypt(
-                                    Nonce::from_slice(&protected_header.nonce_table[cluster_count]),
-                                    cluster.data.as_ref(),
-                                )
-                                .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
-                        };
+                            // Perform encryption
+                            cluster.data = match protected_header.cluster_encryption {
+                                ClusterEncryptionType::None => cluster.data,
+                                ClusterEncryptionType::Aes256 => cluster_cipher
+                                    .encrypt(
+                                        Nonce::from_slice(
+                                            &protected_header.nonce_table[cluster_count],
+                                        ),
+                                        cluster.data.as_ref(),
+                                    )
+                                    .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
+                            };
 
-                        cluster.size = cluster.data.len() as u32;
+                            cluster.size = cluster.data.len() as u32;
 
-                        // Write the cluster
-                        trace!(
-                            cluster_size = cluster.size,
-                            cluster_offset = cluster_offset,
-                            "Recording cluster",
-                        );
-                        cluster.write(&mut dest_file)?;
+                            // Write the cluster
+                            trace!(
+                                cluster_size = cluster.size,
+                                cluster_offset = cluster_offset,
+                                "Recording cluster",
+                            );
+                            cluster.write(&mut dest_file)?;
+                        } else {
+                            // Discount a cluster and nonce because we didn't write one
+                            protected_header.cluster_count -= 1;
+                            protected_header.nonce_table.pop();
+                        }
 
                         // Advance offset
                         cluster_offset += 4; // size

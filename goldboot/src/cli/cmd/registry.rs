@@ -55,7 +55,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
-                let url = format!("https://{host}/images/{name}/tags/{tag}");
+                let scheme = std::env::var("GOLDBOOT_REGISTRY_SCHEME")
+                    .unwrap_or_else(|_| "https".to_string());
+                let url = format!("{scheme}://{host}/images/{name}/tags/{tag}");
                 info!("Pulling {reference} from {url}");
 
                 let library = ImageLibrary::open();
@@ -144,7 +146,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
-                let url = format!("https://{host}/images/{name}/tags/{tag}");
+                let scheme = std::env::var("GOLDBOOT_REGISTRY_SCHEME")
+                    .unwrap_or_else(|_| "https".to_string());
+                let url = format!("{scheme}://{host}/images/{name}/tags/{tag}");
                 info!("Pushing {} to {url}", image.path.display());
 
                 let file_len = match std::fs::metadata(&image.path) {
@@ -162,12 +166,22 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
+                use crate::cli::progress::{ProgressBar, ProgressReader, show_progress};
+                let progress_file = if show_progress() {
+                    let bar = ProgressBar::Upload.bar(file_len);
+                    let reader: Box<dyn std::io::Read + Send + 'static> =
+                        Box::new(ProgressReader::new(file, bar));
+                    reader
+                } else {
+                    Box::new(file)
+                };
+
                 let client = reqwest::blocking::Client::new();
                 let response = match client
                     .put(&url)
                     .header("Authorization", format!("Bearer {token}"))
                     .header("Content-Length", file_len)
-                    .body(reqwest::blocking::Body::sized(file, file_len))
+                    .body(reqwest::blocking::Body::sized(progress_file, file_len))
                     .send()
                 {
                     Ok(r) => r,

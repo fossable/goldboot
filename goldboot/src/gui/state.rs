@@ -166,6 +166,7 @@ pub struct AppState {
     pub registry_address: String,
     pub registry_password: String,
     pub show_registry_dialog: bool,
+    pub registry_login_error: Option<String>,
 
     // Image writing progress (shared with write thread)
     pub write_progress: Option<Arc<Mutex<WriteProgress>>>,
@@ -197,6 +198,7 @@ impl AppState {
             registry_address: String::new(),
             registry_password: String::new(),
             show_registry_dialog: false,
+            registry_login_error: None,
             write_progress: None,
         }
     }

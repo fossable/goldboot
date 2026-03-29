@@ -5,6 +5,7 @@ use goldboot_image::ImageArch;
 use serde::{Serialize, ser::Serializer};
 
 pub mod alpine_linux;
+pub mod tiny_core;
 pub mod arch_linux;
 pub mod debian;
 // pub mod goldboot;

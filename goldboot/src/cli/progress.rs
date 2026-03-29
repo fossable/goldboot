@@ -17,6 +17,9 @@ pub enum ProgressBar {
     /// A download operation
     Download,
 
+    /// An upload operation
+    Upload,
+
     /// An image write operation
     Write,
 }
@@ -42,6 +45,12 @@ impl ProgressBar {
                 progress.enable_steady_tick(Duration::from_millis(50));
                 progress
             }
+            ProgressBar::Upload => {
+                let progress = indicatif::ProgressBar::new(len);
+                progress.set_style(indicatif::ProgressStyle::default_bar().template("{spinner:.magenta} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").unwrap().progress_chars("=>-"));
+                progress.enable_steady_tick(Duration::from_millis(50));
+                progress
+            }
             ProgressBar::Write => {
                 let progress = indicatif::ProgressBar::new(len);
                 progress.set_style(indicatif::ProgressStyle::default_bar().template("{spinner:.red} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").unwrap().progress_chars("=>-"));
@@ -49,6 +58,11 @@ impl ProgressBar {
                 progress
             }
         }
+    }
+
+    /// Create and return the raw `indicatif::ProgressBar` for use with `ProgressReader`.
+    pub fn bar(&self, len: u64) -> indicatif::ProgressBar {
+        self.create_progressbar(len)
     }
 
     pub fn new(&self, len: u64) -> Box<dyn Fn(u64)> {
@@ -197,7 +211,31 @@ impl ProgressBar {
         Ok(())
     }
 }
-fn show_progress() -> bool {
+/// A `Read` wrapper that advances an indicatif progress bar as bytes are read.
+/// Used to show upload progress when streaming a file to `reqwest`.
+pub struct ProgressReader<R: Read> {
+    inner: R,
+    progress: indicatif::ProgressBar,
+}
+
+impl<R: Read> ProgressReader<R> {
+    pub fn new(inner: R, bar: indicatif::ProgressBar) -> Self {
+        Self {
+            inner,
+            progress: bar,
+        }
+    }
+}
+
+impl<R: Read> Read for ProgressReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.progress.inc(n as u64);
+        Ok(n)
+    }
+}
+
+pub fn show_progress() -> bool {
     std::io::stdout().is_terminal() && !std::env::var("CI").is_ok()
 }
 

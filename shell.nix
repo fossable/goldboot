@@ -5,7 +5,7 @@ with pkgs;
 
 mkShell rec {
   nativeBuildInputs = [ pkg-config cargo rustc rust-analyzer rustfmt clippy ];
-  buildInputs = [ cmake libclang openssl udev wayland libxkbcommon libGL ];
+  buildInputs = [ cmake libclang openssl udev wayland libxkbcommon libGL qemu ];
   LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
 }
 

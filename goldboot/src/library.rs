@@ -44,7 +44,9 @@ pub struct ImageLibrary {
 
 impl ImageLibrary {
     pub fn open() -> Self {
-        let directory = if cfg!(target_os = "linux") {
+        let directory = if let Ok(dir) = std::env::var("GOLDBOOT_IMAGE_DIR") {
+            PathBuf::from(dir)
+        } else if cfg!(target_os = "linux") {
             PathBuf::from("/var/lib/goldboot/images")
         } else if cfg!(target_os = "macos") {
             PathBuf::from("/var/lib/goldboot/images")

@@ -110,6 +110,9 @@ pub enum VncCmd {
 
     /// Wait for a subsection of the screen to match the given hash.
     WaitScreenRect(String, u16, u16, u16, u16),
+
+    /// Wait for text matching the given regex to appear on screen.
+    WaitText(String),
 }
 
 /// Represents a VNC session to a running VM.
@@ -119,6 +122,7 @@ pub struct VncConnection {
     pub vnc: vnc::Client,
     pub record: bool,
     pub debug: bool,
+    ocr_engine: ocrs::OcrEngine,
 }
 
 impl VncConnection {
@@ -148,12 +152,27 @@ impl VncConnection {
 
         debug!("Connected to VNC ({} x {})", width, height);
 
+        let detection_model = rten::Model::load_static_slice(include_bytes!(concat!(
+            env!("OUT_DIR"),
+            "/text-detection.rten"
+        )))?;
+        let recognition_model = rten::Model::load_static_slice(include_bytes!(concat!(
+            env!("OUT_DIR"),
+            "/text-recognition.rten"
+        )))?;
+        let ocr_engine = ocrs::OcrEngine::new(ocrs::OcrEngineParams {
+            detection_model: Some(detection_model),
+            recognition_model: Some(recognition_model),
+            ..Default::default()
+        })?;
+
         Ok(Self {
             width,
             height,
             vnc,
             record,
             debug,
+            ocr_engine,
         })
     }
 
@@ -373,6 +392,34 @@ impl VncConnection {
                         self.vnc.send_key_event(true, 0xff1b)?;
                         self.vnc.send_key_event(false, 0xff1b)?;
                     }
+                    VncCmd::WaitText(pattern) => {
+                        let re = regex::Regex::new(&pattern)?;
+                        debug!("Waiting for text matching: {}", &pattern);
+
+                        let mut total_count = 0u64;
+                        loop {
+                            total_count += 1;
+                            std::thread::sleep(Duration::from_millis(
+                                rand::rng().random_range(500..1000),
+                            ));
+
+                            let screenshot = self.screenshot()?;
+                            let input = self.ocr_engine.prepare_input(
+                                ocrs::ImageSource::from_bytes(
+                                    &screenshot.data,
+                                    (screenshot.width as u32, screenshot.height as u32),
+                                )?,
+                            )?;
+                            let text = self.ocr_engine.get_text(&input)?;
+                            trace!(total_count, "OCR text: {}", &text);
+
+                            if re.is_match(&text) {
+                                debug!(total_count, "Finished text wait");
+                                std::thread::sleep(Duration::from_secs(1));
+                                break;
+                            }
+                        }
+                    }
                 }
                 if self.record {
                     self.screenshot()?
@@ -499,6 +546,14 @@ pub mod macros {
                 crate::builder::vnc::VncCmd::LeftSuper,
                 crate::builder::vnc::VncCmd::Wait(2),
             ]
+        };
+    }
+
+    /// Wait for text matching the given regex to appear on screen via OCR.
+    #[macro_export]
+    macro_rules! wait_text {
+        ($pattern:expr) => {
+            vec![crate::builder::vnc::VncCmd::WaitText($pattern.to_string())]
         };
     }
 }

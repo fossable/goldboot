@@ -88,7 +88,7 @@ pub fn main() -> ExitCode {
 
             tokio::runtime::Runtime::new()
                 .unwrap()
-                .block_on(roniker::serve(rust_analyzer));
+                .block_on(roniker::serve(rust_analyzer, true));
             return ExitCode::FAILURE;
         }
         None => {
