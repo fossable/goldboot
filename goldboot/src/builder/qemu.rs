@@ -8,7 +8,7 @@ use rand::Rng;
 use std::{
     collections::HashMap,
     fs::OpenOptions,
-    io::{BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Write},
     os::unix::net::UnixStream,
     path::PathBuf,
     process::{Child, Command},
@@ -589,11 +589,30 @@ impl QemuBuilder {
         .args(cmdline.iter())
         .spawn()?;
 
-        // Connect to VNC immediately
+        // Connect to VNC repeatedly because the VM could reboot during the build
         let vnc = loop {
             match VncConnection::new("localhost", self.vnc_port, self.record, self.debug) {
                 Ok(vnc) => break Ok(vnc),
-                Err(_) => {
+                Err(e) => {
+                    // Only retry on connection-level IO errors (refused/reset/timed out);
+                    // propagate all other errors immediately.
+                    let retriable = e
+                        .downcast_ref::<io::Error>()
+                        .map(|io_err| {
+                            matches!(
+                                io_err.kind(),
+                                io::ErrorKind::ConnectionRefused
+                                    | io::ErrorKind::ConnectionReset
+                                    | io::ErrorKind::TimedOut
+                                    | io::ErrorKind::NotConnected
+                            )
+                        })
+                        .unwrap_or(false);
+
+                    if !retriable {
+                        break Err(e);
+                    }
+
                     // Check process
                     match process.try_wait() {
                         Ok(Some(_)) => {
@@ -603,7 +622,7 @@ impl QemuBuilder {
                             // Wait before trying again
                             std::thread::sleep(Duration::from_secs(5));
                         }
-                        Err(e) => break Err(e),
+                        Err(e) => break Err(e.into()),
                     }
                 }
             }

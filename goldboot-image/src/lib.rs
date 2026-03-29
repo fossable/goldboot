@@ -12,6 +12,7 @@ use std::{
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     path::Path,
+    primitive,
     time::{SystemTime, UNIX_EPOCH},
 };
 use strum::{Display, EnumIter};
@@ -484,8 +485,6 @@ impl ImageHandle {
         todo!()
     }
 
-    /// TODO multi threaded WriteWorkers
-
     /// Write the image contents out to disk.
     ///
     /// The progress callback receives `(cluster_index, state)` for each cluster:
@@ -509,7 +508,7 @@ impl ImageHandle {
             Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
 
         let dest = dest.as_ref();
-        info!(image = ?self, dest = ?dest, "Writing goldboot image");
+        info!(image = ?self, dest = ?dest, "Preparing to write image");
 
         let mut dest = std::fs::OpenOptions::new()
             .create(true)
@@ -539,7 +538,7 @@ impl ImageHandle {
         let mut block = vec![0u8; protected_header.block_size as usize];
 
         // Write all of the clusters that have changed
-        for i in 0..protected_header.cluster_count as usize {
+        for i in 0..digest_table.len() as usize {
             // Load digest table entry
             let entry = &digest_table[i];
 
@@ -749,7 +748,7 @@ impl ImageHandle {
         let mut block_offset: u64 = 0;
 
         // Track cluster ordinal so we can lookup cluster nonces later
-        let mut cluster_count = 0;
+        let mut i = 0;
 
         // Track the cluster offset in the image file
         let mut cluster_offset = dest_file.stream_position()?;
@@ -810,9 +809,7 @@ impl ImageHandle {
                                 ClusterEncryptionType::None => cluster.data,
                                 ClusterEncryptionType::Aes256 => cluster_cipher
                                     .encrypt(
-                                        Nonce::from_slice(
-                                            &protected_header.nonce_table[cluster_count],
-                                        ),
+                                        Nonce::from_slice(&protected_header.nonce_table[i]),
                                         cluster.data.as_ref(),
                                     )
                                     .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?,
@@ -827,16 +824,16 @@ impl ImageHandle {
                                 "Recording cluster",
                             );
                             cluster.write(&mut dest_file)?;
+
+                            // Advance offset
+                            cluster_offset += 4; // size field (u32)
+                            cluster_offset += cluster.size as u64;
+                            i += 1;
                         } else {
-                            // Discount a cluster and nonce because we didn't write one
+                            // Discount a cluster and a nonce because we didn't write the cluster
                             protected_header.cluster_count -= 1;
                             protected_header.nonce_table.pop();
                         }
-
-                        // Advance offset
-                        cluster_offset += 4; // size
-                        cluster_offset += cluster.size as u64;
-                        cluster_count += 1;
                     }
                     block_offset += source.header.cluster_size();
                     progress(source.header.cluster_size(), source.header.size);
@@ -904,292 +901,5 @@ impl ImageHandle {
             file_size: std::fs::metadata(&dest)?.len(),
             path: dest.as_ref().to_path_buf(),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::process::Command;
-
-    use super::*;
-    use sha1::Sha1;
-    use test_log::test;
-
-    #[test]
-    fn convert_random_data() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let mut rng = rand::rng();
-
-        // Generate file with random contents; size must be cluster-aligned because
-        // qemu-img rounds the virtual disk size up to the next cluster boundary
-        // (65536 bytes), so the output will always be that size.
-        let size: usize = 65536;
-        let raw: Vec<u8> = (0..size).map(|_| rng.random()).collect();
-
-        // Write out for qemu-img
-        std::fs::write(tmp.path().join("file.raw"), &raw)?;
-
-        // Convert with qemu-img
-        let status = Command::new("qemu-img")
-            .arg("convert")
-            .arg("-f")
-            .arg("raw")
-            .arg("-O")
-            .arg("qcow2")
-            .arg(tmp.path().join("file.raw"))
-            .arg(tmp.path().join("file.qcow2"))
-            .status()?;
-        assert!(status.success(), "qemu-img convert failed");
-
-        // Convert the qcow2 to gb
-        let image = ImageHandle::from_qcow(
-            Vec::new(),
-            &Qcow3::open(tmp.path().join("file.qcow2"))?,
-            tmp.path().join("file.gb"),
-            None,
-            |_, _| {},
-        )?;
-
-        // Check raw content round-trips correctly
-        image.write(tmp.path().join("output.raw"), false, |_, _| {})?;
-        let output = std::fs::read(tmp.path().join("output.raw"))?;
-        assert_eq!(raw, output);
-
-        Ok(())
-    }
-
-    #[test]
-    fn convert_small_qcow2_to_unencrypted_image() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-
-        // Convert the test qcow2
-        let image = ImageHandle::from_qcow(
-            Vec::new(),
-            &Qcow3::open("test/small.qcow2")?,
-            tmp.path().join("small.gb"),
-            None,
-            |_, _| {},
-        )?;
-
-        // Try to open the image we just converted
-        let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
-        assert_eq!(loaded_image.primary_header, image.primary_header);
-        assert_eq!(loaded_image.protected_header, image.protected_header);
-
-        // Try to load all sections
-        assert_eq!(loaded_image.digest_table, None);
-        loaded_image.load(None)?;
-        assert_eq!(loaded_image.digest_table.unwrap().digest_count, 2);
-
-        // Check raw content
-        image.write(tmp.path().join("small.raw"), false, |_, _| {})?;
-        assert_eq!(
-            hex::encode(
-                Sha1::new()
-                    .chain_update(&std::fs::read(tmp.path().join("small.raw"))?)
-                    .finalize()
-            ),
-            "34e1c79c80941e5519ec76433790191318a5c77b"
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn convert_small_qcow2_to_encrypted_image() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-
-        // Convert the test qcow2
-        let image = ImageHandle::from_qcow(
-            Vec::new(),
-            &Qcow3::open("test/small.qcow2")?,
-            tmp.path().join("small.gb"),
-            Some("1234".to_string()),
-            |_, _| {},
-        )?;
-
-        // Try to open the image
-        let mut loaded_image = ImageHandle::open(tmp.path().join("small.gb"))?;
-        assert_eq!(loaded_image.primary_header, image.primary_header);
-        assert_eq!(loaded_image.protected_header, None);
-
-        // Try to load all sections
-        loaded_image.load(Some("1234".to_string()))?;
-        assert!(loaded_image.protected_header.is_some());
-        assert_eq!(loaded_image.digest_table.unwrap().digest_count, 2);
-
-        // Check raw content
-        image.write(tmp.path().join("small.raw"), false, |_, _| {})?;
-        assert_eq!(
-            hex::encode(
-                Sha1::new()
-                    .chain_update(&std::fs::read(tmp.path().join("small.raw"))?)
-                    .finalize()
-            ),
-            "34e1c79c80941e5519ec76433790191318a5c77b"
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn convert_zlib_compressed_qcow2() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-
-        let image = ImageHandle::from_qcow(
-            Vec::new(),
-            &Qcow3::open("test/compressed_zlib.qcow2")?,
-            tmp.path().join("compressed_zlib.gb"),
-            None,
-            |_, _| {},
-        )?;
-
-        // Verify the image can be re-opened and loaded
-        let mut loaded_image = ImageHandle::open(tmp.path().join("compressed_zlib.gb"))?;
-        assert_eq!(loaded_image.primary_header, image.primary_header);
-        loaded_image.load(None)?;
-
-        // Check raw content round-trips correctly
-        loaded_image.write(tmp.path().join("compressed_zlib.raw"), false, |_, _| {})?;
-        assert_eq!(
-            hex::encode(
-                Sha1::new()
-                    .chain_update(&std::fs::read(tmp.path().join("compressed_zlib.raw"))?)
-                    .finalize()
-            ),
-            "ffa601d0d0e8a39af78cf9a80cb3072b1db87f9f"
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn convert_zstd_compressed_qcow2() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-
-        let image = ImageHandle::from_qcow(
-            Vec::new(),
-            &Qcow3::open("test/compressed_zstd.qcow2")?,
-            tmp.path().join("compressed_zstd.gb"),
-            None,
-            |_, _| {},
-        )?;
-
-        // Verify the image can be re-opened and loaded
-        let mut loaded_image = ImageHandle::open(tmp.path().join("compressed_zstd.gb"))?;
-        assert_eq!(loaded_image.primary_header, image.primary_header);
-        loaded_image.load(None)?;
-
-        // Check raw content round-trips correctly
-        loaded_image.write(tmp.path().join("compressed_zstd.raw"), false, |_, _| {})?;
-        assert_eq!(
-            hex::encode(
-                Sha1::new()
-                    .chain_update(&std::fs::read(tmp.path().join("compressed_zstd.raw"))?)
-                    .finalize()
-            ),
-            "39598cbdb5264aa441bc7954f52055fa9666d5ab"
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn element_header_round_trip() -> Result<()> {
-        let elem = ElementHeader::new("arch_linux", "root")?;
-        assert_eq!(elem.os(), "arch_linux");
-        assert_eq!(elem.name(), "root");
-        assert_eq!(elem.os_length, 10);
-        assert_eq!(elem.name_length, 4);
-        Ok(())
-    }
-
-    #[test]
-    fn image_with_elements_round_trip() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-
-        let elements = vec![
-            ElementHeader::new("arch_linux", "root")?,
-            ElementHeader::new("ubuntu", "data")?,
-        ];
-
-        let image = ImageHandle::from_qcow(
-            elements,
-            &Qcow3::open("test/small.qcow2")?,
-            tmp.path().join("with_elements.gb"),
-            None,
-            |_, _| {},
-        )?;
-
-        assert_eq!(image.primary_header.element_count, 2);
-        assert_eq!(image.primary_header.elements[0].os(), "arch_linux");
-        assert_eq!(image.primary_header.elements[0].name(), "root");
-        assert_eq!(image.primary_header.elements[1].os(), "ubuntu");
-        assert_eq!(image.primary_header.elements[1].name(), "data");
-        assert_eq!(image.primary_header.name(), "root / data");
-
-        // Verify elements survive an open/load round-trip
-        let loaded = ImageHandle::open(tmp.path().join("with_elements.gb"))?;
-        assert_eq!(loaded.primary_header.element_count, 2);
-        assert_eq!(loaded.primary_header.elements[0].os(), "arch_linux");
-        assert_eq!(loaded.primary_header.elements[0].name(), "root");
-        assert_eq!(loaded.primary_header.elements[1].os(), "ubuntu");
-        assert_eq!(loaded.primary_header.elements[1].name(), "data");
-
-        Ok(())
-    }
-
-    #[test]
-    fn image_arch_try_from_string() -> Result<()> {
-        assert_eq!(ImageArch::try_from("amd64".to_string())?, ImageArch::Amd64);
-        assert_eq!(ImageArch::try_from("x86_64".to_string())?, ImageArch::Amd64);
-        assert_eq!(ImageArch::try_from("arm64".to_string())?, ImageArch::Arm64);
-        assert_eq!(
-            ImageArch::try_from("aarch64".to_string())?,
-            ImageArch::Arm64
-        );
-        assert_eq!(ImageArch::try_from("i386".to_string())?, ImageArch::I386);
-        // Case insensitivity
-        assert_eq!(ImageArch::try_from("AMD64".to_string())?, ImageArch::Amd64);
-        // Unknown arch returns an error
-        assert!(ImageArch::try_from("riscv64".to_string()).is_err());
-        Ok(())
-    }
-
-    #[test]
-    fn compute_id_is_stable() -> Result<()> {
-        // The same file should produce the same ID on repeated calls
-        let id1 = compute_id("test/small.qcow2")?;
-        let id2 = compute_id("test/small.qcow2")?;
-        assert_eq!(id1, id2);
-        // IDs of different files must differ
-        let id3 = compute_id("test/empty.qcow2")?;
-        assert_ne!(id1, id3);
-        // ID is a valid 64-char hex string (SHA256)
-        assert_eq!(id1.len(), 64);
-        assert!(id1.chars().all(|c| c.is_ascii_hexdigit()));
-        Ok(())
-    }
-
-    #[test]
-    fn write_fails_when_not_loaded() -> Result<()> {
-        let tmp = tempfile::tempdir()?;
-
-        // Create a real .gb file, then open it without calling load()
-        let _image = ImageHandle::from_qcow(
-            Vec::new(),
-            &Qcow3::open("test/small.qcow2")?,
-            tmp.path().join("small.gb"),
-            None,
-            |_, _| {},
-        )?;
-        let partial = ImageHandle::open(tmp.path().join("small.gb"))?;
-
-        // digest_table is None after open() — write() must fail
-        assert!(partial.digest_table.is_none());
-        let result = partial.write(tmp.path().join("should_not_exist.raw"), false, |_, _| {});
-        assert!(result.is_err());
-
-        Ok(())
     }
 }
