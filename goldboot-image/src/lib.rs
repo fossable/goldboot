@@ -248,7 +248,7 @@ impl PrimaryHeader {
 }
 
 /// Contains metadata which may be encrypted.
-#[derive(BinRead, BinWrite, Debug, Eq, PartialEq, Clone)]
+#[derive(BinRead, BinWrite, Eq, PartialEq, Clone)]
 #[brw(big)]
 pub struct ProtectedHeader {
     /// The size in bytes of each disk block
@@ -269,6 +269,17 @@ pub struct ProtectedHeader {
 
     /// Encryption key for all clusters
     pub cluster_key: [u8; 32],
+}
+
+impl std::fmt::Debug for ProtectedHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProtectedHeader")
+            .field("block_size", &self.block_size)
+            .field("cluster_count", &self.cluster_count)
+            .field("cluster_compression", &self.cluster_compression)
+            .field("cluster_encryption", &self.cluster_encryption)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(BinRead, BinWrite, Debug)]

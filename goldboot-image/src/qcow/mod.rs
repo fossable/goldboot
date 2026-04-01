@@ -17,6 +17,9 @@ use levels::*;
 pub mod snapshot;
 use snapshot::Snapshot;
 
+pub mod reader;
+pub use reader::Qcow3Reader;
+
 /// Represents a (stripped down) qcow3 file on disk.
 #[derive(BinRead, Debug)]
 #[brw(big)]
@@ -82,11 +85,10 @@ impl Qcow3 {
     /// Count the number of allocated clusters.
     pub fn count_clusters(&self) -> Result<u64> {
         let mut count = 0;
+        let mut file = File::open(&self.path)?;
 
         for l1_entry in &self.l1_table {
-            if let Some(l2_table) =
-                l1_entry.read_l2(&mut File::open(&self.path)?, self.header.cluster_bits)
-            {
+            if let Some(l2_table) = l1_entry.read_l2(&mut file, self.header.cluster_bits) {
                 for l2_entry in l2_table {
                     if l2_entry.is_allocated() {
                         count += 1;
@@ -95,6 +97,15 @@ impl Qcow3 {
             }
         }
         Ok(count)
+    }
+
+    /// Open a streaming reader over the virtual disk contents.
+    pub fn reader(&self) -> std::io::Result<Qcow3Reader<'_>> {
+        Ok(Qcow3Reader {
+            qcow: self,
+            file: File::open(&self.path)?,
+            pos: 0,
+        })
     }
 
     /// Find a snapshot by its unique ID string (e.g. "1").
@@ -171,6 +182,91 @@ mod tests {
         // small.qcow2 has 2 allocated standard clusters
         let qcow = Qcow3::open("test/small.qcow2")?;
         assert_eq!(qcow.count_clusters()?, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn count_clusters_sparse() -> Result<()> {
+        // sparse.qcow2: cluster 0 and cluster 2 allocated, cluster 1 unallocated
+        let qcow = Qcow3::open("test/sparse.qcow2")?;
+        assert_eq!(qcow.count_clusters()?, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn count_clusters_l1_sparse() -> Result<()> {
+        // l1_refcount.qcow2: 2 GiB virtual, one cluster at 1 GiB (l1[2]),
+        // l1[0] and l1[1] are empty — exercises multi-L1-entry traversal
+        let qcow = Qcow3::open("test/l1_refcount.qcow2")?;
+        assert_eq!(qcow.count_clusters()?, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn read_l1_sparse_matches_qemu_img_dd() -> Result<()> {
+        let qcow = Qcow3::open("test/l1_refcount.qcow2")?;
+
+        let mut rust_output = Vec::new();
+        std::io::Read::read_to_end(&mut qcow.reader()?, &mut rust_output)?;
+
+        let tmp = tempfile::NamedTempFile::new()?;
+        let status = Command::new("qemu-img")
+            .args([
+                "dd",
+                "if=test/l1_refcount.qcow2",
+                &format!("of={}", tmp.path().display()),
+            ])
+            .status()?;
+        assert!(status.success(), "qemu-img dd failed");
+        let qemu_output = std::fs::read(tmp.path())?;
+
+        assert_eq!(rust_output, qemu_output);
+        Ok(())
+    }
+
+    #[test]
+    fn read_matches_qemu_img_dd() -> Result<()> {
+        let qcow = Qcow3::open("test/small.qcow2")?;
+
+        let mut rust_output = Vec::new();
+        std::io::Read::read_to_end(&mut qcow.reader()?, &mut rust_output)?;
+
+        let tmp = tempfile::NamedTempFile::new()?;
+        let status = Command::new("qemu-img")
+            .args([
+                "dd",
+                "if=test/small.qcow2",
+                &format!("of={}", tmp.path().display()),
+            ])
+            .status()?;
+        assert!(status.success(), "qemu-img dd failed");
+        let qemu_output = std::fs::read(tmp.path())?;
+
+        assert_eq!(rust_output, qemu_output);
+        Ok(())
+    }
+
+    #[test]
+    fn read_sparse_matches_qemu_img_dd() -> Result<()> {
+        // sparse.qcow2 has clusters 0 and 2 allocated; cluster 1 is unallocated
+        // and must be read back as zeros.
+        let qcow = Qcow3::open("test/sparse.qcow2")?;
+
+        let mut rust_output = Vec::new();
+        std::io::Read::read_to_end(&mut qcow.reader()?, &mut rust_output)?;
+
+        let tmp = tempfile::NamedTempFile::new()?;
+        let status = Command::new("qemu-img")
+            .args([
+                "dd",
+                "if=test/sparse.qcow2",
+                &format!("of={}", tmp.path().display()),
+            ])
+            .status()?;
+        assert!(status.success(), "qemu-img dd failed");
+        let qemu_output = std::fs::read(tmp.path())?;
+
+        assert_eq!(rust_output, qemu_output);
         Ok(())
     }
 

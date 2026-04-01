@@ -19,8 +19,8 @@ impl L1Entry {
         reader: &mut (impl Read + Seek),
         cluster_bits: u32,
     ) -> Option<Vec<L2Entry>> {
-        // If there's no L2 table, then none of those clusters were allocated
-        if self.0 & 0x8000_0000_0000_0000 == 0 {
+        // An L1 entry has a valid L2 table if the offset field is non-zero
+        if self.l2_offset() == 0 {
             return None;
         }
         reader.seek(SeekFrom::Start(self.l2_offset())).ok()?;
@@ -82,7 +82,9 @@ impl L2Entry {
     /// Whether this entry refers to an allocated cluster with data.
     pub fn is_allocated(&self) -> bool {
         match &self.cluster_descriptor {
-            ClusterDescriptor::Standard(c) => c.host_cluster_offset != 0 || (c.all_zeroes && self.is_used),
+            ClusterDescriptor::Standard(c) => {
+                c.host_cluster_offset != 0 || (c.all_zeroes && self.is_used)
+            }
             ClusterDescriptor::Compressed(_) => true,
         }
     }

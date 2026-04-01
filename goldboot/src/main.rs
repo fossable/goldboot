@@ -76,6 +76,9 @@ pub fn main() -> ExitCode {
         Some(Commands::Deploy { .. }) => {
             goldboot::cli::cmd::deploy::run(command_line.command.unwrap())
         }
+        Some(Commands::Drift { .. }) => {
+            goldboot::cli::cmd::drift::run(command_line.command.unwrap())
+        }
         Some(Commands::Install { .. }) => {
             goldboot::cli::cmd::install::run(command_line.command.unwrap())
         }

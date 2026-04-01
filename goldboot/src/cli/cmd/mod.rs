@@ -8,6 +8,7 @@ pub mod image;
 pub mod init;
 pub mod install;
 pub mod registry;
+pub mod drift;
 
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum Commands {
@@ -42,7 +43,7 @@ pub enum Commands {
         #[clap(long, num_args = 0)]
         clean: bool,
 
-        /// The context directory containing goldboot.ron
+        /// Context directory containing goldboot.ron
         #[clap(index = 1)]
         path: String,
         // The image will be run as a virtual machine for testing
@@ -58,17 +59,28 @@ pub enum Commands {
 
     /// Write images to storage
     Deploy {
-        /// The ID or path of the image to write
+        /// ID of the image to write
         #[clap(index = 1)]
         image: String,
 
-        /// The output destination
+        /// Output destination path
         #[clap(long)]
         output: String,
 
         /// Do not prompt for confirmation (be extremely careful with this)
         #[clap(long, num_args = 0)]
         confirm: bool,
+    },
+
+    /// Check how much a device has drifted from an image
+    Drift {
+        /// ID of the image to compare against
+        #[clap(index = 1)]
+        image: String,
+
+        /// Device or file path to check
+        #[clap(long)]
+        input: String,
     },
 
     /// Initialize the current directory as a new goldboot project
