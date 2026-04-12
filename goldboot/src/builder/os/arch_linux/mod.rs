@@ -15,7 +15,7 @@ use crate::builder::os::arch_linux::archinstall::ArchinstallCredentials;
 use crate::builder::qemu::{OsCategory, QemuBuilder};
 use crate::cli::prompt::Prompt;
 use crate::wait;
-use crate::{builder::Builder, wait_screen_rect};
+use crate::{builder::Builder, wait_text};
 use anyhow::Result;
 use anyhow::bail;
 use goldboot_image::ImageArch;
@@ -118,7 +118,6 @@ pub struct ArchLinux {
     /// Fields in the user-provided config take precedence over goldboot's defaults.
     pub archinstall_config: Option<ArchLinuxConfigPath>,
 
-    // TODO don't allow because screen_rect will be wrong?
     #[serde(default = "default_iso")]
     #[default(_code = "default_iso()")]
     pub iso: Iso,
@@ -159,7 +158,7 @@ impl BuildImage for ArchLinux {
     			// Initial wait
     			wait!(30),
     			// Wait for login
-    			wait_screen_rect!("3a23a076fb40333a3a59c2ccb45f212e453e519d", 100, 0, 1024, 400),
+    			wait_text!("root.archiso"),
     		])?;
 
             qemu.install_ssh()?;

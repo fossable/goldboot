@@ -11,10 +11,36 @@ use tracing::{debug, info, trace};
 use vnc::client::Event;
 
 /// A rectangular snapshot of the entire screen or an arbitrary subsection.
+/// Data is stored as 32bpp BGRX (blue, green, red, padding byte).
 pub struct VncScreenshot {
     pub data: Vec<u8>,
     pub width: u16,
     pub height: u16,
+}
+
+impl VncScreenshot {
+    /// Convert the 32bpp BGRX framebuffer to a packed RGB byte slice.
+    pub fn to_rgb(&self) -> Vec<u8> {
+        self.data
+            .chunks_exact(4)
+            .flat_map(|p| [p[2], p[1], p[0]])
+            .collect()
+    }
+
+    /// Convert BGRX framebuffer to greyscale-as-RGB, inverted (dark text on white).
+    /// OCR models expect dark text on a light background.
+    pub fn to_ocr_rgb(&self) -> Vec<u8> {
+        self.data
+            .chunks_exact(4)
+            .flat_map(|p| {
+                // ITU BT.601 luminance from BGR
+                let luma = (0.299 * p[2] as f32 + 0.587 * p[1] as f32 + 0.114 * p[0] as f32)
+                    as u8;
+                let inv = 255 - luma;
+                [inv, inv, inv]
+            })
+            .collect()
+    }
 }
 
 impl VncScreenshot {
@@ -29,10 +55,10 @@ impl VncScreenshot {
         let ref mut w = BufWriter::new(File::create(output_path)?);
 
         let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
-        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_color(png::ColorType::Rgb);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().unwrap();
-        writer.write_image_data(&self.data).unwrap();
+        writer.write_image_data(&self.to_rgb()).unwrap();
 
         debug!(
             "Saved screenshot to: {:?}",
@@ -62,16 +88,17 @@ impl VncScreenshot {
             self.width, self.height, rect
         );
 
+        const BPP: usize = 4;
         let w = rect.width as usize;
         let h = rect.height as usize;
         let t = rect.top as usize;
         let l = rect.left as usize;
-        let mut data = vec![0u8; w * h];
+        let mut data = vec![0u8; w * h * BPP];
 
-        for y in 0..rect.height as usize {
-            let dst = y * w;
-            let src = (y + t) * self.width as usize + l;
-            data[dst..dst + w].copy_from_slice(&self.data[src..src + w]);
+        for y in 0..h {
+            let dst = y * w * BPP;
+            let src = ((y + t) * self.width as usize + l) * BPP;
+            data[dst..dst + w * BPP].copy_from_slice(&self.data[src..src + w * BPP]);
         }
 
         Ok(VncScreenshot {
@@ -137,29 +164,27 @@ impl VncConnection {
         let (width, height) = vnc.size();
 
         vnc.set_format(vnc::PixelFormat {
-            bits_per_pixel: 8,
-            depth: 8,
+            bits_per_pixel: 32,
+            depth: 24,
             big_endian: false,
             true_colour: true,
-            red_max: 8,
-            green_max: 8,
-            blue_max: 4,
-            red_shift: 5,
-            green_shift: 2,
+            red_max: 255,
+            green_max: 255,
+            blue_max: 255,
+            red_shift: 16,
+            green_shift: 8,
             blue_shift: 0,
         })?;
         vnc.set_encodings(&[vnc::Encoding::Raw, vnc::Encoding::DesktopSize])?;
 
         debug!("Connected to VNC ({} x {})", width, height);
 
-        let detection_model = rten::Model::load_static_slice(include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/text-detection.rten"
-        )))?;
-        let recognition_model = rten::Model::load_static_slice(include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/text-recognition.rten"
-        )))?;
+        let detection_model = rten::Model::load_static_slice(include_bytes!(
+            "../../../models/text-detection.rten"
+        ))?;
+        let recognition_model = rten::Model::load_static_slice(include_bytes!(
+            "../../../models/text-recognition.rten"
+        ))?;
         let ocr_engine = ocrs::OcrEngine::new(ocrs::OcrEngineParams {
             detection_model: Some(detection_model),
             recognition_model: Some(recognition_model),
@@ -404,14 +429,15 @@ impl VncConnection {
                             ));
 
                             let screenshot = self.screenshot()?;
+                            let rgb = screenshot.to_ocr_rgb();
                             let input = self.ocr_engine.prepare_input(
                                 ocrs::ImageSource::from_bytes(
-                                    &screenshot.data,
+                                    &rgb,
                                     (screenshot.width as u32, screenshot.height as u32),
                                 )?,
                             )?;
                             let text = self.ocr_engine.get_text(&input)?;
-                            trace!(total_count, "OCR text: {}", &text);
+                            trace!("OCR text: {}", &text);
 
                             if re.is_match(&text) {
                                 debug!(total_count, "Finished text wait");

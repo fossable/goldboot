@@ -40,6 +40,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 return ExitCode::FAILURE;
             }
 
+            if !dryrun && !is_efi_partition(&dest) {
+                error!(dest = %dest, "Destination path is not a mounted EFI partition (must be vfat with EFI System Partition type)");
+                return ExitCode::FAILURE;
+            }
+
             // Gather all requested images
             let mut images = Vec::new();
 
@@ -387,4 +392,19 @@ fn parse_lsblk(device: &str) -> anyhow::Result<(String, u64, u64)> {
     }
 
     Ok((partuuid, start, size))
+}
+
+/// Return true if `path` is a mount point whose filesystem type is `vfat`.
+///
+/// Uses [`sysinfo::Disks`] to enumerate active mounts and checks that the
+/// entry whose mount point matches `path` reports a `vfat` filesystem — the
+/// required type for an EFI System Partition.
+fn is_efi_partition(path: &str) -> bool {
+    use sysinfo::Disks;
+
+    let target = Path::new(path);
+    Disks::new_with_refreshed_list()
+        .list()
+        .iter()
+        .any(|d| d.mount_point() == target && d.file_system().eq_ignore_ascii_case("vfat"))
 }
