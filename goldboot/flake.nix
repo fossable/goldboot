@@ -13,27 +13,22 @@
 
         # wlroots without xwayland or x11 backend
         wlroots-no-xwayland = pkgs.wlroots_0_19.overrideAttrs (old: {
-          buildInputs = builtins.filter
-            (p: let name = p.pname or ""; in
-              !(pkgs.lib.hasPrefix "libx11" name)
-              && !(pkgs.lib.hasPrefix "libxcb" name)
-              && name != "xwayland")
+          buildInputs = builtins.filter (p:
+            let name = p.pname or "";
+            in !(pkgs.lib.hasPrefix "libx11" name)
+            && !(pkgs.lib.hasPrefix "libxcb" name) && name != "xwayland")
             old.buildInputs;
-          mesonFlags = [
-            "-Dxwayland=disabled"
-            "-Dbackends=drm,libinput"
-          ];
+          mesonFlags = [ "-Dxwayland=disabled" "-Dbackends=drm,libinput" ];
         });
 
         # cage without xwayland
         cage-no-xwayland = pkgs.cage.overrideAttrs (old: {
           buildInputs = builtins.map
             (p: if (p.pname or "") == "wlroots" then wlroots-no-xwayland else p)
-            (builtins.filter
-              (p: let name = p.pname or ""; in
-                !(pkgs.lib.hasPrefix "libx11" name)
-                && !(pkgs.lib.hasPrefix "libxcb" name))
-              old.buildInputs);
+            (builtins.filter (p:
+              let name = p.pname or "";
+              in !(pkgs.lib.hasPrefix "libx11" name)
+              && !(pkgs.lib.hasPrefix "libxcb" name)) old.buildInputs);
           postFixup = "";
         });
 
@@ -77,8 +72,11 @@
 
           set -e
 
-          # Create busybox symlinks
+          # Create busybox symlinks (but don't overwrite kmod's modprobe/insmod)
           /bin/busybox --install -s /bin
+
+          # Set up library path for kmod
+          export LD_LIBRARY_PATH=/lib/xz
 
           # Mount essential filesystems
           mount -t proc proc /proc
@@ -92,22 +90,23 @@
           # Create necessary directories
           mkdir -p /tmp /run /var
 
-          # Mount goldboot images to /var/lib/goldboot/images.
-          # Prefer images found on the ESP (production), fall back to the
-          # dedicated images drive (QEMU simulation via virtio-blk).
+          modprobe virtio_pci
           modprobe virtio_blk
+          modprobe nls_cp437
+          modprobe nls_iso8859_1
+          modprobe vfat
           mkdir -p /var/lib/goldboot/images
 
-          IMAGES_MOUNTED=0
+          # Mount goldboot images to /var/lib/goldboot/images
           for dev in /dev/sd? /dev/vd? /dev/hd?; do
             [ -e "$dev" ] || continue
             TMP_MNT=$(mktemp -d)
             if mount -t vfat -o ro "$dev" "$TMP_MNT" 2>/dev/null; then
-              if [ -d "$TMP_MNT/images" ]; then
+              # Check for .gb files at root
+              if ls "$TMP_MNT"/*.gb >/dev/null 2>&1; then
                 umount "$TMP_MNT"
                 rmdir "$TMP_MNT"
                 mount -t vfat -o ro "$dev" /var/lib/goldboot/images
-                IMAGES_MOUNTED=1
                 break
               fi
               umount "$TMP_MNT"
@@ -115,15 +114,17 @@
             rmdir "$TMP_MNT"
           done
 
-          if [ "$IMAGES_MOUNTED" = "0" ]; then
-            mount -t vfat -o ro /dev/vda /var/lib/goldboot/images
-          fi
-
           # Set up networking
           modprobe r8169
           ip link set lo up
-          ip link set eth0 up
-          udhcpc -i eth0 -n -q
+          # Find the first ethernet interface (not lo)
+          for iface in /sys/class/net/*; do
+            iface=$(basename "$iface")
+            [ "$iface" = "lo" ] && continue
+            ip link set "$iface" up
+            udhcpc -i "$iface" -n -q || true
+            break
+          done
 
           # Load GPU and input kernel modules
           modprobe virtio_pci
@@ -133,7 +134,12 @@
           modprobe ehci_pci
           modprobe usbhid
           modprobe hid_generic
+          modprobe evdev
 
+          # Debug: show input devices
+          echo "Input devices:"
+          ls -la /dev/input/ 2>/dev/null || echo "No /dev/input directory"
+          cat /proc/bus/input/devices 2>/dev/null || echo "No input devices in /proc"
 
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
           mkdir -p "$XDG_RUNTIME_DIR"
@@ -183,6 +189,10 @@
             "xhci_pci"
             "r8169"
             "virtio_blk"
+            "vfat"
+            "nls_cp437"
+            "nls_iso8859_1"
+            "evdev"
           ];
         };
 
@@ -224,6 +234,25 @@
               {
                 object = "${pkgs.iproute2}/bin/ip";
                 symlink = "/bin/ip";
+              }
+              {
+                object = "${pkgs.kmod}/bin/kmod";
+                symlink = "/bin/kmod";
+                mode = "0755";
+              }
+              {
+                object = "${pkgs.kmod}/bin/kmod";
+                symlink = "/bin/modprobe";
+                mode = "0755";
+              }
+              {
+                object = "${pkgs.kmod}/bin/kmod";
+                symlink = "/bin/insmod";
+                mode = "0755";
+              }
+              {
+                object = "${pkgs.xz}/lib";
+                symlink = "/lib/xz";
               }
               {
                 object = pkgs.mesa;
@@ -335,21 +364,31 @@
           mkdir -p $ESP_DIR/EFI/Boot
           cp result/goldboot.efi $ESP_DIR/EFI/Boot/BootX64.efi
 
+          # Create a FAT32 disk image from the images directory
+          IMAGES_DIR=/var/lib/goldboot/images
+          IMAGES_IMG=$(mktemp)
+          IMAGES_SIZE=$(du -sb $IMAGES_DIR | cut -f1)
+          IMAGES_SIZE=$((IMAGES_SIZE + 64*1024*1024))  # Add 64MB padding
+          truncate -s $IMAGES_SIZE $IMAGES_IMG
+          ${pkgs.dosfstools}/bin/mkfs.vfat -F 32 $IMAGES_IMG
+          ${pkgs.mtools}/bin/mcopy -i $IMAGES_IMG -s $IMAGES_DIR/* ::
+
           qemu-system-x86_64 \
             -nodefaults --enable-kvm -m 8G -machine q35 -smp 4 \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
-            -drive format=raw,file=fat:ro:/var/lib/goldboot/images,id=images,if=none \
+            -drive format=raw,file=$IMAGES_IMG,id=images,if=none,readonly=on \
             -device virtio-blk-pci,drive=images \
             -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
             -serial stdio \
             -device virtio-gpu-pci \
-            -device virtio-keyboard-pci \
-            -device virtio-mouse-pci \
+            -device usb-ehci \
+            -device usb-kbd \
             -display gtk,gl=off
 
           rm -rf $ESP_DIR
+          rm -f $IMAGES_IMG
         '';
 
         run-aarch64 = pkgs.writeShellScriptBin "run-aarch64" ''

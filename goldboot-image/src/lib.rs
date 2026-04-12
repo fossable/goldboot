@@ -705,7 +705,7 @@ impl ImageHandle {
         let mut protected_header = ProtectedHeader {
             block_size: source.header.cluster_size() as u32,
             cluster_count,
-            cluster_compression: ClusterCompressionType::None, // TODO
+            cluster_compression: ClusterCompressionType::Zstd,
             cluster_encryption: if password.is_some() {
                 ClusterEncryptionType::Aes256
             } else {
