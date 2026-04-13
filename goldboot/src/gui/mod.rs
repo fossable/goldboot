@@ -8,6 +8,10 @@ pub mod widgets;
 use std::process::ExitCode;
 
 pub fn run_gui(fullscreen: bool) -> ExitCode {
+    // In UKI mode, we always run as root (booted directly from firmware)
+    #[cfg(feature = "uki")]
+    let needs_sudo = false;
+    #[cfg(not(feature = "uki"))]
     let needs_sudo = !whoami::username().map(|u| u == "root").unwrap_or(false);
 
     let native_options = eframe::NativeOptions {

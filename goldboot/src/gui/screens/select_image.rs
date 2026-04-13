@@ -27,6 +27,9 @@ pub fn render(
         .show_separator_line(false)
         .show_inside(ui, |ui| {
             let hotkeys = vec![
+                #[cfg(feature = "uki")]
+                ("Esc", "Reboot"),
+                #[cfg(not(feature = "uki"))]
                 ("Esc", "Quit"),
                 ("F5", "Registry Login"),
                 ("Enter", "Select Image"),

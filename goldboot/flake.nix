@@ -83,6 +83,10 @@
           mount -t sysfs sys /sys
           mount -t devtmpfs dev /dev
 
+          # Mount /dev/shm for shared memory (required by wlroots for keymaps)
+          mkdir -p /dev/shm
+          mount -t tmpfs tmpfs /dev/shm
+
           # Redirect all output to serial console now that /dev exists
           exec >/dev/ttyS0 2>&1
           set -x
@@ -126,6 +130,27 @@
             break
           done
 
+          # Set up udev directories
+          # /etc/udev/rules.d is a symlink from the initramfs, don't overwrite it
+          mkdir -p /run/udev
+
+          # Debug: show what's in /etc/udev before hwdb update
+          echo "Contents of /etc/udev:"
+          ls -la /etc/udev/ || echo "/etc/udev doesn't exist"
+          echo "Contents of /etc/udev/rules.d:"
+          ls /etc/udev/rules.d/ | head -10 || echo "rules.d doesn't exist or is empty"
+
+          # Compile the udev hardware database (required for input device detection)
+          # This creates /etc/udev/hwdb.bin from the hwdb.d directories
+          udevadm hwdb --update
+
+          # Debug: verify hwdb was created
+          echo "After hwdb update:"
+          ls -la /etc/udev/ || true
+
+          # Start udev daemon BEFORE loading modules so it can create device nodes
+          udevd --daemon
+
           # Load GPU and input kernel modules
           modprobe virtio_pci
           modprobe virtio_gpu
@@ -136,16 +161,36 @@
           modprobe hid_generic
           modprobe evdev
 
+          # Trigger udev to process existing devices and wait for them
+          udevadm trigger --action=add
+          udevadm settle --timeout=10
+
+          # Wait for USB enumeration to complete (USB devices take time)
+          echo "Waiting for USB devices to enumerate..."
+          sleep 2
+
+          # Trigger again after USB enumeration
+          udevadm trigger --action=add
+          udevadm settle --timeout=5
+
           # Debug: show input devices
           echo "Input devices:"
           ls -la /dev/input/ 2>/dev/null || echo "No /dev/input directory"
           cat /proc/bus/input/devices 2>/dev/null || echo "No input devices in /proc"
 
+          # Debug: show udev info for input devices
+          echo "Input device properties:"
+          for ev in /dev/input/event*; do
+            [ -e "$ev" ] || continue
+            echo "=== $ev ==="
+            udevadm info --query=property "$ev" 2>/dev/null || true
+          done
+
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
           mkdir -p "$XDG_RUNTIME_DIR"
           chmod 0700 "$XDG_RUNTIME_DIR"
 
-          export WLR_BACKENDS=drm
+          export WLR_BACKENDS=drm,libinput
           # Bypass udev enumeration — directly specify the DRM device
           export WLR_DRM_DEVICES=/dev/dri/card0
           # Use libseat embedded backend (root-capable, no daemon required)
@@ -154,6 +199,8 @@
           export WLR_RENDERER=pixman
           # virtio-gpu-pci has no hardware cursor planes
           export WLR_NO_HARDWARE_CURSORS=1
+          # Allow starting without input devices (they may enumerate later)
+          export WLR_LIBINPUT_NO_DEVICES=1
 
           exec /sbin/cage -- /sbin/goldboot-launch
         '';
@@ -171,6 +218,19 @@
           export MESA_LOADER_DRIVER_OVERRIDE=swrast
           export EGL_PLATFORM=wayland
           exec /sbin/goldboot
+        '';
+
+        # Combined udev rules with paths fixed for initramfs
+        udevRules = pkgs.runCommand "udev-rules" { } ''
+          mkdir -p $out/rules.d
+
+          # Copy eudev rules
+          cp ${pkgs.eudev}/var/lib/udev/rules.d/*.rules $out/rules.d/
+
+          # Copy libinput rules but fix the hardcoded nix store paths
+          for rule in ${pkgs.libinput.out}/lib/udev/rules.d/*.rules; do
+            sed 's|${pkgs.libinput.out}/lib/udev/|/lib/udev/libinput/|g' "$rule" > "$out/rules.d/$(basename $rule)"
+          done
         '';
 
         modulesClosure = pkgs.makeModulesClosure {
@@ -273,6 +333,70 @@
               {
                 object = "${pkgs.libGL}/lib";
                 symlink = "/lib/libgl";
+              }
+
+              # eudev for device property assignment (required by libinput)
+              {
+                object = "${pkgs.eudev}/bin/udevd";
+                symlink = "/sbin/udevd";
+              }
+              {
+                object = "${pkgs.eudev}/bin/udevadm";
+                symlink = "/sbin/udevadm";
+              }
+              {
+                object = "${pkgs.eudev}/var/lib/udev/hwdb.d";
+                symlink = "/lib/udev/hwdb.d";
+              }
+              # Combined udev rules (eudev + libinput with fixed paths)
+              # eudev looks for rules in /etc/udev/rules.d, NOT /lib/udev/rules.d
+              {
+                object = "${udevRules}/rules.d";
+                symlink = "/etc/udev/rules.d";
+              }
+              # eudev helper binaries (ata_id, scsi_id, etc) - need to be at /lib/udev/
+              {
+                object = "${pkgs.eudev}/lib/udev/ata_id";
+                symlink = "/lib/udev/ata_id";
+              }
+              {
+                object = "${pkgs.eudev}/lib/udev/cdrom_id";
+                symlink = "/lib/udev/cdrom_id";
+              }
+              {
+                object = "${pkgs.eudev}/lib/udev/scsi_id";
+                symlink = "/lib/udev/scsi_id";
+              }
+              {
+                object = "${pkgs.eudev}/lib/udev/v4l_id";
+                symlink = "/lib/udev/v4l_id";
+              }
+              {
+                object = "${pkgs.eudev}/lib/udev/fido_id";
+                symlink = "/lib/udev/fido_id";
+              }
+              {
+                object = "${pkgs.eudev}/lib/udev/mtd_probe";
+                symlink = "/lib/udev/mtd_probe";
+              }
+
+              # libinput library (for dynamic linking)
+              {
+                object = "${pkgs.libinput.out}/lib";
+                symlink = "/lib/libinput";
+              }
+              # libinput udev helpers (device-group, fuzz-extract, etc)
+              {
+                object = "${pkgs.libinput.out}/lib/udev/libinput-device-group";
+                symlink = "/lib/udev/libinput/libinput-device-group";
+              }
+              {
+                object = "${pkgs.libinput.out}/lib/udev/libinput-fuzz-extract";
+                symlink = "/lib/udev/libinput/libinput-fuzz-extract";
+              }
+              {
+                object = "${pkgs.libinput.out}/lib/udev/libinput-fuzz-to-zero";
+                symlink = "/lib/udev/libinput/libinput-fuzz-to-zero";
               }
             ];
           };
