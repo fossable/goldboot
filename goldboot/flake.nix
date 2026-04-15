@@ -39,7 +39,13 @@
 
           src = ../.;
 
-          cargoLock = { lockFile = ../Cargo.lock; };
+          cargoLock = {
+            lockFile = ../Cargo.lock;
+            outputHashes = {
+              "egui_term-0.1.0" =
+                "sha256-M9/2tkNZUqrt7ca/l80xkE3BcPisy1SPXGnPaCoJCI4=";
+            };
+          };
 
           nativeBuildInputs = with pkgs; [ pkg-config ];
 
@@ -58,7 +64,7 @@
           # Tell winit to use the Wayland backend
           WINIT_UNIX_BACKEND = "wayland";
 
-          # Build goldboot with UKI feature
+          # Build goldboot UKI
           cargoBuildFlags =
             [ "-p" "goldboot" "--no-default-features" "--features" "uki" ];
 
@@ -71,6 +77,7 @@
           #!/bin/busybox sh
 
           set -e
+          set -x
 
           # Create busybox symlinks (but don't overwrite kmod's modprobe/insmod)
           /bin/busybox --install -s /bin
@@ -87,9 +94,8 @@
           mkdir -p /dev/shm
           mount -t tmpfs tmpfs /dev/shm
 
-          # Redirect all output to serial console now that /dev exists
-          exec >/dev/ttyS0 2>&1
-          set -x
+          # Redirect all output to a log
+          exec >/init.log 2>&1
 
           # Create necessary directories
           mkdir -p /tmp /run /var
@@ -102,15 +108,15 @@
           mkdir -p /var/lib/goldboot/images
 
           # Mount goldboot images to /var/lib/goldboot/images
-          for dev in /dev/sd? /dev/vd? /dev/hd?; do
+          for dev in /dev/sd?* /dev/vd?* /dev/hd?* /dev/nvme*; do
             [ -e "$dev" ] || continue
             TMP_MNT=$(mktemp -d)
-            if mount -t vfat -o ro "$dev" "$TMP_MNT" 2>/dev/null; then
+            if mount -o ro "$dev" "$TMP_MNT" 2>/dev/null; then
               # Check for .gb files at root
               if ls "$TMP_MNT"/*.gb >/dev/null 2>&1; then
                 umount "$TMP_MNT"
                 rmdir "$TMP_MNT"
-                mount -t vfat -o ro "$dev" /var/lib/goldboot/images
+                mount -o ro "$dev" /var/lib/goldboot/images
                 break
               fi
               umount "$TMP_MNT"
@@ -134,19 +140,9 @@
           # /etc/udev/rules.d is a symlink from the initramfs, don't overwrite it
           mkdir -p /run/udev
 
-          # Debug: show what's in /etc/udev before hwdb update
-          echo "Contents of /etc/udev:"
-          ls -la /etc/udev/ || echo "/etc/udev doesn't exist"
-          echo "Contents of /etc/udev/rules.d:"
-          ls /etc/udev/rules.d/ | head -10 || echo "rules.d doesn't exist or is empty"
-
           # Compile the udev hardware database (required for input device detection)
           # This creates /etc/udev/hwdb.bin from the hwdb.d directories
           udevadm hwdb --update
-
-          # Debug: verify hwdb was created
-          echo "After hwdb update:"
-          ls -la /etc/udev/ || true
 
           # Start udev daemon BEFORE loading modules so it can create device nodes
           udevd --daemon
@@ -164,27 +160,6 @@
           # Trigger udev to process existing devices and wait for them
           udevadm trigger --action=add
           udevadm settle --timeout=10
-
-          # Wait for USB enumeration to complete (USB devices take time)
-          echo "Waiting for USB devices to enumerate..."
-          sleep 2
-
-          # Trigger again after USB enumeration
-          udevadm trigger --action=add
-          udevadm settle --timeout=5
-
-          # Debug: show input devices
-          echo "Input devices:"
-          ls -la /dev/input/ 2>/dev/null || echo "No /dev/input directory"
-          cat /proc/bus/input/devices 2>/dev/null || echo "No input devices in /proc"
-
-          # Debug: show udev info for input devices
-          echo "Input device properties:"
-          for ev in /dev/input/event*; do
-            [ -e "$ev" ] || continue
-            echo "=== $ev ==="
-            udevadm info --query=property "$ev" 2>/dev/null || true
-          done
 
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
           mkdir -p "$XDG_RUNTIME_DIR"
@@ -250,9 +225,19 @@
             "r8169"
             "virtio_blk"
             "vfat"
+            "ext4"
+            "btrfs"
+            "xfs"
+            "ntfs3"
+            "iso9660"
             "nls_cp437"
             "nls_iso8859_1"
             "evdev"
+            # Real hardware storage drivers
+            "ahci"
+            "sd_mod"
+            "nvme"
+            "usb_storage"
           ];
         };
 
@@ -261,7 +246,7 @@
           pkgs.makeInitrd {
             name = "goldboot-initramfs";
 
-            compressor = "gzip";
+            compressor = "${pkgs.zstd}/bin/zstd -19";
 
             contents = [
               {
@@ -360,20 +345,8 @@
                 symlink = "/lib/udev/ata_id";
               }
               {
-                object = "${pkgs.eudev}/lib/udev/cdrom_id";
-                symlink = "/lib/udev/cdrom_id";
-              }
-              {
                 object = "${pkgs.eudev}/lib/udev/scsi_id";
                 symlink = "/lib/udev/scsi_id";
-              }
-              {
-                object = "${pkgs.eudev}/lib/udev/v4l_id";
-                symlink = "/lib/udev/v4l_id";
-              }
-              {
-                object = "${pkgs.eudev}/lib/udev/fido_id";
-                symlink = "/lib/udev/fido_id";
               }
               {
                 object = "${pkgs.eudev}/lib/udev/mtd_probe";
@@ -551,12 +524,10 @@
             # Run scripts
             run-x86_64
             run-aarch64
-
           ];
 
           shellHook = ''
             echo "Goldboot UKI Development Environment"
-            echo "Rust version: $(rustc --version)"
             echo ""
             echo "Available commands:"
             echo "  nix build .#goldboot            - Build just the binary"

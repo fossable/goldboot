@@ -1,4 +1,3 @@
-use crate::cli::progress::ProgressBar;
 use anyhow::{Result, anyhow, bail};
 use goldboot_image::ImageHandle;
 use rand::Rng;
@@ -6,6 +5,7 @@ use sha1::Digest;
 use sha2::Sha256;
 use std::{
     fs::File,
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
 use tracing::{debug, info};
@@ -69,7 +69,9 @@ impl ImageLibrary {
 
     /// Add an image to the library. The image will be hashed and copied to the
     /// library with the appropriate name.
+    #[cfg(feature = "cli")]
     pub fn add_copy(&self, image_path: impl AsRef<Path>) -> Result<()> {
+        use crate::cli::progress::ProgressBar;
         let mut hasher = Sha256::new();
         ProgressBar::Hash.copy(
             &mut File::open(&image_path)?,
@@ -86,7 +88,9 @@ impl ImageLibrary {
 
     /// Add an image to the library. The image will be hashed and moved to the
     /// library with the appropriate name.
+    #[cfg(feature = "cli")]
     pub fn add_move(&self, image_path: impl AsRef<Path>) -> Result<()> {
+        use crate::cli::progress::ProgressBar;
         let mut hasher = Sha256::new();
         ProgressBar::Hash.copy(
             &mut File::open(&image_path)?,
@@ -110,7 +114,9 @@ impl ImageLibrary {
     }
 
     /// Download a goldboot image over HTTP.
+    #[cfg(feature = "cli")]
     pub fn download(&self, url: String) -> Result<ImageHandle> {
+        use crate::cli::progress::ProgressBar;
         let path = self.directory.join("goldboot-uki.gb");
 
         let mut rs = reqwest::blocking::get(&url)?;

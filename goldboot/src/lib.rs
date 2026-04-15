@@ -1,10 +1,10 @@
 use rand::Rng;
-use sysinfo::System;
 
 use std::net::TcpListener;
 
 #[cfg(feature = "build")]
 pub mod builder;
+#[cfg(feature = "cli")]
 pub mod cli;
 pub mod gpt;
 #[cfg(feature = "gui")]
@@ -29,8 +29,9 @@ pub fn find_open_port(lower: u16, upper: u16) -> u16 {
 }
 
 /// Returns whether a buffer of `size` bytes can fit in available memory (with a 2% safety buffer).
+#[cfg(any(feature = "cli", feature = "gui"))]
 pub fn can_preload(size: u64) -> bool {
-    let mut sys = System::new();
+    let mut sys = sysinfo::System::new();
     sys.refresh_memory();
     let avail = sys.available_memory();
     avail > 0 && size <= avail * 98 / 100

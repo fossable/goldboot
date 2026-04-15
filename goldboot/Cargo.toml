@@ -20,9 +20,9 @@ block-utils = { version = "0.11.1", optional = true }
 built = { version = "0.8.0", features = ["chrono", "semver"] }
 byte-unit = "5.1.2"
 chrono = "0.4.31"
-clap = { version = "4.4.7", features = ["derive", "string"] }
-console = "0.16.1"
-dialoguer = "0.12.0"
+clap = { version = "4.4.7", features = ["derive", "string"], optional = true }
+console = { version = "0.16.1", optional = true }
+dialoguer = { version = "0.12.0", optional = true }
 eframe = { version = "0.33.3", optional = true, default-features = false, features = [
   "default_fonts",
   "glow",
@@ -30,6 +30,7 @@ eframe = { version = "0.33.3", optional = true, default-features = false, featur
   "wayland",
 ] }
 egui = { version = "0.33.3", optional = true }
+egui_term = { git = "https://github.com/Harzu/egui_term", branch = "main", optional = true }
 inventory = "0.3"
 libc = "0.2"
 fatfs = { version = "0.3.6", optional = true }
@@ -42,16 +43,16 @@ hex = { workspace = true }
 image = { version = "0.25", optional = true, default-features = false, features = [
   "png",
 ] }
-indicatif = "0.18.0"
+indicatif = { version = "0.18.0", optional = true }
 png = { version = "0.18.0", optional = true }
 poll-promise = { version = "0.3", optional = true }
 quick-xml = { version = "0.39.2", features = ["serialize"] }
 rand = { workspace = true }
 regex = { workspace = true }
-reqwest = { workspace = true, features = ["stream", "blocking", "json"] }
+reqwest = { workspace = true, features = ["stream", "blocking", "json"], optional = true }
 ron = { version = "0.12", optional = true }
 rustls = { version = "0.23.23" }
-roniker = { workspace = true, features = ["lsp"] }
+roniker = { workspace = true, features = ["lsp"], optional = true }
 serde_json = { version = "1.0.108" }
 serde = { workspace = true }
 serde_win_unattend = { version = "0.3.3", optional = true }
@@ -59,15 +60,15 @@ smart-default = "0.7.1"
 sha1 = "0.10.6"
 sha2 = { workspace = true }
 # TODO russh
-ssh2 = { version = "0.9.4" }
-ssh-key = { version = "0.6.7", features = ["ed25519"] }
+ssh2 = { version = "0.9.4", optional = true }
+ssh-key = { version = "0.6.7", features = ["ed25519"], optional = true }
 strum = { workspace = true }
-sysinfo = "0.38.4"
+sysinfo = { version = "0.38.4", optional = true }
 tar = "0.4.40"
 tempfile = "3.10.0"
-tokio = { version = "1.36.0", features = ["full"] }
+tokio = { version = "1.36.0", features = ["full"], optional = true }
 toml = "0.8"
-tower-http = { version = "0.6.6", features = ["fs", "trace"] }
+tower-http = { version = "0.6.6", features = ["fs", "trace"], optional = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 ubyte = "0.10.4"
@@ -104,6 +105,7 @@ registry = []
 
 # Support for building images
 build = [
+  "cli",
   "dep:ron",
   "dep:fatfs",
   "dep:fscommon",
@@ -113,6 +115,21 @@ build = [
   "dep:rten",
   "dep:serde_win_unattend",
   "dep:axum",
+  "dep:ssh2",
+  "dep:ssh-key",
+  "dep:tokio",
+  "dep:tower-http",
+  "dep:reqwest",
+]
+
+# CLI support (commands, progress bars, prompts)
+cli = [
+  "dep:clap",
+  "dep:console",
+  "dep:dialoguer",
+  "dep:indicatif",
+  "dep:roniker",
+  "dep:sysinfo",
 ]
 
 # Bundled OVMF firmware
@@ -125,7 +142,8 @@ gui = [
   "dep:image",
   "dep:poll-promise",
   "dep:block-utils",
+  "dep:sysinfo",
 ]
 
 # UKI (Unified Kernel Image) mode - GUI with automatic reboot
-uki = ["gui"]
+uki = ["gui", "dep:egui_term"]

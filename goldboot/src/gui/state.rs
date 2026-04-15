@@ -3,6 +3,13 @@ use goldboot_image::ImageHandle;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[cfg(feature = "uki")]
+pub struct DebugShell {
+    pub terminal_backend: egui_term::TerminalBackend,
+    pub pty_event_receiver: std::sync::mpsc::Receiver<(u64, egui_term::PtyEvent)>,
+}
+
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlockState {
     Pending,   // Not yet processed
@@ -170,6 +177,10 @@ pub struct AppState {
 
     // Image writing progress (shared with write thread)
     pub write_progress: Option<Arc<Mutex<WriteProgress>>>,
+
+    // Debug shell (UKI mode only)
+    #[cfg(feature = "uki")]
+    pub debug_shell: Option<DebugShell>,
 }
 
 impl AppState {
@@ -200,6 +211,8 @@ impl AppState {
             show_registry_dialog: false,
             registry_login_error: None,
             write_progress: None,
+            #[cfg(feature = "uki")]
+            debug_shell: None,
         }
     }
 

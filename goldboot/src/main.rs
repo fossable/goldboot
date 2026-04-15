@@ -1,10 +1,10 @@
+#[cfg(feature = "cli")]
 use clap::Parser;
+#[cfg(feature = "cli")]
 use goldboot::cli::cmd::Commands;
 use std::process::ExitCode;
 
-#[cfg(not(feature = "uki"))]
-use std::env;
-
+#[cfg(feature = "cli")]
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct CommandLine {
@@ -33,13 +33,24 @@ pub fn main() -> ExitCode {
     #[cfg(feature = "uki")]
     return uki_main();
 
+    // CLI mode
+    #[cfg(all(feature = "cli", not(feature = "uki")))]
+    return cli_main();
+
+    #[cfg(not(any(feature = "cli", feature = "uki")))]
+    {
+        eprintln!("No features enabled. Build with --features cli or --features uki");
+        ExitCode::FAILURE
+    }
+}
+
+#[cfg(all(feature = "cli", not(feature = "uki")))]
+fn cli_main() -> ExitCode {
     // Parse command line options before we configure logging so we can set the
     // default level
-    #[cfg(not(feature = "uki"))]
     let command_line = CommandLine::parse();
 
     // Configure logging
-    #[cfg(not(feature = "uki"))]
     {
         let _default_filter = match &command_line.command {
             #[cfg(feature = "build")]
@@ -59,7 +70,6 @@ pub fn main() -> ExitCode {
     }
 
     // Dispatch command
-    #[cfg(not(feature = "uki"))]
     match &command_line.command {
         #[cfg(feature = "build")]
         Some(Commands::Init { .. }) => goldboot::cli::cmd::init::run(command_line.command.unwrap()),
