@@ -31,14 +31,21 @@ impl GuiApp {
 }
 
 impl eframe::App for GuiApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Hide the mouse cursor (keyboard-only UI)
-        ctx.set_cursor_icon(egui::CursorIcon::None);
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // When debug shell is active, inject a synthetic pointer position so
+        // egui_term's contains_pointer() check passes. Otherwise filter all
+        // pointer events for keyboard-only UI.
+        #[cfg(feature = "uki")]
+        let debug_shell_active = self.state.debug_shell.is_some();
+        #[cfg(not(feature = "uki"))]
+        let debug_shell_active = false;
 
-        // Disable all pointer/mouse input
-        ctx.input_mut(|i| {
-            i.pointer = Default::default();
-            i.events.retain(|e| {
+        if debug_shell_active {
+            if let Some(screen_rect) = raw_input.screen_rect {
+                raw_input.events.push(egui::Event::PointerMoved(screen_rect.center()));
+            }
+        } else {
+            raw_input.events.retain(|e| {
                 !matches!(
                     e,
                     egui::Event::PointerMoved(_)
@@ -48,17 +55,18 @@ impl eframe::App for GuiApp {
                         | egui::Event::MouseMoved(_)
                 )
             });
-        });
+        }
+    }
 
-        // Render grid background
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_cursor_icon(egui::CursorIcon::None);
+
         self.theme.render_background(ctx);
-
-        // Handle global hotkeys
         self.handle_hotkeys(ctx);
 
         // Main panel
         egui::CentralPanel::default()
-            .frame(egui::Frame::none())
+            .frame(egui::Frame::NONE)
             .show(ctx, |ui| {
                 self.screen
                     .render(ui, &mut self.state, &self.textures, &self.theme);
@@ -72,11 +80,27 @@ impl eframe::App for GuiApp {
 impl GuiApp {
     fn handle_hotkeys(&mut self, ctx: &egui::Context) {
         ctx.input(|i| {
-            // Esc - Quit application (only on SelectImage; other screens handle Esc themselves)
+            // Esc - Quit/Reboot (only on SelectImage, not if any dialog is open)
+            #[cfg(feature = "uki")]
+            let debug_shell_active = self.state.debug_shell.is_some();
+            #[cfg(not(feature = "uki"))]
+            let debug_shell_active = false;
+
             if i.key_pressed(egui::Key::Escape)
                 && !self.state.show_registry_dialog
+                && !debug_shell_active
+                && self.state.error_message.is_none()
                 && self.screen == Screen::SelectImage
             {
+                #[cfg(feature = "uki")]
+                {
+                    // In UKI mode, we're PID 1 so we need to use reboot syscall
+                    unsafe {
+                        libc::sync();
+                        libc::reboot(libc::RB_AUTOBOOT);
+                    }
+                }
+                #[cfg(not(feature = "uki"))]
                 std::process::exit(0);
             }
 

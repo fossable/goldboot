@@ -24,89 +24,133 @@ pub fn render(
     theme: &Theme,
     screen: &mut Screen,
 ) {
-    // Debug shell dialog overlay (UKI mode only)
-    #[cfg(feature = "uki")]
-    if let Some(ref mut shell) = state.debug_shell {
-        // Check for PTY exit event
-        let mut shell_exited = false;
-        while let Ok((_id, event)) = shell.pty_event_receiver.try_recv() {
-            if let egui_term::PtyEvent::Exit = event {
-                shell_exited = true;
-            }
-        }
-
-        // Handle Escape to close dialog
-        let mut close_shell = false;
-        ui.ctx().input(|inp| {
-            if inp.key_pressed(egui::Key::Escape) {
-                close_shell = true;
-            }
-        });
-
-        if close_shell || shell_exited {
-            state.debug_shell = None;
+    // Error dialog overlay
+    if let Some(ref error) = state.error_message {
+        let close = ui.ctx().input(|inp| inp.key_pressed(egui::Key::Escape) || inp.key_pressed(egui::Key::Enter));
+        if close {
+            state.error_message = None;
         } else {
-            // Render semi-transparent background overlay
-            let screen_rect = ui.ctx().content_rect();
             ui.painter().rect_filled(
-                screen_rect,
+                ui.ctx().content_rect(),
                 0.0,
                 egui::Color32::from_black_alpha(180),
             );
 
-            // Render terminal in a centered frame
-            egui::Area::new(egui::Id::new("debug_shell_area"))
+            egui::Area::new(egui::Id::new("error_dialog"))
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .interactable(true)
                 .order(egui::Order::Foreground)
                 .show(ui.ctx(), |ui| {
                     egui::Frame::new()
-                        .fill(egui::Color32::from_rgb(30, 30, 30))
-                        .stroke(egui::Stroke::new(2.0, theme.accent_gold))
-                        .inner_margin(10.0)
+                        .fill(egui::Color32::from_rgb(40, 30, 30))
+                        .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(200, 80, 80)))
+                        .inner_margin(20.0)
                         .corner_radius(8.0)
                         .show(ui, |ui| {
-                            ui.set_min_size(egui::vec2(700.0, 450.0));
-                            ui.set_max_size(egui::vec2(900.0, 600.0));
-
+                            ui.set_max_width(500.0);
                             ui.vertical(|ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(
-                                        egui::RichText::new("Debug Shell")
-                                            .color(theme.accent_gold)
-                                            .strong()
-                                            .size(16.0),
-                                    );
-                                    ui.with_layout(
-                                        egui::Layout::right_to_left(egui::Align::Center),
-                                        |ui| {
-                                            ui.label(
-                                                egui::RichText::new("Press Escape to close")
-                                                    .color(theme.text_secondary)
-                                                    .size(12.0),
-                                            );
-                                        },
-                                    );
-                                });
-                                ui.add_space(5.0);
-
-                                // Render terminal
-                                let available = ui.available_size();
-                                let terminal = egui_term::TerminalView::new(ui, &mut shell.terminal_backend)
-                                    .set_focus(true)
-                                    .set_size(egui::Vec2::new(available.x, available.y - 10.0));
-                                ui.add(terminal);
+                                ui.label(
+                                    egui::RichText::new("Error")
+                                        .color(egui::Color32::from_rgb(200, 80, 80))
+                                        .strong()
+                                        .size(18.0),
+                                );
+                                ui.add_space(10.0);
+                                ui.label(
+                                    egui::RichText::new(error)
+                                        .color(theme.text_primary)
+                                        .size(14.0),
+                                );
+                                ui.add_space(15.0);
+                                ui.label(
+                                    egui::RichText::new("Press Escape or Enter to close")
+                                        .color(theme.text_secondary)
+                                        .size(12.0),
+                                );
                             });
                         });
                 });
-
-            // Request continuous repaint for terminal updates
-            ui.ctx().request_repaint();
             return;
         }
     }
 
-    // Hotkeys footer - render first into a bottom panel so it's always visible
+    // Debug shell overlay (UKI mode only)
+    #[cfg(feature = "uki")]
+    {
+        if let Some(ref mut shell) = state.debug_shell {
+            let mut shell_exited = false;
+            while let Ok((_id, event)) = shell.pty_event_receiver.try_recv() {
+                if let egui_term::PtyEvent::Exit = event {
+                    shell_exited = true;
+                }
+            }
+
+            // Handle Escape to close dialog
+            let close_shell = ui.ctx().input(|inp| inp.key_pressed(egui::Key::Escape));
+
+            if close_shell || shell_exited {
+                state.debug_shell = None;
+            } else {
+                // Render semi-transparent background overlay
+                ui.painter().rect_filled(
+                    ui.ctx().content_rect(),
+                    0.0,
+                    egui::Color32::from_black_alpha(180),
+                );
+
+                // Render terminal in a centered frame
+                egui::Area::new(egui::Id::new("debug_shell_area"))
+                    .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                    .interactable(true)
+                    .order(egui::Order::Foreground)
+                    .show(ui.ctx(), |ui| {
+                        egui::Frame::new()
+                            .fill(egui::Color32::from_rgb(30, 30, 30))
+                            .stroke(egui::Stroke::new(2.0, theme.accent_gold))
+                            .inner_margin(10.0)
+                            .corner_radius(8.0)
+                            .show(ui, |ui| {
+                                ui.set_min_size(egui::vec2(700.0, 450.0));
+                                ui.set_max_size(egui::vec2(900.0, 600.0));
+
+                                ui.vertical(|ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            egui::RichText::new("Debug Shell")
+                                                .color(theme.accent_gold)
+                                                .strong()
+                                                .size(16.0),
+                                        );
+                                        ui.with_layout(
+                                            egui::Layout::right_to_left(egui::Align::Center),
+                                            |ui| {
+                                                ui.label(
+                                                    egui::RichText::new("Press Escape to close")
+                                                        .color(theme.text_secondary)
+                                                        .size(12.0),
+                                                );
+                                            },
+                                        );
+                                    });
+                                    ui.add_space(5.0);
+
+                                    // Render terminal
+                                    let available = ui.available_size();
+                                    let terminal = egui_term::TerminalView::new(ui, &mut shell.terminal_backend)
+                                        .set_focus(true)
+                                        .set_size(egui::Vec2::new(available.x, available.y - 10.0));
+                                    ui.add(terminal);
+                                });
+                            });
+                    });
+
+                // Request continuous repaint for terminal updates
+                ui.ctx().request_repaint();
+                return;
+            }
+        }
+    }
+
+    // Hotkeys footer
     egui::TopBottomPanel::bottom("select_image_hotkeys")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
@@ -169,34 +213,22 @@ pub fn render(
                             let prev = current_idx.map(|i| i.saturating_sub(1)).unwrap_or(0);
                             state.selected_image = ids.get(prev).cloned();
                         }
-                        if inp.key_pressed(egui::Key::Enter) {
-                            if state.selected_image.is_some() {
-                                *screen = Screen::SelectDevice;
-                            }
+                        if inp.key_pressed(egui::Key::Enter) && state.selected_image.is_some() {
+                            *screen = Screen::SelectDevice;
                         }
                     });
                 }
 
-                // Check for T key to open debug shell (works even with no images)
+                // T key opens debug shell (UKI mode only)
                 #[cfg(feature = "uki")]
-                {
-                    let t_pressed = ui.ctx().input(|inp| {
-                        // Check both Key::T and text input for 't' or 'T'
-                        inp.key_pressed(egui::Key::T)
-                            || inp.events.iter().any(|e| {
-                                matches!(e, egui::Event::Text(t) if t == "t" || t == "T")
-                            })
-                    });
-
-                    // Spawn debug shell if T was pressed
-                    if t_pressed && state.debug_shell.is_none() {
-                        if let Some(shell) = spawn_debug_shell(ui.ctx()) {
-                            state.debug_shell = Some(shell);
-                        }
+                if ui.ctx().input(|inp| inp.key_pressed(egui::Key::T)) && state.debug_shell.is_none() {
+                    match spawn_debug_shell(ui.ctx()) {
+                        Ok(shell) => state.debug_shell = Some(shell),
+                        Err(e) => state.error_message = Some(format!("Failed to open debug shell: {e}")),
                     }
                 }
 
-                // Image list with horizontal margins
+                // Image list
                 let margin = 100.0;
                 let list_width = ui.available_width() - margin * 2.0;
                 let list_height = ui.available_height();
@@ -269,44 +301,31 @@ pub fn render(
                                                                 {
                                                                     ui.add(
                                                                         egui::Image::new(tex)
-                                                                            .max_size(
-                                                                                egui::Vec2::splat(
-                                                                                    32.0,
-                                                                                ),
-                                                                            ),
+                                                                            .max_size(egui::Vec2::splat(32.0)),
                                                                     );
                                                                     any_icon = true;
                                                                 }
                                                             }
                                                             if !any_icon {
                                                                 ui.label(
-                                                                    egui::RichText::new("💿")
-                                                                        .size(28.0),
+                                                                    egui::RichText::new("💿").size(28.0),
                                                                 );
                                                             }
                                                             egui::Frame::new()
                                                                 .fill(
-                                                                    egui::Color32::from_rgb(
-                                                                        0x1a, 0x3a, 0x5c,
-                                                                    )
-                                                                    .linear_multiply(1.5),
+                                                                    egui::Color32::from_rgb(0x1a, 0x3a, 0x5c)
+                                                                        .linear_multiply(1.5),
                                                                 )
-                                                                .inner_margin(
-                                                                    egui::Margin::symmetric(4, 1),
-                                                                )
+                                                                .inner_margin(egui::Margin::symmetric(4, 1))
                                                                 .corner_radius(4.0)
                                                                 .show(ui, |ui| {
                                                                     ui.label(
-                                                                        egui::RichText::new(
-                                                                            arch_str,
-                                                                        )
-                                                                        .color(
-                                                                            egui::Color32::from_rgb(
+                                                                        egui::RichText::new(arch_str)
+                                                                            .color(egui::Color32::from_rgb(
                                                                                 0x60, 0xb4, 0xff,
-                                                                            ),
-                                                                        )
-                                                                        .monospace()
-                                                                        .size(10.0),
+                                                                            ))
+                                                                            .monospace()
+                                                                            .size(10.0),
                                                                     );
                                                                 });
                                                         },
@@ -317,12 +336,10 @@ pub fn render(
                                                     // Right: two lines, left-aligned
                                                     ui.vertical(|ui| {
                                                         ui.label(
-                                                            egui::RichText::new(
-                                                                image.primary_header.name(),
-                                                            )
-                                                            .color(theme.text_primary)
-                                                            .strong()
-                                                            .size(14.0),
+                                                            egui::RichText::new(image.primary_header.name())
+                                                                .color(theme.text_primary)
+                                                                .strong()
+                                                                .size(14.0),
                                                         );
                                                         ui.label(
                                                             egui::RichText::new(&size_str)
@@ -345,28 +362,26 @@ pub fn render(
 
 /// Spawn a terminal with busybox shell using egui_term.
 #[cfg(feature = "uki")]
-fn spawn_debug_shell(ctx: &egui::Context) -> Option<DebugShell> {
+fn spawn_debug_shell(ctx: &egui::Context) -> Result<DebugShell, anyhow::Error> {
     use egui_term::{BackendSettings, TerminalBackend};
 
-    // Create channel for PTY events
     let (pty_event_sender, pty_event_receiver) = std::sync::mpsc::channel();
 
-    // Configure the terminal backend
-    let settings = BackendSettings {
-        shell: "busybox sh".to_string(),
-        ..Default::default()
-    };
+    // Find a working shell - try $SHELL first, then common paths
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|s| std::path::Path::new(s).exists())
+        .or_else(|| ["/bin/sh", "/bin/bash", "/bin/busybox"].iter()
+            .find(|p| std::path::Path::new(p).exists())
+            .map(|s| s.to_string()))
+        .ok_or_else(|| anyhow::anyhow!("No shell found at /bin/sh, /bin/bash, or /bin/busybox"))?;
 
-    // Create the terminal backend
     let terminal_backend = TerminalBackend::new(
-        0, // terminal id
+        0,
         ctx.clone(),
         pty_event_sender,
-        settings,
-    ).ok()?;
+        BackendSettings { shell, ..Default::default() },
+    )?;
 
-    Some(DebugShell {
-        terminal_backend,
-        pty_event_receiver,
-    })
+    Ok(DebugShell { terminal_backend, pty_event_receiver })
 }

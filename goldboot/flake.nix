@@ -77,7 +77,6 @@
           #!/bin/busybox sh
 
           set -e
-          set -x
 
           # Create busybox symlinks (but don't overwrite kmod's modprobe/insmod)
           /bin/busybox --install -s /bin
@@ -94,38 +93,89 @@
           mkdir -p /dev/shm
           mount -t tmpfs tmpfs /dev/shm
 
+          # Mount /dev/pts for pseudo-terminals (required by debug shell)
+          mkdir -p /dev/pts
+          mount -t devpts devpts /dev/pts
+
           # Redirect all output to a log
           exec >/init.log 2>&1
+          set -x
 
           # Create necessary directories
-          mkdir -p /tmp /run /var
+          mkdir -p /tmp /run /var /etc
 
+          # Create minimal passwd for PTY allocation
+          echo "root:x:0:0:root:/:/bin/sh" > /etc/passwd
+
+          # Load all kernel modules upfront
           modprobe virtio_pci
           modprobe virtio_blk
+          modprobe virtio_gpu
+          modprobe virtio_input
+          # Storage drivers
+          modprobe ahci || true
+          modprobe sd_mod || true
+          modprobe nvme || true
+          modprobe usb_storage || true
+          # Filesystems
           modprobe nls_cp437
           modprobe nls_iso8859_1
           modprobe vfat
-          mkdir -p /var/lib/goldboot/images
+          modprobe ext4
+          modprobe btrfs || true
+          modprobe xfs || true
+          modprobe ntfs3 || true
+          modprobe iso9660 || true
+          # USB host controllers
+          modprobe xhci_pci
+          modprobe ehci_pci
+          # USB HID
+          modprobe hid
+          modprobe usbhid
+          modprobe hid_generic
+          # PS/2 keyboard (most laptop integrated keyboards)
+          modprobe i8042 || true
+          modprobe atkbd || true
+          # I2C HID (newer laptops)
+          modprobe i2c_hid || true
+          modprobe i2c_hid_acpi || true
+          # Input event interface
+          modprobe evdev
+          # Graphics
+          modprobe drm
+          modprobe drm_kms_helper
+          # Networking
+          modprobe r8169 || true
+
+          # Set up udev directories
+          mkdir -p /run/udev
+
+          # Compile the udev hardware database (required for input device detection)
+          udevadm hwdb --update
+
+          # Start udev daemon
+          udevd --daemon
+
+          # Trigger udev to process devices and wait for them to settle
+          udevadm trigger --action=add
+          sleep 2
+          udevadm settle --timeout=30
 
           # Mount goldboot images to /var/lib/goldboot/images
+          mkdir -p /var/lib/goldboot/images
+          ls /dev
           for dev in /dev/sd?* /dev/vd?* /dev/hd?* /dev/nvme*; do
             [ -e "$dev" ] || continue
-            TMP_MNT=$(mktemp -d)
-            if mount -o ro "$dev" "$TMP_MNT" 2>/dev/null; then
+            if mount -o ro "$dev" /var/lib/goldboot/images; then
               # Check for .gb files at root
-              if ls "$TMP_MNT"/*.gb >/dev/null 2>&1; then
-                umount "$TMP_MNT"
-                rmdir "$TMP_MNT"
-                mount -o ro "$dev" /var/lib/goldboot/images
+              if ls /var/lib/goldboot/images/*.gb; then
                 break
               fi
-              umount "$TMP_MNT"
+              umount /var/lib/goldboot/images
             fi
-            rmdir "$TMP_MNT"
           done
 
           # Set up networking
-          modprobe r8169
           ip link set lo up
           # Find the first ethernet interface (not lo)
           for iface in /sys/class/net/*; do
@@ -135,31 +185,6 @@
             udhcpc -i "$iface" -n -q || true
             break
           done
-
-          # Set up udev directories
-          # /etc/udev/rules.d is a symlink from the initramfs, don't overwrite it
-          mkdir -p /run/udev
-
-          # Compile the udev hardware database (required for input device detection)
-          # This creates /etc/udev/hwdb.bin from the hwdb.d directories
-          udevadm hwdb --update
-
-          # Start udev daemon BEFORE loading modules so it can create device nodes
-          udevd --daemon
-
-          # Load GPU and input kernel modules
-          modprobe virtio_pci
-          modprobe virtio_gpu
-          modprobe virtio_input
-          modprobe xhci_pci
-          modprobe ehci_pci
-          modprobe usbhid
-          modprobe hid_generic
-          modprobe evdev
-
-          # Trigger udev to process existing devices and wait for them
-          udevadm trigger --action=add
-          udevadm settle --timeout=10
 
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
           mkdir -p "$XDG_RUNTIME_DIR"
@@ -218,10 +243,18 @@
             "virtio_input"
             "drm"
             "drm_kms_helper"
+            # USB HID
             "usbhid"
             "hid_generic"
             "ehci_pci"
             "xhci_pci"
+            # PS/2 keyboard (most laptop integrated keyboards)
+            "atkbd"
+            "i8042"
+            # I2C HID (newer laptops, ultrabooks)
+            "i2c_hid"
+            "i2c_hid_acpi"
+            "hid"
             "r8169"
             "virtio_blk"
             "vfat"
@@ -401,7 +434,7 @@
               --os-release='NAME="Goldboot"
             ID=goldboot
             VERSION="0.1.0"' \
-              --cmdline="console=ttyS0 console=tty0" \
+              --cmdline="quiet loglevel=0 rd.systemd.show_status=false rd.udev.log_level=0 vt.global_cursor_default=0" \
               --output=$out/goldboot.efi
 
             echo "UKI created at $out/goldboot.efi"

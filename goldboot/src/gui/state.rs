@@ -181,6 +181,7 @@ pub struct AppState {
     // Debug shell (UKI mode only)
     #[cfg(feature = "uki")]
     pub debug_shell: Option<DebugShell>,
+    pub error_message: Option<String>,
 }
 
 impl AppState {
@@ -191,14 +192,10 @@ impl AppState {
             devices: {
                 let block_devices = block_utils::get_block_devices().unwrap_or_default();
                 let devices = block_utils::get_all_device_info(block_devices).unwrap_or_default();
-                let devices: Vec<_> = devices
+                devices
                     .into_iter()
                     .filter(|d| d.media_type != block_utils::MediaType::Loopback)
-                    .collect();
-                for device in &devices {
-                    tracing::debug!(?device, "Found block device");
-                }
-                devices
+                    .collect()
             },
             selected_device: None,
             confirm_progress: 0.0,
@@ -213,6 +210,7 @@ impl AppState {
             write_progress: None,
             #[cfg(feature = "uki")]
             debug_shell: None,
+            error_message: None,
         }
     }
 
