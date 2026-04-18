@@ -12,39 +12,62 @@ pub struct DebugShell {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlockState {
-    Pending,   // Not yet processed
-    Writing,   // Currently being written
-    UpToDate,  // Block was already correct, no write needed
-    Written,   // Block was dirty and has been written
-    Verifying, // Currently being read and hashed
-    Verified,  // Hash matched
-    Failed,    // Hash did not match (corruption)
+    /// Not yet processed
+    Pending,
+    /// Currently being written
+    Writing,
+    /// Block was already correct, no write needed
+    UpToDate,
+    /// Block was dirty and has been written
+    Written,
+    /// Currently being read and hashed
+    Verifying,
+    /// Hash matched
+    Verified,
+    /// Hash did not match (corruption)
+    Failed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PostWriteDialog {
-    Visible, // Waiting for user choice
-    Hidden,  // Dialog dismissed (verifying or done)
+    /// Waiting for user choice
+    Visible,
+    /// Dialog dismissed (verifying or done)
+    Hidden,
 }
 
 pub struct WriteProgress {
-    pub cluster_count: usize,                       // Total number of clusters
-    pub block_size: u64,                            // Bytes per cluster
-    pub block_states: Vec<BlockState>,              // Per-cluster state
-    pub done: bool,                                 // Write (or verify) thread has finished
-    pub verifying: bool,                            // Verification pass is running
-    pub post_write_dialog: Option<PostWriteDialog>, // Dialog state after write completes
-    pub error: Option<String>,                      // Set if write or verify failed
+    /// Total number of clusters
+    pub cluster_count: usize,
+    /// Bytes per cluster
+    pub block_size: u64,
+    /// Per-cluster state
+    pub block_states: Vec<BlockState>,
+    /// Write (or verify) thread has finished
+    pub done: bool,
+    /// Verification pass is running
+    pub verifying: bool,
+    /// True if this is a verify-only operation (no write)
+    pub verify_only: bool,
+    /// Dialog state after operation completes
+    pub post_write_dialog: Option<PostWriteDialog>,
+    /// Set if write or verify failed
+    pub error: Option<String>,
+    /// When the operation started
     pub start_time: Instant,
+    /// Final elapsed time when operation completes
+    pub elapsed_final: Option<f64>,
 
-    // Speed tracking: bytes read/written since last speed sample
+    // Speed tracking
     bytes_read_total: u64,
     bytes_written_total: u64,
     last_sample_time: Instant,
     last_bytes_read: u64,
     last_bytes_written: u64,
-    pub read_speed: f64,  // bytes/sec, updated each cluster
-    pub write_speed: f64, // bytes/sec, updated each cluster
+    /// Read speed in bytes/sec, updated each cluster
+    pub read_speed: f64,
+    /// Write speed in bytes/sec, updated each cluster
+    pub write_speed: f64,
 }
 
 impl WriteProgress {
@@ -56,9 +79,11 @@ impl WriteProgress {
             block_states: vec![BlockState::Pending; cluster_count],
             done: false,
             verifying: false,
+            verify_only: false,
             post_write_dialog: None,
             error: None,
             start_time: now,
+            elapsed_final: None,
             bytes_read_total: 0,
             bytes_written_total: 0,
             last_sample_time: now,
@@ -97,6 +122,32 @@ impl WriteProgress {
                 self.last_sample_time = Instant::now();
                 self.last_bytes_read = self.bytes_read_total;
                 self.last_bytes_written = self.bytes_written_total;
+            }
+        }
+    }
+
+    /// Called by the verify thread for each cluster event.
+    /// `state` matches the `ImageHandle::verify` callback convention:
+    /// - `None`        — cluster is being verified (read in progress)
+    /// - `Some(true)`  — cluster verified successfully
+    /// - `Some(false)` — cluster verification failed (hash mismatch)
+    pub fn record_verify_cluster(&mut self, idx: usize, state: Option<bool>) {
+        self.block_states[idx] = match state {
+            None => BlockState::Verifying,
+            Some(true) => BlockState::Verified,
+            Some(false) => BlockState::Failed,
+        };
+
+        // Only update byte counters and speeds on completion events, not on Verifying signal
+        if state.is_some() {
+            self.bytes_read_total += self.block_size;
+
+            // Update speed estimate every ~0.25 s
+            let elapsed = self.last_sample_time.elapsed().as_secs_f64();
+            if elapsed >= 0.25 {
+                self.read_speed = (self.bytes_read_total - self.last_bytes_read) as f64 / elapsed;
+                self.last_sample_time = Instant::now();
+                self.last_bytes_read = self.bytes_read_total;
             }
         }
     }
@@ -152,7 +203,8 @@ impl WriteProgress {
     }
 
     pub fn elapsed_seconds(&self) -> f64 {
-        self.start_time.elapsed().as_secs_f64()
+        self.elapsed_final
+            .unwrap_or_else(|| self.start_time.elapsed().as_secs_f64())
     }
 }
 
@@ -262,6 +314,7 @@ impl AppState {
                 });
 
             if let Ok(mut p) = progress.lock() {
+                p.elapsed_final = Some(p.start_time.elapsed().as_secs_f64());
                 p.done = true;
                 if let Err(e) = result {
                     p.error = Some(e.to_string());
@@ -306,26 +359,83 @@ impl AppState {
             p.done = false;
             p.verifying = true;
             p.post_write_dialog = None;
+            p.elapsed_final = None;
             p.start_time = Instant::now();
         }
 
         std::thread::spawn(move || {
             let result = image.verify(&device_path, |idx, state| {
                 if let Ok(mut p) = progress.lock() {
-                    p.block_states[idx] = match state {
-                        None => BlockState::Verifying,
-                        Some(true) => BlockState::Verified,
-                        Some(false) => BlockState::Failed,
-                    };
+                    p.record_verify_cluster(idx, state);
                 }
             });
 
             if let Ok(mut p) = progress.lock() {
+                p.elapsed_final = Some(p.start_time.elapsed().as_secs_f64());
                 p.done = true;
                 p.verifying = false;
                 if let Err(e) = result {
                     p.error = Some(e.to_string());
                 }
+                p.post_write_dialog = Some(PostWriteDialog::Visible);
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Spawn a background thread that verifies the device against the image (without writing first).
+    pub fn start_verify_only(&mut self) -> Result<(), String> {
+        let image_id = self.selected_image.clone().ok_or("No image selected")?;
+        let device_path = self
+            .selected_device
+            .as_ref()
+            .map(|d| format!("/dev/{}", d.name))
+            .ok_or("No device selected")?;
+
+        let image_path = self
+            .images
+            .iter()
+            .find(|i| i.id == image_id)
+            .map(|i| i.path.clone())
+            .ok_or("Selected image not found")?;
+
+        let mut image = ImageHandle::open(&image_path).map_err(|e| e.to_string())?;
+        image.load(None).map_err(|e| e.to_string())?;
+
+        let cluster_count = image
+            .protected_header
+            .as_ref()
+            .map(|h| h.cluster_count as usize)
+            .unwrap_or(0);
+        let block_size = image
+            .protected_header
+            .as_ref()
+            .map(|h| h.block_size as u64)
+            .unwrap_or(0);
+
+        let progress = Arc::new(Mutex::new(WriteProgress::new(cluster_count, block_size)));
+        if let Ok(mut p) = progress.lock() {
+            p.verifying = true;
+            p.verify_only = true;
+        }
+        self.write_progress = Some(progress.clone());
+
+        std::thread::spawn(move || {
+            let result = image.verify(&device_path, |idx, state| {
+                if let Ok(mut p) = progress.lock() {
+                    p.record_verify_cluster(idx, state);
+                }
+            });
+
+            if let Ok(mut p) = progress.lock() {
+                p.elapsed_final = Some(p.start_time.elapsed().as_secs_f64());
+                p.done = true;
+                p.verifying = false;
+                if let Err(e) = result {
+                    p.error = Some(e.to_string());
+                }
+                p.post_write_dialog = Some(PostWriteDialog::Visible);
             }
         });
 

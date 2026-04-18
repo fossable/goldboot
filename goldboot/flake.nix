@@ -503,6 +503,10 @@
           ${pkgs.dosfstools}/bin/mkfs.vfat -F 32 $IMAGES_IMG
           ${pkgs.mtools}/bin/mcopy -i $IMAGES_IMG -s $IMAGES_DIR/* ::
 
+          # Unformatted target device file
+          target_device=$(mktemp)
+          truncate -s 10G $target_device
+
           qemu-system-x86_64 \
             -nodefaults --enable-kvm -m 8G -machine q35 -smp 4 \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
@@ -510,6 +514,8 @@
             -drive format=raw,file=fat:rw:$ESP_DIR \
             -drive format=raw,file=$IMAGES_IMG,id=images,if=none,readonly=on \
             -device virtio-blk-pci,drive=images \
+            -drive format=raw,file=$target_device,id=target,if=none \
+            -device virtio-blk-pci,drive=target \
             -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
             -serial stdio \
             -device virtio-gpu-pci \

@@ -77,6 +77,11 @@ pub fn render(
     theme: &Theme,
     _screen: &mut Screen,
 ) {
+    // Error dialog overlay
+    if widgets::error_dialog::render(ui, &mut state.error_message, theme) {
+        return;
+    }
+
     let available_rect = ui.available_rect_before_wrap();
 
     // Draw block grid as background
@@ -89,40 +94,67 @@ pub fn render(
         }
     }
 
-    // Post-write dialog (overlays everything)
-    let show_dialog = state
+    // Post-write/verify dialog (overlays everything)
+    let (show_dialog, verified) = state
         .write_progress
         .as_ref()
         .and_then(|p| p.lock().ok())
-        .and_then(|p| p.post_write_dialog)
-        == Some(PostWriteDialog::Visible);
+        .map(|p| {
+            let show = p.post_write_dialog == Some(PostWriteDialog::Visible);
+            // Verified means either verify_only mode, or blocks have been verified
+            let verified = p.verify_only || p.blocks_verified() > 0;
+            (show, verified)
+        })
+        .unwrap_or((false, false));
 
     if show_dialog {
         // Dialog selection state lives in egui memory keyed by a fixed id
         let dialog_id = egui::Id::new("post_write_dialog_choice");
+        let default_choice = if verified {
+            DialogChoice::Reboot
+        } else {
+            DialogChoice::Verify
+        };
         let mut choice = ui
             .ctx()
             .memory(|m| m.data.get_temp::<DialogChoice>(dialog_id))
-            .unwrap_or(DialogChoice::Verify);
+            .unwrap_or(default_choice);
+
+        // If verified, don't allow Verify choice
+        if verified && choice == DialogChoice::Verify {
+            choice = DialogChoice::Reboot;
+        }
 
         let mut action: Option<DialogChoice> = None;
 
         ui.ctx().input(|inp| {
             if inp.key_pressed(egui::Key::ArrowDown) {
                 choice = choice.next();
+                if verified && choice == DialogChoice::Verify {
+                    choice = choice.next();
+                }
             }
             if inp.key_pressed(egui::Key::ArrowUp) {
                 choice = choice.prev();
+                if verified && choice == DialogChoice::Verify {
+                    // Verify is first, so stay at Reboot
+                    choice = DialogChoice::Reboot;
+                }
             }
             if inp.key_pressed(egui::Key::Enter) {
                 action = Some(choice);
             }
             // Direct hotkeys
-            for &opt in &[
-                DialogChoice::Verify,
-                DialogChoice::Reboot,
-                DialogChoice::Exit,
-            ] {
+            let available_opts: Vec<DialogChoice> = if verified {
+                vec![DialogChoice::Reboot, DialogChoice::Exit]
+            } else {
+                vec![
+                    DialogChoice::Verify,
+                    DialogChoice::Reboot,
+                    DialogChoice::Exit,
+                ]
+            };
+            for opt in available_opts {
                 if inp
                     .events
                     .iter()
@@ -146,6 +178,7 @@ pub fn render(
                     }
                     if let Err(e) = state.start_verify() {
                         tracing::error!(error = %e, "Failed to start verification");
+                        state.error_message = Some(e);
                     }
                 }
                 DialogChoice::Reboot => {
@@ -162,13 +195,12 @@ pub fn render(
             .frame(egui::Frame::NONE)
             .show_separator_line(false)
             .show_inside(ui, |ui| {
-                let hotkeys = vec![
-                    ("↑↓", "Navigate"),
-                    ("Enter", "Select"),
-                    ("V", "Verify"),
-                    ("R", "Reboot"),
-                    ("E", "Exit"),
-                ];
+                let mut hotkeys = vec![("↑↓", "Navigate"), ("Enter", "Select")];
+                if !verified {
+                    hotkeys.push(("V", "Verify"));
+                }
+                hotkeys.push(("R", "Reboot"));
+                hotkeys.push(("E", "Exit"));
                 widgets::hotkeys::render(ui, &hotkeys, theme);
             });
 
@@ -198,10 +230,14 @@ pub fn render(
                 |ui| {
                     ui.vertical_centered(|ui| {
                         ui.label(
-                            egui::RichText::new("Write Complete")
-                                .color(theme.accent_gold)
-                                .strong()
-                                .size(20.0),
+                            egui::RichText::new(if verified {
+                                "Verify Complete"
+                            } else {
+                                "Write Complete"
+                            })
+                            .color(theme.accent_gold)
+                            .strong()
+                            .size(20.0),
                         );
                         ui.add_space(8.0);
                         ui.label(
@@ -211,11 +247,16 @@ pub fn render(
                         );
                         ui.add_space(20.0);
 
-                        for opt in [
-                            DialogChoice::Verify,
-                            DialogChoice::Reboot,
-                            DialogChoice::Exit,
-                        ] {
+                        let options: Vec<DialogChoice> = if verified {
+                            vec![DialogChoice::Reboot, DialogChoice::Exit]
+                        } else {
+                            vec![
+                                DialogChoice::Verify,
+                                DialogChoice::Reboot,
+                                DialogChoice::Exit,
+                            ]
+                        };
+                        for opt in options {
                             let is_selected = choice == opt;
                             let text =
                                 egui::RichText::new(format!("[{}] {}", opt.hotkey(), opt.label()))
@@ -264,16 +305,15 @@ pub fn render(
                     egui::UiBuilder::new().max_rect(box_rect.shrink(20.0)),
                     |ui| {
                         ui.vertical_centered(|ui| {
-                            let title = if progress.verifying {
-                                "Verifying Image"
-                            } else {
-                                "Writing Image"
-                            };
                             ui.label(
-                                egui::RichText::new(title)
-                                    .color(theme.accent_gold)
-                                    .strong()
-                                    .size(20.0),
+                                egui::RichText::new(if progress.verifying {
+                                    "Verifying Image"
+                                } else {
+                                    "Writing Image"
+                                })
+                                .color(theme.accent_gold)
+                                .strong()
+                                .size(20.0),
                             );
 
                             ui.add_space(15.0);
@@ -295,7 +335,8 @@ pub fn render(
 
                             ui.add_space(15.0);
 
-                            ui.horizontal(|ui| {
+                            if progress.verifying {
+                                // Verify-only: show just read speed
                                 ui.vertical(|ui| {
                                     ui.label(
                                         egui::RichText::new("Read Speed:")
@@ -309,23 +350,40 @@ pub fn render(
                                             .strong(),
                                     );
                                 });
+                            } else {
+                                // Writing: show both read and write speeds
+                                ui.horizontal(|ui| {
+                                    ui.vertical(|ui| {
+                                        ui.label(
+                                            egui::RichText::new("Read Speed:")
+                                                .color(theme.text_secondary)
+                                                .size(14.0),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new(format_speed(progress.read_speed))
+                                                .color(theme.text_primary)
+                                                .size(16.0)
+                                                .strong(),
+                                        );
+                                    });
 
-                                ui.add_space(40.0);
+                                    ui.add_space(40.0);
 
-                                ui.vertical(|ui| {
-                                    ui.label(
-                                        egui::RichText::new("Write Speed:")
-                                            .color(theme.text_secondary)
-                                            .size(14.0),
-                                    );
-                                    ui.label(
-                                        egui::RichText::new(format_speed(progress.write_speed))
-                                            .color(theme.text_primary)
-                                            .size(16.0)
-                                            .strong(),
-                                    );
+                                    ui.vertical(|ui| {
+                                        ui.label(
+                                            egui::RichText::new("Write Speed:")
+                                                .color(theme.text_secondary)
+                                                .size(14.0),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new(format_speed(progress.write_speed))
+                                                .color(theme.text_primary)
+                                                .size(16.0)
+                                                .strong(),
+                                        );
+                                    });
                                 });
-                            });
+                            }
 
                             ui.add_space(10.0);
 

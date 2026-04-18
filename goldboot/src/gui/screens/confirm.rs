@@ -299,10 +299,14 @@ pub fn render(
                     state.confirm_progress += 0.01;
                     if state.confirm_progress >= 1.0 {
                         state.confirm_progress = 1.0;
-                        if let Err(e) = state.start_write() {
-                            tracing::error!(error = %e, "Failed to start write");
+                        match state.start_write() {
+                            Ok(()) => *screen = Screen::ApplyImage,
+                            Err(e) => {
+                                tracing::error!(error = %e, "Failed to start write");
+                                state.error_message = Some(e);
+                                *screen = Screen::SelectDevice;
+                            }
                         }
-                        *screen = Screen::ApplyImage;
                     }
                 }
             });

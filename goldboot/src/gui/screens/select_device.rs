@@ -9,12 +9,17 @@ pub fn render(
     theme: &Theme,
     screen: &mut Screen,
 ) {
+    // Error dialog overlay
+    if widgets::error_dialog::render(ui, &mut state.error_message, theme) {
+        return;
+    }
+
     // Hotkeys footer - render first into a bottom panel so it's always visible
     egui::TopBottomPanel::bottom("select_device_hotkeys")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
         .show_inside(ui, |ui| {
-            let hotkeys = vec![("Esc", "Back"), ("Enter", "Overwrite")];
+            let hotkeys = vec![("Esc", "Back"), ("Enter", "Overwrite"), ("V", "Verify")];
             widgets::hotkeys::render(ui, &hotkeys, theme);
         });
 
@@ -64,6 +69,7 @@ pub fn render(
                         .as_ref()
                         .and_then(|sel| selectable.iter().position(|d| d.name == sel.name));
 
+                    let mut start_verify = false;
                     ui.ctx().input(|inp| {
                         if inp.key_pressed(egui::Key::ArrowDown) {
                             let next = current_idx
@@ -83,7 +89,24 @@ pub fn render(
                         if inp.key_pressed(egui::Key::Escape) {
                             *screen = Screen::SelectImage;
                         }
+                        // 'V' to verify (without writing)
+                        if inp.events.iter().any(|e| {
+                            matches!(e, egui::Event::Text(t) if t.to_uppercase() == "V")
+                        }) {
+                            if state.selected_device.is_some() {
+                                start_verify = true;
+                            }
+                        }
                     });
+                    if start_verify {
+                        match state.start_verify_only() {
+                            Ok(()) => *screen = Screen::ApplyImage,
+                            Err(e) => {
+                                tracing::error!(error = %e, "Failed to start verification");
+                                state.error_message = Some(e);
+                            }
+                        }
+                    }
                 }
 
                 // Device list with horizontal margins
