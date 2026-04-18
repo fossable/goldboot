@@ -1965,7 +1965,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "anyhow",
  "axum",
@@ -2032,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-image"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -2052,7 +2052,7 @@ dependencies = [
 
 [[package]]
 name = "goldboot-macros"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "darling 0.23.0",
  "proc-macro2",
