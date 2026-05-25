@@ -3,8 +3,8 @@ use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
+use crate::builder::options::partition_layout::PartitionLayout;
 use crate::builder::options::unix_account::RootPassword;
-use crate::builder::options::unix_users::UnixUsers;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArchinstallCredentials {
@@ -37,7 +37,10 @@ impl From<&super::ArchLinux> for ArchinstallCredentials {
         };
         Self {
             root_password,
-            encryption_password: value.encryption_password.as_ref().map(|e| e.0.clone()),
+            encryption_password: match &value.partition_layout {
+                PartitionLayout::UefiLuks { passphrase } => Some(passphrase.clone()),
+                _ => None,
+            },
             users: value.users.as_ref().map(|users| {
                 users
                     .0
@@ -190,9 +193,146 @@ pub struct ArchinstallConfig {
     pub timezone: String,
 }
 
+/// Converts a `PartitionLayout` into the archinstall disk_config and optional
+/// disk_encryption structures. The root partition's obj_id is shared between
+/// both so that archinstall correctly associates the encryption entry with the
+/// right partition.
+fn disk_config_from(layout: &PartitionLayout) -> (DiskLayoutConfiguration, Option<DiskEncryption>) {
+    fn sector_size() -> SectorSize {
+        SectorSize { value: 512, unit: "B".to_string() }
+    }
+    fn mib(value: i64, offset: i64) -> (Size, Size) {
+        (
+            Size { sector_size: sector_size(), unit: "MiB".to_string(), value: offset },
+            Size { sector_size: sector_size(), unit: "MiB".to_string(), value: value },
+        )
+    }
+
+    let efi_obj_id = Uuid::new_v4().to_string();
+    let (efi_start, efi_size) = mib(512, 1);
+    let efi_part = PartitionModification {
+        btrfs: vec![],
+        flags: vec!["boot".to_string(), "esp".to_string()],
+        fs_type: "fat32".to_string(),
+        obj_id: efi_obj_id,
+        size: efi_size,
+        mount_options: vec![],
+        mountpoint: "/boot".to_string(),
+        start: efi_start,
+        status: "create".to_string(),
+        type_field: "primary".to_string(),
+        dev_path: Some("/dev/vda1".to_string()),
+    };
+
+    match layout {
+        PartitionLayout::Uefi => {
+            let (root_start, root_size) = mib(-1, 513);
+            let root_part = PartitionModification {
+                btrfs: vec![],
+                flags: vec![],
+                fs_type: "ext4".to_string(),
+                obj_id: Uuid::new_v4().to_string(),
+                size: root_size,
+                mount_options: vec![],
+                mountpoint: "/".to_string(),
+                start: root_start,
+                status: "create".to_string(),
+                type_field: "primary".to_string(),
+                dev_path: Some("/dev/vda2".to_string()),
+            };
+            (
+                DiskLayoutConfiguration {
+                    config_type: "manual_partitioning".to_string(),
+                    device_modifications: vec![DeviceModification {
+                        device: "/dev/vda".to_string(),
+                        wipe: true,
+                        partitions: vec![efi_part, root_part],
+                    }],
+                },
+                None,
+            )
+        }
+        PartitionLayout::UefiWithSwap { swap_size_mib } => {
+            let swap_size_mib = *swap_size_mib as i64;
+            let (swap_start, swap_size) = mib(swap_size_mib, 513);
+            let swap_part = PartitionModification {
+                btrfs: vec![],
+                flags: vec!["swap".to_string()],
+                fs_type: "swap".to_string(),
+                obj_id: Uuid::new_v4().to_string(),
+                size: swap_size,
+                mount_options: vec![],
+                mountpoint: String::new(),
+                start: swap_start,
+                status: "create".to_string(),
+                type_field: "primary".to_string(),
+                dev_path: Some("/dev/vda2".to_string()),
+            };
+            let (root_start, root_size) = mib(-1, 513 + swap_size_mib);
+            let root_part = PartitionModification {
+                btrfs: vec![],
+                flags: vec![],
+                fs_type: "ext4".to_string(),
+                obj_id: Uuid::new_v4().to_string(),
+                size: root_size,
+                mount_options: vec![],
+                mountpoint: "/".to_string(),
+                start: root_start,
+                status: "create".to_string(),
+                type_field: "primary".to_string(),
+                dev_path: Some("/dev/vda3".to_string()),
+            };
+            (
+                DiskLayoutConfiguration {
+                    config_type: "manual_partitioning".to_string(),
+                    device_modifications: vec![DeviceModification {
+                        device: "/dev/vda".to_string(),
+                        wipe: true,
+                        partitions: vec![efi_part, swap_part, root_part],
+                    }],
+                },
+                None,
+            )
+        }
+        PartitionLayout::UefiLuks { .. } => {
+            let root_obj_id = Uuid::new_v4().to_string();
+            let (root_start, root_size) = mib(-1, 513);
+            let root_part = PartitionModification {
+                btrfs: vec![],
+                flags: vec![],
+                fs_type: "ext4".to_string(),
+                obj_id: root_obj_id.clone(),
+                size: root_size,
+                mount_options: vec![],
+                mountpoint: "/".to_string(),
+                start: root_start,
+                status: "create".to_string(),
+                type_field: "primary".to_string(),
+                dev_path: Some("/dev/vda2".to_string()),
+            };
+            (
+                DiskLayoutConfiguration {
+                    config_type: "manual_partitioning".to_string(),
+                    device_modifications: vec![DeviceModification {
+                        device: "/dev/vda".to_string(),
+                        wipe: true,
+                        partitions: vec![efi_part, root_part],
+                    }],
+                },
+                Some(DiskEncryption {
+                    partitions: vec![root_obj_id],
+                    encryption_type: "luks2".to_string(),
+                }),
+            )
+        }
+    }
+}
+
 impl From<&super::ArchLinux> for ArchinstallConfig {
     fn from(value: &super::ArchLinux) -> Self {
         use super::{ArchLinuxAudio, ArchLinuxBootloaderKind};
+
+        let (disk_config, disk_encryption) = disk_config_from(&value.partition_layout);
 
         Self {
             archinstall_language: "English".to_string(),
@@ -211,73 +351,8 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
                 removable: value.bootloader.removable,
             },
             debug: true,
-            disk_encryption: value.encryption_password.as_ref().map(|_| DiskEncryption {
-                partitions: vec![Uuid::new_v4().to_string()],
-                encryption_type: "luks2".to_string(),
-            }),
-            disk_config: DiskLayoutConfiguration {
-                config_type: "manual_partitioning".to_string(),
-                device_modifications: vec![DeviceModification {
-                    device: "/dev/vda".to_string(),
-                    wipe: true,
-                    partitions: vec![
-                        PartitionModification {
-                            btrfs: vec![],
-                            flags: vec!["boot".to_string(), "esp".to_string()],
-                            fs_type: "fat32".to_string(),
-                            obj_id: Uuid::new_v4().to_string(),
-                            size: Size {
-                                sector_size: SectorSize {
-                                    value: 512,
-                                    unit: "B".to_string(),
-                                },
-                                unit: "MiB".to_string(),
-                                value: 512,
-                            },
-                            mount_options: vec![],
-                            mountpoint: "/boot".to_string(),
-                            start: Size {
-                                sector_size: SectorSize {
-                                    value: 512,
-                                    unit: "B".to_string(),
-                                },
-                                unit: "MiB".to_string(),
-                                value: 1,
-                            },
-                            status: "create".to_string(),
-                            type_field: "primary".to_string(),
-                            dev_path: Some("/dev/vda1".to_string()),
-                        },
-                        PartitionModification {
-                            btrfs: vec![],
-                            flags: vec![],
-                            fs_type: "ext4".to_string(),
-                            obj_id: Uuid::new_v4().to_string(),
-                            size: Size {
-                                sector_size: SectorSize {
-                                    value: 512,
-                                    unit: "B".to_string(),
-                                },
-                                unit: "MiB".to_string(),
-                                value: 5120,
-                            },
-                            mount_options: vec![],
-                            mountpoint: "/".to_string(),
-                            start: Size {
-                                sector_size: SectorSize {
-                                    value: 512,
-                                    unit: "B".to_string(),
-                                },
-                                unit: "MiB".to_string(),
-                                value: 513,
-                            },
-                            status: "create".to_string(),
-                            type_field: "primary".to_string(),
-                            dev_path: Some("/dev/vda2".to_string()),
-                        },
-                    ],
-                }],
-            },
+            disk_encryption,
+            disk_config,
             hostname: value.hostname.hostname.clone(),
             kernels: value.kernels.0.clone(),
             locale_config: LocaleConfig {

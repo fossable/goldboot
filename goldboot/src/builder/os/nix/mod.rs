@@ -8,11 +8,11 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{arch::Arch, iso::Iso, size::Size},
+        options::{arch::Arch, iso::Iso, partition_layout::PartitionLayout, size::Size},
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
-    enter, wait, wait_screen_rect,
+    enter, wait, wait_screen_rect, wait_text,
 };
 
 use super::BuildImage;
@@ -40,6 +40,9 @@ pub struct Nix {
         checksum: Some("sha256:acdcf8239f64e5acd20cf49c63f83e4c1b823b31d9f669033b48876b29b52177".to_string()),
     })]
     pub iso: Iso,
+
+    #[default(PartitionLayout::Uefi)]
+    pub partition_layout: PartitionLayout,
 }
 
 impl BuildImage for Nix {
@@ -52,24 +55,27 @@ impl BuildImage for Nix {
             )]))?
             .start()?;
 
-        // Send boot command
-        #[rustfmt::skip]
-		qemu.vnc.run(vec![
-			// Initial wait
-			wait!(30),
-            // Wait for automatic login
-			wait_screen_rect!("94a2520c082650cc01a4b5eac8719b697a4bbf63", 100, 100, 100, 100),
+        let mut cmds = vec![
+            wait!(15),
+            wait_text!("nixos login: nixos .automatic login."),
             enter!("sudo su -"),
-            // Mount config drive and copy configuration.nix
             enter!("mkdir /goldboot && mount /dev/vdb /goldboot"),
+        ];
+
+        for cmd in self.partition_layout.mount_commands("/dev/vda") {
+            cmds.push(enter!(cmd));
+        }
+
+        cmds.extend(vec![
             enter!("nixos-generate-config --root /mnt"),
             enter!("cp /goldboot/configuration.nix /mnt/etc/nixos/configuration.nix"),
             enter!("umount /goldboot"),
-			// Run install
-			enter!("nixos-install --no-root-passwd"),
-		])?;
+            enter!("nixos-install --no-root-passwd"),
+            enter!("poweroff"),
+        ]);
 
-        // Shutdown
+        qemu.vnc.run(cmds)?;
+
         qemu.shutdown_wait()?;
         Ok(())
     }

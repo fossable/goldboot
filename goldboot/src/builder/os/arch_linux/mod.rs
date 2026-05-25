@@ -6,6 +6,7 @@ use crate::builder::options::iso::Iso;
 use crate::builder::options::locale::Locale;
 use crate::builder::options::ntp::Ntp;
 use crate::builder::options::packages::Packages;
+use crate::builder::options::partition_layout::PartitionLayout;
 use crate::builder::options::size::Size;
 use crate::builder::options::timezone::Timezone;
 use crate::builder::options::unix_account::RootPassword;
@@ -103,8 +104,9 @@ pub struct ArchLinux {
     #[serde(default)]
     pub swap: ArchLinuxSwap,
 
-    /// Full-disk encryption passphrase (LUKS)
-    pub encryption_password: Option<ArchLinuxEncryptionPassword>,
+    /// Disk partition layout and optional LUKS encryption
+    #[serde(default)]
+    pub partition_layout: PartitionLayout,
 
     /// Enable NTP time synchronization
     #[serde(default)]
@@ -354,16 +356,6 @@ pub struct ArchLinuxSwap {
 }
 
 impl Prompt for ArchLinuxSwap {
-    fn prompt(&mut self, _: &Builder) -> Result<()> {
-        Ok(())
-    }
-}
-
-/// Full-disk encryption passphrase (LUKS).
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ArchLinuxEncryptionPassword(pub String);
-
-impl Prompt for ArchLinuxEncryptionPassword {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
         Ok(())
     }
