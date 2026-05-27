@@ -7,9 +7,9 @@ pub fn render(ui: &mut egui::Ui, error_message: &mut Option<String>, theme: &The
         return false;
     };
 
-    let close = ui.ctx().input(|inp| {
-        inp.key_pressed(egui::Key::Escape) || inp.key_pressed(egui::Key::Enter)
-    });
+    let close = ui
+        .ctx()
+        .input(|inp| inp.key_pressed(egui::Key::Escape) || inp.key_pressed(egui::Key::Enter));
 
     if close {
         *error_message = None;

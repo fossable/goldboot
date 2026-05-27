@@ -34,7 +34,9 @@ impl Read for Qcow3Reader<'_> {
             .min((self.qcow.header.size - self.pos) as usize)
             .min(buf.len());
 
-        let contents = self.qcow.l1_table
+        let contents = self
+            .qcow
+            .l1_table
             .get(l1_idx)
             .and_then(|l1| l1.read_l2(&mut self.file, self.qcow.header.cluster_bits))
             .and_then(|l2| l2.into_iter().nth(l2_idx))

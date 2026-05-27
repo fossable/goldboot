@@ -25,11 +25,11 @@ impl Prompt for Arch {
 
         let selection = Select::with_theme(&theme)
             .with_prompt("Architecture")
-            .items(&labels)
+            .items(labels)
             .default(current)
             .interact()?;
 
-        self.0 = options[selection].clone();
+        self.0 = options[selection];
         Ok(())
     }
 }

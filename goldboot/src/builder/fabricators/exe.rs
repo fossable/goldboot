@@ -32,13 +32,12 @@ impl Prompt for HostExecutable {
             .with_prompt("Enter the script path relative to the current directory")
             .interact()?;
 
-        if !Path::new(&self.path).exists() {
-            if !dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme())
+        if !Path::new(&self.path).exists()
+            && !dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme())
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
-            {
-                bail!("The playbook did not exist");
-            }
+        {
+            bail!("The playbook did not exist");
         }
 
         self.validate()?;

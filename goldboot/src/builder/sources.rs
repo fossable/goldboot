@@ -1,4 +1,4 @@
-use crate::cli::progress::ProgressBar;
+use crate::cli::progress::{DigestWriter, ProgressBar};
 use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
@@ -18,7 +18,7 @@ pub struct SourceCache {
 
 impl SourceCache {
     /// Get the default platform-dependent source cache.
-    pub fn default() -> Result<Self> {
+    pub fn open() -> Result<Self> {
         let directory = if cfg!(target_os = "linux") {
             PathBuf::from(format!(
                 "/home/{}/.cache/goldboot/sources",
@@ -49,13 +49,12 @@ impl SourceCache {
 
         // Delete file if the checksum doesn't match
         if let Some(checksum) = checksum.clone() {
-            if path.is_file() {
-                if !Self::verify_checksum(path.to_string_lossy().to_string(), checksum.as_str())
-                    .is_ok()
-                {
-                    info!("Deleting corrupt cached file");
-                    std::fs::remove_file(&path)?;
-                }
+            if path.is_file()
+                && Self::verify_checksum(path.to_string_lossy().to_string(), checksum.as_str())
+                    .is_err()
+            {
+                info!("Deleting corrupt cached file");
+                std::fs::remove_file(&path)?;
             }
         }
 
@@ -103,21 +102,21 @@ impl SourceCache {
         let hash = match c[0] {
             "sha1" | "SHA1" => {
                 info!("Computing SHA1 checksum");
-                let mut hasher = Sha1::new();
+                let mut hasher = DigestWriter(Sha1::new());
                 ProgressBar::Hash.copy(&mut file, &mut hasher, std::fs::metadata(&path)?.len())?;
-                hex::encode(hasher.finalize())
+                hex::encode(hasher.0.finalize())
             }
             "sha256" | "SHA256" => {
                 info!("Computing SHA256 checksum");
-                let mut hasher = Sha256::new();
+                let mut hasher = DigestWriter(Sha256::new());
                 ProgressBar::Hash.copy(&mut file, &mut hasher, std::fs::metadata(&path)?.len())?;
-                hex::encode(hasher.finalize())
+                hex::encode(hasher.0.finalize())
             }
             "sha512" | "SHA512" => {
                 info!("Computing SHA512 checksum");
-                let mut hasher = Sha512::new();
+                let mut hasher = DigestWriter(Sha512::new());
                 ProgressBar::Hash.copy(&mut file, &mut hasher, std::fs::metadata(&path)?.len())?;
-                hex::encode(hasher.finalize())
+                hex::encode(hasher.0.finalize())
             }
             _ => bail!("Unsupported hash"),
         };

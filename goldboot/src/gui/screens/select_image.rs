@@ -91,9 +91,12 @@ pub fn render(
 
                                     // Render terminal
                                     let available = ui.available_size();
-                                    let terminal = egui_term::TerminalView::new(ui, &mut shell.terminal_backend)
-                                        .set_focus(true)
-                                        .set_size(egui::Vec2::new(available.x, available.y - 10.0));
+                                    let terminal = egui_term::TerminalView::new(
+                                        ui,
+                                        &mut shell.terminal_backend,
+                                    )
+                                    .set_focus(true)
+                                    .set_size(egui::Vec2::new(available.x, available.y - 10.0));
                                     ui.add(terminal);
                                 });
                             });
@@ -107,7 +110,7 @@ pub fn render(
     }
 
     // Hotkeys footer
-    egui::TopBottomPanel::bottom("select_image_hotkeys")
+    egui::Panel::bottom("select_image_hotkeys")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
         .show_inside(ui, |ui| {
@@ -177,10 +180,14 @@ pub fn render(
 
                 // T key opens debug shell (UKI mode only)
                 #[cfg(feature = "uki")]
-                if ui.ctx().input(|inp| inp.key_pressed(egui::Key::T)) && state.debug_shell.is_none() {
+                if ui.ctx().input(|inp| inp.key_pressed(egui::Key::T))
+                    && state.debug_shell.is_none()
+                {
                     match spawn_debug_shell(ui.ctx()) {
                         Ok(shell) => state.debug_shell = Some(shell),
-                        Err(e) => state.error_message = Some(format!("Failed to open debug shell: {e}")),
+                        Err(e) => {
+                            state.error_message = Some(format!("Failed to open debug shell: {e}"))
+                        }
                     }
                 }
 
@@ -257,31 +264,44 @@ pub fn render(
                                                                 {
                                                                     ui.add(
                                                                         egui::Image::new(tex)
-                                                                            .max_size(egui::Vec2::splat(32.0)),
+                                                                            .max_size(
+                                                                                egui::Vec2::splat(
+                                                                                    32.0,
+                                                                                ),
+                                                                            ),
                                                                     );
                                                                     any_icon = true;
                                                                 }
                                                             }
                                                             if !any_icon {
                                                                 ui.label(
-                                                                    egui::RichText::new("💿").size(28.0),
+                                                                    egui::RichText::new("💿")
+                                                                        .size(28.0),
                                                                 );
                                                             }
                                                             egui::Frame::new()
                                                                 .fill(
-                                                                    egui::Color32::from_rgb(0x1a, 0x3a, 0x5c)
-                                                                        .linear_multiply(1.5),
+                                                                    egui::Color32::from_rgb(
+                                                                        0x1a, 0x3a, 0x5c,
+                                                                    )
+                                                                    .linear_multiply(1.5),
                                                                 )
-                                                                .inner_margin(egui::Margin::symmetric(4, 1))
+                                                                .inner_margin(
+                                                                    egui::Margin::symmetric(4, 1),
+                                                                )
                                                                 .corner_radius(4.0)
                                                                 .show(ui, |ui| {
                                                                     ui.label(
-                                                                        egui::RichText::new(arch_str)
-                                                                            .color(egui::Color32::from_rgb(
+                                                                        egui::RichText::new(
+                                                                            arch_str,
+                                                                        )
+                                                                        .color(
+                                                                            egui::Color32::from_rgb(
                                                                                 0x60, 0xb4, 0xff,
-                                                                            ))
-                                                                            .monospace()
-                                                                            .size(10.0),
+                                                                            ),
+                                                                        )
+                                                                        .monospace()
+                                                                        .size(10.0),
                                                                     );
                                                                 });
                                                         },
@@ -292,10 +312,12 @@ pub fn render(
                                                     // Right: two lines, left-aligned
                                                     ui.vertical(|ui| {
                                                         ui.label(
-                                                            egui::RichText::new(image.primary_header.name())
-                                                                .color(theme.text_primary)
-                                                                .strong()
-                                                                .size(14.0),
+                                                            egui::RichText::new(
+                                                                image.primary_header.name(),
+                                                            )
+                                                            .color(theme.text_primary)
+                                                            .strong()
+                                                            .size(14.0),
                                                         );
                                                         ui.label(
                                                             egui::RichText::new(&size_str)
@@ -327,17 +349,26 @@ fn spawn_debug_shell(ctx: &egui::Context) -> Result<DebugShell, anyhow::Error> {
     let shell = std::env::var("SHELL")
         .ok()
         .filter(|s| std::path::Path::new(s).exists())
-        .or_else(|| ["/bin/sh", "/bin/bash", "/bin/busybox"].iter()
-            .find(|p| std::path::Path::new(p).exists())
-            .map(|s| s.to_string()))
+        .or_else(|| {
+            ["/bin/sh", "/bin/bash", "/bin/busybox"]
+                .iter()
+                .find(|p| std::path::Path::new(p).exists())
+                .map(|s| s.to_string())
+        })
         .ok_or_else(|| anyhow::anyhow!("No shell found at /bin/sh, /bin/bash, or /bin/busybox"))?;
 
     let terminal_backend = TerminalBackend::new(
         0,
         ctx.clone(),
         pty_event_sender,
-        BackendSettings { shell, ..Default::default() },
+        BackendSettings {
+            shell,
+            ..Default::default()
+        },
     )?;
 
-    Ok(DebugShell { terminal_backend, pty_event_receiver })
+    Ok(DebugShell {
+        terminal_backend,
+        pty_event_receiver,
+    })
 }

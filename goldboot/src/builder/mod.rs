@@ -6,7 +6,7 @@ use crate::library::{ImageLibrary, qcow_cache_path};
 use anyhow::{Result, bail};
 use dialoguer::Password;
 use goldboot_image::{ElementHeader, ImageArch, ImageHandle, qcow::Qcow3};
-use rand::Rng;
+use rand::RngExt;
 use std::{path::PathBuf, time::SystemTime};
 use tracing::info;
 use validator::Validate;
@@ -140,7 +140,7 @@ impl Builder {
 
                 // Override from command line
                 if let Some(path) = ovmf_path {
-                    self.ovmf_path = PathBuf::from(path);
+                    self.ovmf_path = path;
                 } else {
                     // Try to find OVMF firmware or unpack what's included
                     if let Some(path) = crate::builder::ovmf::find() {
@@ -191,7 +191,7 @@ impl Builder {
                 }
 
                 for element in self.elements.iter() {
-                    element.0.build(&self)?;
+                    element.0.build(self)?;
                 }
 
                 // Re-open qcow to pick up any new snapshots written during the build
@@ -218,7 +218,7 @@ impl Builder {
                     |_, _| {},
                 )?;
 
-                if let None = output {
+                if output.is_none() {
                     ImageLibrary::open().add_move(path.clone())?;
                 }
             }

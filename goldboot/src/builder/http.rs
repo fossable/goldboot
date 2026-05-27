@@ -14,7 +14,7 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    pub fn new() -> Result<HttpServerBuilder> {
+    pub fn builder() -> Result<HttpServerBuilder> {
         Ok(HttpServerBuilder {
             router: Router::new(),
             directory: tempfile::tempdir()?,

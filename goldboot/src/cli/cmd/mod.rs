@@ -3,12 +3,12 @@ use std::path::PathBuf;
 #[cfg(feature = "build")]
 pub mod build;
 pub mod deploy;
+pub mod drift;
 pub mod image;
 #[cfg(feature = "build")]
 pub mod init;
 pub mod install;
 pub mod registry;
-pub mod drift;
 
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum Commands {

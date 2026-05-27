@@ -9,7 +9,6 @@ pub struct DebugShell {
     pub pty_event_receiver: std::sync::mpsc::Receiver<(u64, egui_term::PtyEvent)>,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlockState {
     /// Not yet processed
@@ -236,6 +235,12 @@ pub struct AppState {
     pub error_message: Option<String>,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     pub fn new() -> Self {
         Self {
@@ -252,7 +257,7 @@ impl AppState {
             selected_device: None,
             confirm_progress: 0.0,
             confirm_char: {
-                use rand::Rng;
+                use rand::RngExt;
                 rand::rng().sample(rand::distr::Uniform::new(b'a', b'z' + 1).unwrap()) as char
             },
             registry_address: String::new(),

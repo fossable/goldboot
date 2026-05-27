@@ -1,11 +1,9 @@
 use anyhow::{Result, anyhow, bail};
 use goldboot_image::ImageHandle;
-use rand::Rng;
-use sha1::Digest;
-use sha2::Sha256;
+use rand::RngExt;
+use sha2::{Digest, Sha256};
 use std::{
     fs::File,
-    io::{Read, Write},
     path::{Path, PathBuf},
 };
 use tracing::{debug, info};
@@ -46,9 +44,7 @@ impl ImageLibrary {
     pub fn open() -> Self {
         let directory = if let Ok(dir) = std::env::var("GOLDBOOT_IMAGE_DIR") {
             PathBuf::from(dir)
-        } else if cfg!(target_os = "linux") {
-            PathBuf::from("/var/lib/goldboot/images")
-        } else if cfg!(target_os = "macos") {
+        } else if cfg!(any(target_os = "linux", target_os = "macos")) {
             PathBuf::from("/var/lib/goldboot/images")
         } else {
             panic!("Unsupported platform");
@@ -71,14 +67,15 @@ impl ImageLibrary {
     /// library with the appropriate name.
     #[cfg(feature = "cli")]
     pub fn add_copy(&self, image_path: impl AsRef<Path>) -> Result<()> {
+        use crate::cli::progress::DigestWriter;
         use crate::cli::progress::ProgressBar;
-        let mut hasher = Sha256::new();
+        let mut hasher = DigestWriter(Sha256::new());
         ProgressBar::Hash.copy(
             &mut File::open(&image_path)?,
             &mut hasher,
             std::fs::metadata(&image_path)?.len(),
         )?;
-        let hash = hex::encode(hasher.finalize());
+        let hash = hex::encode(hasher.0.finalize());
         let dest = self.directory.join(format!("{hash}.gb"));
 
         info!(path = %dest.display(), "Copying image to library");
@@ -90,14 +87,14 @@ impl ImageLibrary {
     /// library with the appropriate name.
     #[cfg(feature = "cli")]
     pub fn add_move(&self, image_path: impl AsRef<Path>) -> Result<()> {
-        use crate::cli::progress::ProgressBar;
-        let mut hasher = Sha256::new();
+        use crate::cli::progress::{DigestWriter, ProgressBar};
+        let mut hasher = DigestWriter(Sha256::new());
         ProgressBar::Hash.copy(
             &mut File::open(&image_path)?,
             &mut hasher,
             std::fs::metadata(&image_path)?.len(),
         )?;
-        let hash = hex::encode(hasher.finalize());
+        let hash = hex::encode(hasher.0.finalize());
         let dest = self.directory.join(format!("{hash}.gb"));
 
         info!(path = %dest.display(), "Moving image to library");
@@ -155,10 +152,10 @@ impl ImageLibrary {
 
     /// Find images in the library by ID.
     pub fn find_by_id(image_id: &str) -> Result<ImageHandle> {
-        Ok(Self::find_all()?
+        Self::find_all()?
             .into_iter()
             .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
-            .ok_or_else(|| anyhow!("Image not found"))?)
+            .ok_or_else(|| anyhow!("Image not found"))
     }
 
     /// Find images in the library that have the given OS.

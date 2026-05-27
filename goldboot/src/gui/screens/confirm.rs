@@ -32,7 +32,7 @@ pub fn render(
     screen: &mut Screen,
 ) {
     // Hotkeys footer - render first into a bottom panel so it's always visible
-    egui::TopBottomPanel::bottom("confirm_hotkeys")
+    egui::Panel::bottom("confirm_hotkeys")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
         .show_inside(ui, |ui| {
@@ -84,8 +84,7 @@ pub fn render(
                             ui.add_space(8.0);
 
                             if let Some(image_id) = &state.selected_image.clone() {
-                                if let Some(image) =
-                                    state.images.iter().find(|i| &i.id == image_id)
+                                if let Some(image) = state.images.iter().find(|i| &i.id == image_id)
                                 {
                                     let h = &image.primary_header;
 
@@ -112,14 +111,8 @@ pub fn render(
 
                                     let rows: &[(&str, String)] = &[
                                         ("Architecture", arch_label(&h.arch).to_string()),
-                                        (
-                                            "Size on disk",
-                                            format!("{}", image.file_size.bytes()),
-                                        ),
-                                        (
-                                            "Expanded size",
-                                            format!("{}", h.size.bytes()),
-                                        ),
+                                        ("Size on disk", format!("{}", image.file_size.bytes())),
+                                        ("Expanded size", format!("{}", h.size.bytes())),
                                         (
                                             "Elements",
                                             h.elements
@@ -128,10 +121,7 @@ pub fn render(
                                                 .collect::<Vec<_>>()
                                                 .join(", "),
                                         ),
-                                        (
-                                            "Encryption",
-                                            format!("{:?}", h.encryption_type),
-                                        ),
+                                        ("Encryption", format!("{:?}", h.encryption_type)),
                                         ("ID", image.id[..12].to_string()),
                                     ];
 
@@ -187,73 +177,66 @@ pub fn render(
                             ui.add_space(8.0);
 
                             if let Some(device) = &state.selected_device {
-                                    let device_path = format!("/dev/{}", device.name);
-                                    // Device icon + name
-                                    ui.horizontal(|ui| {
-                                        let icon = match device.media_type {
-                                            block_utils::MediaType::SolidState => {
-                                                &textures.icon_ssd
-                                            }
-                                            block_utils::MediaType::Rotational => {
-                                                &textures.icon_hdd
-                                            }
-                                            block_utils::MediaType::NVME => &textures.icon_nvme,
-                                            block_utils::MediaType::Ram => &textures.icon_ram,
-                                            _ => &textures.icon_hdd,
-                                        };
-                                        ui.add(egui::Image::new(icon).max_width(24.0));
-                                        ui.label(
-                                            egui::RichText::new(&device_path)
-                                                .color(theme.text_primary)
-                                                .strong()
-                                                .size(14.0),
-                                        );
+                                let device_path = format!("/dev/{}", device.name);
+                                // Device icon + name
+                                ui.horizontal(|ui| {
+                                    let icon = match device.media_type {
+                                        block_utils::MediaType::SolidState => &textures.icon_ssd,
+                                        block_utils::MediaType::Rotational => &textures.icon_hdd,
+                                        block_utils::MediaType::NVME => &textures.icon_nvme,
+                                        block_utils::MediaType::Ram => &textures.icon_ram,
+                                        _ => &textures.icon_hdd,
+                                    };
+                                    ui.add(egui::Image::new(icon).max_width(24.0));
+                                    ui.label(
+                                        egui::RichText::new(&device_path)
+                                            .color(theme.text_primary)
+                                            .strong()
+                                            .size(14.0),
+                                    );
+                                });
+
+                                ui.add_space(8.0);
+
+                                let serial =
+                                    device.serial_number.as_deref().unwrap_or("—").to_string();
+                                let lbs = device
+                                    .logical_block_size
+                                    .map(|b| format!("{}", b.bytes()))
+                                    .unwrap_or_else(|| "—".to_string());
+                                let pbs = device
+                                    .physical_block_size
+                                    .map(|b| format!("{}", b.bytes()))
+                                    .unwrap_or_else(|| "—".to_string());
+
+                                let rows: &[(&str, String)] = &[
+                                    ("Capacity", format!("{}", device.capacity.bytes())),
+                                    ("Type", media_type_label(&device.media_type).to_string()),
+                                    ("Filesystem", format!("{:?}", device.fs_type)),
+                                    ("Serial", serial),
+                                    ("Logical block", lbs),
+                                    ("Physical block", pbs),
+                                ];
+
+                                egui::Grid::new("device_info_grid")
+                                    .num_columns(2)
+                                    .spacing([12.0, 4.0])
+                                    .show(ui, |ui| {
+                                        for (label, value) in rows {
+                                            ui.label(
+                                                egui::RichText::new(*label)
+                                                    .color(theme.text_secondary)
+                                                    .size(12.0),
+                                            );
+                                            ui.label(
+                                                egui::RichText::new(value)
+                                                    .color(theme.text_primary)
+                                                    .monospace()
+                                                    .size(12.0),
+                                            );
+                                            ui.end_row();
+                                        }
                                     });
-
-                                    ui.add_space(8.0);
-
-                                    let serial = device
-                                        .serial_number
-                                        .as_deref()
-                                        .unwrap_or("—")
-                                        .to_string();
-                                    let lbs = device
-                                        .logical_block_size
-                                        .map(|b| format!("{}", b.bytes()))
-                                        .unwrap_or_else(|| "—".to_string());
-                                    let pbs = device
-                                        .physical_block_size
-                                        .map(|b| format!("{}", b.bytes()))
-                                        .unwrap_or_else(|| "—".to_string());
-
-                                    let rows: &[(&str, String)] = &[
-                                        ("Capacity", format!("{}", device.capacity.bytes())),
-                                        ("Type", media_type_label(&device.media_type).to_string()),
-                                        ("Filesystem", format!("{:?}", device.fs_type)),
-                                        ("Serial", serial),
-                                        ("Logical block", lbs),
-                                        ("Physical block", pbs),
-                                    ];
-
-                                    egui::Grid::new("device_info_grid")
-                                        .num_columns(2)
-                                        .spacing([12.0, 4.0])
-                                        .show(ui, |ui| {
-                                            for (label, value) in rows {
-                                                ui.label(
-                                                    egui::RichText::new(*label)
-                                                        .color(theme.text_secondary)
-                                                        .size(12.0),
-                                                );
-                                                ui.label(
-                                                    egui::RichText::new(value)
-                                                        .color(theme.text_primary)
-                                                        .monospace()
-                                                        .size(12.0),
-                                                );
-                                                ui.end_row();
-                                            }
-                                        });
                             } else {
                                 ui.label(
                                     egui::RichText::new("No device selected")
@@ -294,7 +277,7 @@ pub fn render(
                 if ui.input(|i| {
                     i.events
                         .iter()
-                        .any(|e| matches!(e, egui::Event::Text(t) if t.chars().next() == Some(confirm_char)))
+                        .any(|e| matches!(e, egui::Event::Text(t) if t.starts_with(confirm_char)))
                 }) {
                     state.confirm_progress += 0.01;
                     if state.confirm_progress >= 1.0 {

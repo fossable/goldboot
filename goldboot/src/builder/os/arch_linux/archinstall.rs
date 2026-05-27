@@ -199,12 +199,23 @@ pub struct ArchinstallConfig {
 /// right partition.
 fn disk_config_from(layout: &PartitionLayout) -> (DiskLayoutConfiguration, Option<DiskEncryption>) {
     fn sector_size() -> SectorSize {
-        SectorSize { value: 512, unit: "B".to_string() }
+        SectorSize {
+            value: 512,
+            unit: "B".to_string(),
+        }
     }
     fn mib(value: i64, offset: i64) -> (Size, Size) {
         (
-            Size { sector_size: sector_size(), unit: "MiB".to_string(), value: offset },
-            Size { sector_size: sector_size(), unit: "MiB".to_string(), value: value },
+            Size {
+                sector_size: sector_size(),
+                unit: "MiB".to_string(),
+                value: offset,
+            },
+            Size {
+                sector_size: sector_size(),
+                unit: "MiB".to_string(),
+                value,
+            },
         )
     }
 

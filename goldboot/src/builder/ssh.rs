@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
-use rand::Rng;
+use rand::RngExt;
 use ssh_key::{Algorithm, LineEnding, PrivateKey};
 use ssh2::Session;
 use std::{
@@ -25,7 +25,7 @@ pub fn generate_key(directory: &Path) -> Result<PathBuf> {
     let private_key = PrivateKey::random(&mut ssh_key::rand_core::OsRng, Algorithm::Ed25519)?;
     std::fs::write(&key_path, private_key.to_openssh(LineEnding::LF)?)?;
     std::fs::write(
-        &key_path.with_extension("pub"),
+        key_path.with_extension("pub"),
         private_key.public_key().to_openssh()?,
     )?;
 
@@ -52,14 +52,7 @@ pub fn download_sshdog(arch: ImageArch, os_category: OsCategory) -> Result<Vec<u
     for entry in archive.entries()? {
         let mut entry = entry?;
 
-        if entry
-            .path()?
-            .file_stem()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-            == "sshdog"
-        {
+        if entry.path()?.file_stem().unwrap().to_string_lossy() == "sshdog" {
             let mut content = Vec::new();
             entry.read_to_end(&mut content)?;
             return Ok(content);
@@ -79,7 +72,7 @@ pub struct SshConnection {
 }
 
 impl SshConnection {
-    pub fn new(username: &str, private_key: &PathBuf, port: u16) -> Result<SshConnection> {
+    pub fn new(username: &str, private_key: &Path, port: u16) -> Result<SshConnection> {
         let mut i = 0;
         Ok(loop {
             i += 1;
@@ -89,7 +82,7 @@ impl SshConnection {
                 Ok(session) => {
                     break SshConnection {
                         username: username.to_string(),
-                        private_key: private_key.clone(),
+                        private_key: private_key.to_path_buf(),
                         port,
                         os: query_os(&session)?,
                         session,
@@ -106,7 +99,7 @@ impl SshConnection {
         })
     }
 
-    fn connect(username: &str, private_key: &PathBuf, port: u16) -> Result<Session> {
+    fn connect(username: &str, private_key: &Path, port: u16) -> Result<Session> {
         let mut session = ssh2::Session::new()?;
         session.set_tcp_stream(TcpStream::connect(format!("127.0.0.1:{port}"))?);
 
@@ -179,7 +172,7 @@ impl SshConnection {
 
         // Set environment
         for (var, val) in env {
-            channel.setenv(&var, &val)?;
+            channel.setenv(var, val)?;
         }
 
         channel.exec(cmdline)?;

@@ -14,7 +14,7 @@ fn main() {
     let workspace_root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let mut analyzer = roniker::RustAnalyzer::new();
 
-    for entry in walkdir::WalkDir::new(&workspace_root.join("src/builder/os"))
+    for entry in walkdir::WalkDir::new(workspace_root.join("src/builder/os"))
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
@@ -23,7 +23,7 @@ fn main() {
         let _ = analyzer.add_file(entry.path());
     }
 
-    for entry in walkdir::WalkDir::new(&workspace_root.join("src/builder/options"))
+    for entry in walkdir::WalkDir::new(workspace_root.join("src/builder/options"))
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())

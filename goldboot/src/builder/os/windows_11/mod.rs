@@ -16,7 +16,6 @@ use crate::{
         },
         qemu::{OsCategory, QemuBuilder},
     },
-    cli::prompt::Prompt,
     enter, wait,
 };
 
@@ -244,7 +243,7 @@ impl BuildImage for Windows11 {
         let unattended_xml = self.generate_unattend()?;
         debug!(xml = unattended_xml, "Generated Autounattend.xml");
 
-        let mut qemu = QemuBuilder::new(&worker, OsCategory::Windows)
+        let mut qemu = QemuBuilder::new(worker, OsCategory::Windows)
             .with_iso(&self.iso)?
             .floppy_files(HashMap::from([(
                 "Autounattend.xml".to_string(),

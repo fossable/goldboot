@@ -42,7 +42,9 @@ impl eframe::App for GuiApp {
 
         if debug_shell_active {
             if let Some(screen_rect) = raw_input.screen_rect {
-                raw_input.events.push(egui::Event::PointerMoved(screen_rect.center()));
+                raw_input
+                    .events
+                    .push(egui::Event::PointerMoved(screen_rect.center()));
             }
         } else {
             raw_input.events.retain(|e| {
@@ -58,22 +60,18 @@ impl eframe::App for GuiApp {
         }
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         ctx.set_cursor_icon(egui::CursorIcon::None);
 
-        self.theme.render_background(ctx);
-        self.handle_hotkeys(ctx);
+        self.theme.render_background(&ctx);
+        self.handle_hotkeys(&ctx);
 
-        // Main panel
-        egui::CentralPanel::default()
-            .frame(egui::Frame::NONE)
-            .show(ctx, |ui| {
-                self.screen
-                    .render(ui, &mut self.state, &self.textures, &self.theme);
-            });
+        self.screen
+            .render(ui, &mut self.state, &self.textures, &self.theme);
 
         // Render registry login dialog if open
-        registry_login::render(ctx, &mut self.state, &self.theme);
+        registry_login::render(&ctx, &mut self.state, &self.theme);
     }
 }
 

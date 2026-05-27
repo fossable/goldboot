@@ -7,6 +7,20 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Adapts any [`sha2::Digest`] implementor to [`std::io::Write`] so it can be
+/// passed to [`ProgressBar::copy`]. sha2 0.11 dropped the `Write` impl.
+pub struct DigestWriter<D: sha2::Digest>(pub D);
+
+impl<D: sha2::Digest> Write for DigestWriter<D> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.update(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 pub enum ProgressBar {
     /// A hashing operation
     Hash,
@@ -65,7 +79,7 @@ impl ProgressBar {
         self.create_progressbar(len)
     }
 
-    pub fn new(&self, len: u64) -> Box<dyn Fn(u64)> {
+    pub fn callback(&self, len: u64) -> Box<dyn Fn(u64)> {
         if !show_progress() {
             // No progress bar
             return Box::new(|_| {});
@@ -193,18 +207,14 @@ impl ProgressBar {
         let mut buffer = [0u8; 1024 * 1024];
         let mut copied: u64 = 0;
 
-        loop {
-            if let Ok(size) = reader.read(&mut buffer) {
-                if size == 0 {
-                    break;
-                }
-                writer.write(&buffer[0..size])?;
-                let new = min(copied + (size as u64), len);
-                copied = new;
-                progress.set_position(new);
-            } else {
+        while let Ok(size) = reader.read(&mut buffer) {
+            if size == 0 {
                 break;
             }
+            writer.write_all(&buffer[0..size])?;
+            let new = min(copied + (size as u64), len);
+            copied = new;
+            progress.set_position(new);
         }
 
         progress.finish_and_clear();
@@ -236,7 +246,7 @@ impl<R: Read> Read for ProgressReader<R> {
 }
 
 pub fn show_progress() -> bool {
-    std::io::stdout().is_terminal() && !std::env::var("CI").is_ok()
+    std::io::stdout().is_terminal() && std::env::var("CI").is_err()
 }
 
 fn fmt_bytes(bytes: f64) -> String {

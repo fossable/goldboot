@@ -67,7 +67,7 @@ impl Qcow3 {
                 "qcow2",
                 "-o",
                 "cluster_size=65536",
-                &path.to_string_lossy().to_string(),
+                path.to_string_lossy().as_ref(),
                 &format!("{size}"),
             ])
             .stdout(Stdio::null())

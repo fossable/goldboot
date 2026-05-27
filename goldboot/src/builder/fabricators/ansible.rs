@@ -25,7 +25,7 @@ impl Ansible {
 
         if let Some(code) = Command::new("ansible-playbook")
             .arg("--ssh-common-args")
-            .arg("-o StrictHostKeyChecking=no")
+            .arg("-oStrictHostKeyChecking=no")
             .arg("-e")
             .arg(format!("ansible_port={}", ssh.port))
             .arg("-e")
@@ -63,13 +63,12 @@ impl Prompt for Ansible {
             .with_prompt("Enter the playbook path relative to the current directory")
             .interact()?;
 
-        if !Path::new(&self.playbook).exists() {
-            if !dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme())
+        if !Path::new(&self.playbook).exists()
+            && !dialoguer::Confirm::with_theme(&crate::cli::cmd::init::theme())
                 .with_prompt("The path does not exist. Add anyway?")
                 .interact()?
-            {
-                bail!("The playbook did not exist");
-            }
+        {
+            bail!("The playbook did not exist");
         }
 
         self.validate()?;

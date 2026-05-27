@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::{Result, bail};
 use goldboot_image::ImageArch;
-use rand::Rng;
+use rand::RngExt;
 use std::{
     collections::HashMap,
     fs::OpenOptions,
@@ -12,7 +12,11 @@ use std::{
     os::unix::net::UnixStream,
     path::PathBuf,
     process::{Child, Command},
-    time::Duration,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
 };
 use strum::Display;
 use tracing::{debug, info, trace};
@@ -102,10 +106,12 @@ pub struct QemuProcess {
     pub vnc: VncConnection,
     pub os_category: OsCategory,
     pub qmp_socket: PathBuf,
+    cpu_logger_stop: Arc<AtomicBool>,
 }
 
 impl Drop for QemuProcess {
     fn drop(&mut self) {
+        self.cpu_logger_stop.store(true, Ordering::Relaxed);
         debug!("Stopping Qemu process");
         self.process.kill().unwrap_or_default();
 
@@ -133,11 +139,7 @@ impl QemuProcess {
     }
 
     pub fn ssh(&mut self, username: &str) -> Result<SshConnection> {
-        Ok(SshConnection::new(
-            username,
-            &self.private_key,
-            self.ssh_port,
-        )?)
+        SshConnection::new(username, &self.private_key, self.ssh_port)
     }
 
     /// Save a qcow2 snapshot of the current VM state with the given name.
@@ -213,89 +215,89 @@ pub struct QemuArgs {
     pub vnc: Vec<String>,
 }
 
-impl Into<Vec<String>> for QemuArgs {
-    fn into(self) -> Vec<String> {
+impl From<QemuArgs> for Vec<String> {
+    fn from(val: QemuArgs) -> Self {
         let mut cmdline = vec![
             String::from("-name"),
-            self.name.clone(),
+            val.name.clone(),
             String::from("-bios"),
-            self.bios.clone(),
+            val.bios.clone(),
             String::from("-m"),
-            self.memory.clone(),
+            val.memory.clone(),
             String::from("-boot"),
-            self.boot.clone(),
+            val.boot.clone(),
             String::from("-display"),
-            self.display.clone(),
+            val.display.clone(),
             String::from("-smp"),
-            self.smp.clone(),
+            val.smp.clone(),
             String::from("-machine"),
-            self.machine.clone(),
+            val.machine.clone(),
             String::from("-rtc"),
             String::from("base=utc"),
         ];
 
-        if let Some(cpu) = &self.cpu {
+        if let Some(cpu) = &val.cpu {
             cmdline.push(String::from("-cpu"));
             cmdline.push(cpu.clone());
         }
 
-        if let Some(smbios) = &self.smbios {
+        if let Some(smbios) = &val.smbios {
             cmdline.push(String::from("-smbios"));
             cmdline.push(smbios.clone());
         }
 
-        for usbdevice in &self.usbdevice {
+        for usbdevice in &val.usbdevice {
             cmdline.push(String::from("-usbdevice"));
             cmdline.push(usbdevice.clone());
         }
 
-        for global in &self.global {
+        for global in &val.global {
             cmdline.push(String::from("-global"));
             cmdline.push(global.to_string());
         }
 
-        for drive in &self.drive {
+        for drive in &val.drive {
             cmdline.push(String::from("-drive"));
             cmdline.push(drive.to_string());
         }
 
-        for netdev in &self.netdev {
+        for netdev in &val.netdev {
             cmdline.push(String::from("-netdev"));
             cmdline.push(netdev.to_string());
         }
 
-        for vnc in &self.vnc {
+        for vnc in &val.vnc {
             cmdline.push(String::from("-vnc"));
             cmdline.push(vnc.to_string());
         }
 
-        for blockdev in &self.blockdev {
+        for blockdev in &val.blockdev {
             cmdline.push(String::from("-blockdev"));
             cmdline.push(blockdev.to_string());
         }
 
-        for chardev in &self.chardev {
+        for chardev in &val.chardev {
             cmdline.push(String::from("-chardev"));
             cmdline.push(chardev.to_string());
         }
 
-        for mon in &self.mon {
+        for mon in &val.mon {
             cmdline.push(String::from("-mon"));
             cmdline.push(mon.to_string());
         }
 
-        for tpmdev in &self.tpmdev {
+        for tpmdev in &val.tpmdev {
             cmdline.push(String::from("-tpmdev"));
             cmdline.push(tpmdev.to_string());
         }
 
-        for device in &self.device {
+        for device in &val.device {
             cmdline.push(String::from("-device"));
             cmdline.push(device.to_string());
         }
 
         cmdline.push(String::from("-vga"));
-        cmdline.push(self.vga.to_string());
+        cmdline.push(val.vga.to_string());
 
         trace!("QEMU cmdline: {:?}", &cmdline);
         cmdline
@@ -388,7 +390,7 @@ impl QemuBuilder {
     pub fn with_iso(mut self, iso: &Iso) -> Result<Self> {
         self.args.drive.push(format!(
             "file={},media=cdrom,read-only=on",
-            SourceCache::default()?.get(iso.url.clone().to_string(), iso.checksum.clone())?
+            SourceCache::open()?.get(iso.url.clone().to_string(), iso.checksum.clone())?
         ));
 
         Ok(self)
@@ -437,6 +439,7 @@ impl QemuBuilder {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(&fs_path)?;
             fs_file.set_len(fs_size)?;
 
@@ -448,7 +451,7 @@ impl QemuBuilder {
             let fs_file = OpenOptions::new()
                 .read(true)
                 .write(true)
-                .create(true)
+                .create(false)
                 .open(&fs_path)?;
             let fs = fatfs::FileSystem::new(fs_file, fatfs::FsOptions::new())?;
             let root_dir = fs.root_dir();
@@ -493,6 +496,7 @@ impl QemuBuilder {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(&fs_path)?;
 
             fs_file.set_len(FLOPPY_SIZE)?;
@@ -507,7 +511,7 @@ impl QemuBuilder {
             let fs_file = OpenOptions::new()
                 .read(true)
                 .write(true)
-                .create(true)
+                .create(false)
                 .open(&fs_path)?;
             let fs = fatfs::FileSystem::new(fs_file, fatfs::FsOptions::new())?;
             let root_dir = fs.root_dir();
@@ -538,11 +542,11 @@ impl QemuBuilder {
             self.ssh_port, self.ssh_port
         ));
 
-        Ok(self.drive_files(HashMap::from([
+        self.drive_files(HashMap::from([
             ("sshdog".to_string(), sshdog),
             ("host_key".to_string(), host_key),
             ("public_key".to_string(), public_key),
-        ]))?)
+        ]))
     }
 
     /// Enable TPM emulation.
@@ -561,7 +565,7 @@ impl QemuBuilder {
 
     pub fn start(self) -> Result<QemuProcess> {
         // Start the TPM emulator if one was requested
-        let tpm_process = if self.args.tpmdev.len() > 0 {
+        let tpm_process = if !self.args.tpmdev.is_empty() {
             let args = vec![
                 "socket".to_string(),
                 "--tpmstate".to_string(),
@@ -588,6 +592,46 @@ impl QemuBuilder {
         })
         .args(cmdline.iter())
         .spawn()?;
+
+        // Log QEMU CPU usage every 30 seconds from /proc/{pid}/stat
+        let cpu_logger_stop = Arc::new(AtomicBool::new(false));
+        {
+            let pid = process.id();
+            let stop = cpu_logger_stop.clone();
+            std::thread::spawn(move || {
+                let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as f64;
+                let mut prev_ticks: Option<u64> = None;
+                let mut prev_time = Instant::now();
+                while !stop.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_secs(30));
+                    if stop.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let stat = match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+                        Ok(s) => s,
+                        Err(_) => break, // process has exited
+                    };
+                    let fields: Vec<&str> = stat.split_whitespace().collect();
+                    if fields.len() <= 15 {
+                        continue;
+                    }
+                    if let (Ok(utime), Ok(stime)) =
+                        (fields[13].parse::<u64>(), fields[14].parse::<u64>())
+                    {
+                        let total_ticks = utime + stime;
+                        let now = Instant::now();
+                        if let Some(prev) = prev_ticks {
+                            let delta_ticks = total_ticks.saturating_sub(prev) as f64;
+                            let delta_secs = now.duration_since(prev_time).as_secs_f64();
+                            let cpu_pct = (delta_ticks / clk_tck) / delta_secs * 100.0;
+                            info!(pid, cpu_pct = format!("{:.1}%", cpu_pct), "QEMU CPU usage");
+                        }
+                        prev_ticks = Some(total_ticks);
+                        prev_time = now;
+                    }
+                }
+            });
+        }
 
         // Connect to VNC repeatedly because the VM could reboot during the build
         let vnc = loop {
@@ -637,6 +681,7 @@ impl QemuBuilder {
             vnc,
             os_category: self.os_category,
             qmp_socket: self.qmp_socket,
+            cpu_logger_stop,
         })
     }
 }

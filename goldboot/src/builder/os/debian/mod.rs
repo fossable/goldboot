@@ -188,14 +188,14 @@ d-i preseed/late_command string {late_command}
 
 impl BuildImage for Debian {
     fn build(&self, worker: &Builder) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
             .vga("cirrus")
             .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;
 
         // Start HTTP with generated preseed
-        let http = HttpServer::new()?
+        let http = HttpServer::builder()?
             .file("preseed.cfg", self.generate_preseed().into_bytes())?
             .serve();
 
@@ -289,7 +289,7 @@ pub fn fetch_debian_iso(edition: DebianEdition, arch: ImageArch) -> Result<Iso> 
         "https://cdimage.debian.org/cdimage/{version_path}/{arch_str}/iso-cd/SHA256SUMS"
     ))?;
     if rs.status().is_success() {
-        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+        for line in BufReader::new(rs).lines().map_while(Result::ok) {
             if line.ends_with("netinst.iso") {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {

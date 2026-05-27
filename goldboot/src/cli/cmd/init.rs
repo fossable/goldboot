@@ -15,11 +15,11 @@ fn print_banner() {
     if console::colors_enabled() {
         let style = Style::new().yellow();
 
-        println!("{}", "");
+        println!();
         for line in fossable::goldboot_word() {
             println!("  {}", style.apply_to(line));
         }
-        println!("{}", "");
+        println!();
     }
 }
 

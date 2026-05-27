@@ -26,18 +26,20 @@ impl Default for Theme {
 
 impl Theme {
     pub fn apply_to_context(&self, ctx: &egui::Context) {
-        let mut style = Style::default();
-        style.visuals = Visuals::dark();
-        style.visuals.override_text_color = Some(self.text_primary);
-        style.visuals.selection.bg_fill = self.accent_gold;
-        style.visuals.selection.stroke.color = self.accent_gold;
-        style.visuals.widgets.noninteractive.bg_stroke.color = self.border;
-        ctx.set_style(style);
+        let mut visuals = Visuals::dark();
+        visuals.override_text_color = Some(self.text_primary);
+        visuals.selection.bg_fill = self.accent_gold;
+        visuals.selection.stroke.color = self.accent_gold;
+        visuals.widgets.noninteractive.bg_stroke.color = self.border;
+        ctx.set_global_style(Style {
+            visuals,
+            ..Style::default()
+        });
     }
 
     pub fn render_background(&self, ctx: &egui::Context) {
         let painter = ctx.layer_painter(egui::LayerId::background());
-        let rect = ctx.screen_rect();
+        let rect = ctx.input(|i| i.viewport().inner_rect.unwrap_or(egui::Rect::EVERYTHING));
 
         // Fill with primary background color
         painter.rect_filled(rect, 0.0, self.bg_primary);

@@ -12,7 +12,7 @@ use crate::{
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
-    enter, wait, wait_screen_rect, wait_text,
+    enter, wait, wait_text,
 };
 
 use super::BuildImage;
@@ -47,7 +47,7 @@ pub struct Nix {
 
 impl BuildImage for Nix {
     fn build(&self, worker: &Builder) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
             .drive_files(HashMap::from([(
                 "configuration.nix".to_string(),

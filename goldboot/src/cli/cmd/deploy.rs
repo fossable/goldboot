@@ -85,21 +85,9 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                             let capacity = Byte::from_u64(dev.capacity)
                                 .get_appropriate_unit(UnitType::Binary)
                                 .to_string();
-                            eprintln!(
-                                "  {} {}",
-                                dim.apply_to("type:    "),
-                                format!("{:?}", dev.device_type)
-                            );
-                            eprintln!(
-                                "  {} {}",
-                                dim.apply_to("media:   "),
-                                format!("{:?}", dev.media_type)
-                            );
-                            eprintln!(
-                                "  {} {}",
-                                dim.apply_to("fs:      "),
-                                format!("{:?}", dev.fs_type)
-                            );
+                            eprintln!("  {} {:?}", dim.apply_to("type:    "), dev.device_type);
+                            eprintln!("  {} {:?}", dim.apply_to("media:   "), dev.media_type);
+                            eprintln!("  {} {:?}", dim.apply_to("fs:      "), dev.fs_type);
                             eprintln!("  {} {}", dim.apply_to("capacity:"), capacity);
                             if let Some(serial) = &dev.serial_number {
                                 eprintln!("  {} {}", dim.apply_to("serial:  "), serial);

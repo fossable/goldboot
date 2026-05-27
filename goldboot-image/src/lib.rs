@@ -1,5 +1,3 @@
-//!
-
 use crate::qcow::Qcow3;
 use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::Aead};
 use anyhow::{Context, Result, bail};
@@ -12,7 +10,6 @@ use std::{
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     path::Path,
-    primitive,
     time::{SystemTime, UNIX_EPOCH},
 };
 use strum::{Display, EnumIter};
@@ -343,8 +340,11 @@ pub struct Cluster {
 
 /// Build an encryption key from the given password.
 fn new_key(password: String) -> Aes256Gcm {
-    // Hash so it's the correct length
-    Aes256Gcm::new(&Sha256::new().chain_update(password.as_bytes()).finalize())
+    let hash: [u8; 32] = Sha256::new()
+        .chain_update(password.as_bytes())
+        .finalize()
+        .into();
+    Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&hash))
 }
 
 /// Hash the entire image file to produce the image ID.
@@ -451,10 +451,10 @@ impl ImageHandle {
             if Regex::new("[A-Fa-f0-9]{64}")?.is_match(stem.to_str().unwrap()) {
                 stem.to_str().unwrap().to_string()
             } else {
-                compute_id(&path).unwrap()
+                compute_id(path).unwrap()
             }
         } else {
-            compute_id(&path).unwrap()
+            compute_id(path).unwrap()
         };
 
         if primary_header.encryption_type == HeaderEncryptionType::None {
@@ -472,7 +472,7 @@ impl ImageHandle {
                 digest_table: None,
                 directory: Some(directory),
                 path: path.to_path_buf(),
-                file_size: std::fs::metadata(&path)?.len(),
+                file_size: std::fs::metadata(path)?.len(),
             })
         } else {
             Ok(Self {
@@ -482,7 +482,7 @@ impl ImageHandle {
                 digest_table: None,
                 directory: None,
                 path: path.to_path_buf(),
-                file_size: std::fs::metadata(&path)?.len(),
+                file_size: std::fs::metadata(path)?.len(),
             })
         }
     }
@@ -502,7 +502,7 @@ impl ImageHandle {
     /// - `None`        — cluster is dirty and is now being written
     /// - `Some(true)`  — cluster was dirty and has been written
     /// - `Some(false)` — cluster was already up to date, no write needed
-    pub fn write<F: Fn(usize, Option<bool>) -> ()>(
+    pub fn write<F: Fn(usize, Option<bool>)>(
         &self,
         dest: impl AsRef<Path>,
         preload: bool,
@@ -523,6 +523,7 @@ impl ImageHandle {
 
         let mut dest = std::fs::OpenOptions::new()
             .create(true)
+            .truncate(true)
             .write(true)
             .read(true)
             .open(dest)?;
@@ -549,10 +550,7 @@ impl ImageHandle {
         let mut block = vec![0u8; protected_header.block_size as usize];
 
         // Write all of the clusters that have changed
-        for i in 0..digest_table.len() as usize {
-            // Load digest table entry
-            let entry = &digest_table[i];
-
+        for (i, entry) in digest_table.iter().enumerate() {
             // Jump to the block corresponding to the cluster
             dest.seek(SeekFrom::Start(entry.block_offset))?;
 
@@ -623,7 +621,7 @@ impl ImageHandle {
     /// - `None`       — cluster is now being read/hashed
     /// - `Some(true)` — cluster hash matched
     /// - `Some(false)`— cluster hash did not match (corruption detected)
-    pub fn verify<F: Fn(usize, Option<bool>) -> ()>(
+    pub fn verify<F: Fn(usize, Option<bool>)>(
         &self,
         dest: impl AsRef<Path>,
         progress: F,
@@ -639,9 +637,7 @@ impl ImageHandle {
 
         let mut block = vec![0u8; protected_header.block_size as usize];
 
-        for i in 0..protected_header.cluster_count as usize {
-            let entry = &digest_table[i];
-
+        for (i, entry) in digest_table.iter().enumerate() {
             progress(i, None);
 
             dest.seek(SeekFrom::Start(entry.block_offset))?;
@@ -657,7 +653,7 @@ impl ImageHandle {
     }
 
     /// Convert a qcow image into a goldboot image.
-    pub fn from_qcow<F: Fn(u64, u64) -> ()>(
+    pub fn from_qcow<F: Fn(u64, u64)>(
         metadata: Vec<ElementHeader>,
         source: &Qcow3,
         dest: impl AsRef<Path>,
@@ -675,9 +671,17 @@ impl ImageHandle {
 
         // Prepare directory
         let mut directory = Directory {
-            protected_nonce: rng.random::<[u8; 12]>(),
+            protected_nonce: {
+                let mut b = [0u8; 12];
+                rng.fill_bytes(&mut b);
+                b
+            },
             protected_size: 0,
-            digest_table_nonce: rng.random::<[u8; 12]>(),
+            digest_table_nonce: {
+                let mut b = [0u8; 12];
+                rng.fill_bytes(&mut b);
+                b
+            },
             digest_table_offset: 0,
             digest_table_size: 0,
         };
@@ -687,7 +691,11 @@ impl ImageHandle {
             version: 1,
             arch: ImageArch::Amd64,   // TODO
             size: source.header.size, // TODO this is aligned to the cluster size?
-            directory_nonce: rng.random::<[u8; 12]>(),
+            directory_nonce: {
+                let mut b = [0u8; 12];
+                rng.fill_bytes(&mut b);
+                b
+            },
             directory_offset: 0,
             directory_size: 0,
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
@@ -711,10 +719,18 @@ impl ImageHandle {
             } else {
                 ClusterEncryptionType::None
             },
-            cluster_key: rng.random::<[u8; 32]>(),
+            cluster_key: {
+                let mut b = [0u8; 32];
+                rng.fill_bytes(&mut b);
+                b
+            },
             nonce_table: if password.is_some() {
                 (0..cluster_count)
-                    .map(|_| rng.random::<[u8; 12]>())
+                    .map(|_| {
+                        let mut b = [0u8; 12];
+                        rng.fill_bytes(&mut b);
+                        b
+                    })
                     .collect()
             } else {
                 vec![]
@@ -802,8 +818,7 @@ impl ImageHandle {
                         digest_table.digest_table.push(DigestTableEntry {
                             digest: digest.into(),
                             block_offset,
-                            cluster_offset: existing_cluster_offset
-                                .unwrap_or_else(|| cluster_offset),
+                            cluster_offset: existing_cluster_offset.unwrap_or(cluster_offset),
                         });
 
                         if existing_cluster_offset.is_none() {

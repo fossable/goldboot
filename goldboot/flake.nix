@@ -21,6 +21,50 @@
           mesonFlags = [ "-Dxwayland=disabled" "-Dbackends=drm,libinput" ];
         });
 
+        # Mesa with only the software rasterizer (llvmpipe produces swrast_dri.so)
+        mesa-minimal = (pkgs.mesa.override {
+          galliumDrivers = [ "llvmpipe" ];
+          vulkanDrivers = [];
+          vulkanLayers = [];
+          eglPlatforms = [ "wayland" ];
+          enablePatentEncumberedCodecs = false;
+          withValgrind = false;
+        }).overrideAttrs (old: {
+          outputs = [ "out" "dev" ];
+          separateDebugInfo = false;
+          postInstall = "";
+          postFixup = "";
+          mesonFlags = let
+            # Drop all original flags and replace with a minimal set
+            keepFlag = flag:
+              if builtins.isString flag then
+                (builtins.match "^-D(platforms|gallium-drivers|vulkan-drivers|vulkan-layers|glvnd|gbm|libgbm-external|valgrind|clang-libdir|freedreno-kmds|amdgpu-virtio)=.*" flag) != null
+              else true;
+          in builtins.filter keepFlag old.mesonFlags ++ [
+            "-Dauto_features=disabled"
+            "-Degl=enabled"
+            "-Dopengl=true"
+            "-Dgles1=enabled"
+            "-Dgles2=enabled"
+            "-Dglx=disabled"
+            "-Dxlib-lease=disabled"
+            "-Dgallium-extra-hud=false"
+            "-Dgallium-vdpau=disabled"
+            "-Dgallium-va=disabled"
+            "-Dgallium-rusticl=false"
+            "-Dteflon=false"
+            "-Dintel-rt=disabled"
+            "-Dtools="
+            "-Dinstall-mesa-clc=false"
+            "-Dinstall-precomp-compiler=false"
+            "-Dmicrosoft-clc=disabled"
+            "-Dandroid-libbacktrace=disabled"
+            "-Dgallium-mediafoundation=disabled"
+            "-Dllvm=enabled"
+            "-Dshared-llvm=enabled"
+          ];
+        });
+
         # cage without xwayland
         cage-no-xwayland = pkgs.cage.overrideAttrs (old: {
           buildInputs = builtins.map
@@ -234,7 +278,7 @@
         '';
 
         modulesClosure = pkgs.makeModulesClosure {
-          kernel = pkgs.linuxPackages_latest.kernel.modules;
+          kernel = kernel.modules;
           firmware = pkgs.linux-firmware;
           allowMissing = false;
           rootModules = [
@@ -279,7 +323,7 @@
           pkgs.makeInitrd {
             name = "goldboot-initramfs";
 
-            compressor = "${pkgs.zstd}/bin/zstd -19";
+            compressor = "${pkgs.zstd}/bin/zstd --ultra -22";
 
             contents = [
               {
@@ -333,7 +377,7 @@
                 symlink = "/lib/xz";
               }
               {
-                object = pkgs.mesa;
+                object = mesa-minimal;
                 symlink = "/run/opengl-driver";
               }
               {
@@ -407,7 +451,55 @@
             ];
           };
 
-        kernel = pkgs.linuxPackages_latest.kernel;
+        kernel = pkgs.linuxPackages_latest.kernel.override {
+          ignoreConfigErrors = true;
+          structuredExtraConfig = with pkgs.lib.kernel; with pkgs.lib; {
+            # ── Disable unused subsystems ──
+            SOUND = mkForce no;
+            BT = mkForce no;
+            WIRELESS = mkForce (option no);
+            CFG80211 = mkForce no;
+            MAC80211 = mkForce no;
+            INFINIBAND = mkForce no;
+            FIREWIRE = mkForce no;
+            PCMCIA = mkForce no;
+            MEDIA_SUPPORT = mkForce no;
+            CAN = mkForce no;
+            NFC = mkForce no;
+            HAMRADIO = mkForce no;
+            CAIF = mkForce no;
+            WIMAX = mkForce (option no);
+            WWAN = mkForce no;
+            GNSS = mkForce no;
+            COMEDI = mkForce no;
+            GREYBUS = mkForce no;
+            ACCESSIBILITY = mkForce no;
+
+            # ── Disable unused network protocols ──
+            NET_SCTP = mkForce no;
+            NET_DCCP = mkForce no;
+            NET_RDS = mkForce no;
+            NET_TIPC = mkForce no;
+            ATM = mkForce no;
+            DECNET = mkForce no;
+            LLC2 = mkForce no;
+            PHONET = mkForce no;
+            IEEE802154 = mkForce no;
+
+            # ── Disable debugging/tracing overhead ──
+            DEBUG_KERNEL = mkForce no;
+            FTRACE = mkForce no;
+            KPROBES = mkForce no;
+            KALLSYMS = mkForce no;
+
+            # ── Disable unused storage/block features ──
+            BLK_DEV_SR = mkForce no;
+
+            # ── Disable misc ──
+            PROFILING = mkForce no;
+            VIRTUALIZATION = mkForce no;
+          };
+        };
 
         initramfs = buildInitramfs kernel;
 

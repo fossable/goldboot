@@ -191,7 +191,7 @@ pub fn render(
         }
 
         // Hotkeys footer
-        egui::TopBottomPanel::bottom("post_write_hotkeys")
+        egui::Panel::bottom("post_write_hotkeys")
             .frame(egui::Frame::NONE)
             .show_separator_line(false)
             .show_inside(ui, |ui| {
@@ -225,7 +225,7 @@ pub fn render(
                 egui::StrokeKind::Outside,
             );
 
-            ui.allocate_new_ui(
+            ui.scope_builder(
                 egui::UiBuilder::new().max_rect(box_rect.shrink(24.0)),
                 |ui| {
                     ui.vertical_centered(|ui| {
@@ -301,7 +301,7 @@ pub fn render(
                     egui::StrokeKind::Outside,
                 );
 
-                ui.allocate_new_ui(
+                ui.scope_builder(
                     egui::UiBuilder::new().max_rect(box_rect.shrink(20.0)),
                     |ui| {
                         ui.vertical_centered(|ui| {
@@ -518,7 +518,7 @@ fn render_block_grid(
 
 /// Pick the most "interesting" state from a slice of block states for grid display.
 fn aggregate_states(states: &[BlockState]) -> BlockState {
-    if states.iter().any(|&s| s == BlockState::Failed) {
+    if states.contains(&BlockState::Failed) {
         BlockState::Failed
     } else if states
         .iter()
@@ -529,11 +529,11 @@ fn aggregate_states(states: &[BlockState]) -> BlockState {
             .copied()
             .find(|&s| s == BlockState::Writing || s == BlockState::Verifying)
             .unwrap()
-    } else if states.iter().any(|&s| s == BlockState::Written) {
+    } else if states.contains(&BlockState::Written) {
         BlockState::Written
-    } else if states.iter().any(|&s| s == BlockState::Verified) {
+    } else if states.contains(&BlockState::Verified) {
         BlockState::Verified
-    } else if states.iter().any(|&s| s == BlockState::Pending) {
+    } else if states.contains(&BlockState::Pending) {
         BlockState::Pending
     } else {
         BlockState::UpToDate

@@ -59,7 +59,7 @@ impl ConfigPath {
     }
 
     /// Write a new Ron configuration file.
-    pub fn write(&self, elements: &Vec<OsConfig>) -> Result<()> {
+    pub fn write(&self, elements: &[OsConfig]) -> Result<()> {
         let ron_config = ron::ser::PrettyConfig::new()
             .struct_names(true)
             .enumerate_arrays(false)

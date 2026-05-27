@@ -127,7 +127,7 @@ pub struct ArchLinux {
 
 impl BuildImage for ArchLinux {
     fn build(&self, worker: &Builder) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;
@@ -148,7 +148,7 @@ impl BuildImage for ArchLinux {
         let archinstall_creds = ArchinstallCredentials::from(self);
 
         // Start HTTP
-        let http = HttpServer::new()?
+        let http = HttpServer::builder()?
             .file("config.json", serde_json::to_vec(&archinstall_config)?)?
             .file("creds.json", serde_json::to_vec(&archinstall_creds)?)?
             .serve();
@@ -237,11 +237,11 @@ impl ArchLinuxMirrorlist {
 /// Fetch the latest installation ISO
 #[allow(dead_code)]
 fn fetch_latest_iso() -> Result<Iso> {
-    let rs = reqwest::blocking::get(format!(
-        "http://mirrors.edge.kernel.org/archlinux/iso/latest/sha256sums.txt"
-    ))?;
+    let rs = reqwest::blocking::get(
+        "http://mirrors.edge.kernel.org/archlinux/iso/latest/sha256sums.txt".to_string(),
+    )?;
     if rs.status().is_success() {
-        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+        for line in BufReader::new(rs).lines().map_while(Result::ok) {
             if line.ends_with(".iso") {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {

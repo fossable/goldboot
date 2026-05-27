@@ -25,7 +25,7 @@ pub fn build_headless_debug() -> bool {
     if std::env::var("GOLDBOOT_DEBUG").is_ok() {
         return false;
     }
-    return true;
+    true
 }
 
 pub fn main() -> ExitCode {
@@ -54,13 +54,7 @@ fn cli_main() -> ExitCode {
     {
         let _default_filter = match &command_line.command {
             #[cfg(feature = "build")]
-            Some(Commands::Build { debug, .. }) => {
-                if *debug {
-                    "debug"
-                } else {
-                    "info"
-                }
-            }
+            Some(Commands::Build { debug, .. }) if *debug => "debug",
             _ => "info",
         };
 
@@ -102,12 +96,12 @@ fn cli_main() -> ExitCode {
             tokio::runtime::Runtime::new()
                 .unwrap()
                 .block_on(roniker::serve(rust_analyzer, true));
-            return ExitCode::FAILURE;
+            ExitCode::FAILURE
         }
         None => {
             #[cfg(feature = "gui")]
             {
-                return goldboot::gui::run_gui(command_line.fullscreen);
+                goldboot::gui::run_gui(command_line.fullscreen)
             }
 
             #[cfg(not(feature = "gui"))]

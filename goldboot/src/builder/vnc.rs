@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use anyhow::bail;
-use rand::Rng;
+use rand::RngExt;
 use sha1::{Digest, Sha1};
 use std::{fs::File, io::BufWriter, net::TcpStream, path::Path, time::Duration};
 use tracing::{debug, info, trace};
@@ -34,8 +34,7 @@ impl VncScreenshot {
             .chunks_exact(4)
             .flat_map(|p| {
                 // ITU BT.601 luminance from BGR
-                let luma = (0.299 * p[2] as f32 + 0.587 * p[1] as f32 + 0.114 * p[0] as f32)
-                    as u8;
+                let luma = (0.299 * p[2] as f32 + 0.587 * p[1] as f32 + 0.114 * p[0] as f32) as u8;
                 let inv = 255 - luma;
                 [inv, inv, inv]
             })
@@ -52,7 +51,7 @@ impl VncScreenshot {
     /// Write the screenshot to a png file (probably for debugging).
     pub fn write_png(&self, output_path: &Path) -> Result<()> {
         std::fs::create_dir_all(output_path.parent().unwrap())?;
-        let ref mut w = BufWriter::new(File::create(output_path)?);
+        let w = &mut BufWriter::new(File::create(output_path)?);
 
         let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
         encoder.set_color(png::ColorType::Rgb);
@@ -179,9 +178,8 @@ impl VncConnection {
 
         debug!("Connected to VNC ({} x {})", width, height);
 
-        let detection_model = rten::Model::load_static_slice(include_bytes!(
-            "../../../models/text-detection.rten"
-        ))?;
+        let detection_model =
+            rten::Model::load_static_slice(include_bytes!("../../../models/text-detection.rten"))?;
         let recognition_model = rten::Model::load_static_slice(include_bytes!(
             "../../../models/text-recognition.rten"
         ))?;
@@ -204,12 +202,9 @@ impl VncConnection {
     pub fn screenshot(&mut self) -> Result<VncScreenshot> {
         // Attempt to clear the framebuffer, but don't discard any resize events
         for event in self.vnc.poll_iter() {
-            match event {
-                Event::Resize(width, height) => {
-                    self.width = width;
-                    self.height = height;
-                }
-                _ => {}
+            if let Event::Resize(width, height) = event {
+                self.width = width;
+                self.height = height;
             }
         }
 
@@ -279,7 +274,7 @@ impl VncConnection {
                         hash, screenshot.width, screenshot.height
                     );
 
-                    screenshot.write_png(&Path::new(&format!("screenshots/{hash}.png")))?;
+                    screenshot.write_png(Path::new(&format!("screenshots/{hash}.png")))?;
                 }
                 Some("q") => {
                     self.debug = false;
@@ -366,7 +361,7 @@ impl VncConnection {
                                 // TODO configurable
                                 if running_count > 600 {
                                     // Write out the screen that's frozen
-                                    screenshot.write_png(&Path::new("screenshots/frozen.png"))?;
+                                    screenshot.write_png(Path::new("screenshots/frozen.png"))?;
                                     bail!("Screen has not changed in 600 sec");
                                 }
                             } else {
@@ -430,12 +425,12 @@ impl VncConnection {
 
                             let screenshot = self.screenshot()?;
                             let rgb = screenshot.to_ocr_rgb();
-                            let input = self.ocr_engine.prepare_input(
-                                ocrs::ImageSource::from_bytes(
-                                    &rgb,
-                                    (screenshot.width as u32, screenshot.height as u32),
-                                )?,
-                            )?;
+                            let input =
+                                self.ocr_engine
+                                    .prepare_input(ocrs::ImageSource::from_bytes(
+                                        &rgb,
+                                        (screenshot.width as u32, screenshot.height as u32),
+                                    )?)?;
                             let text = self.ocr_engine.get_text(&input)?;
                             trace!("OCR text: {}", &text);
 
@@ -449,7 +444,7 @@ impl VncConnection {
                 }
                 if self.record {
                     self.screenshot()?
-                        .write_png(&Path::new(&format!("screenshots/{cmd_number}.png")))?;
+                        .write_png(Path::new(&format!("screenshots/{cmd_number}.png")))?;
                 }
             }
         }
@@ -478,15 +473,15 @@ pub mod macros {
     macro_rules! enter {
         ($text:expr) => {
             vec![
-                crate::builder::vnc::VncCmd::Type($text.to_string()),
-                crate::builder::vnc::VncCmd::Enter,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::Type($text.to_string()),
+                $crate::builder::vnc::VncCmd::Enter,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
         () => {
             vec![
-                crate::builder::vnc::VncCmd::Enter,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::Enter,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
     }
@@ -495,8 +490,8 @@ pub mod macros {
     macro_rules! spacebar {
         () => {
             vec![
-                crate::builder::vnc::VncCmd::Spacebar,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::Spacebar,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
     }
@@ -505,8 +500,8 @@ pub mod macros {
     macro_rules! escape {
         () => {
             vec![
-                crate::builder::vnc::VncCmd::Escape,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::Escape,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
     }
@@ -515,15 +510,15 @@ pub mod macros {
     macro_rules! tab {
         ($text:expr) => {
             vec![
-                crate::builder::vnc::VncCmd::Type($text.to_string()),
-                crate::builder::vnc::VncCmd::Tab,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::Type($text.to_string()),
+                $crate::builder::vnc::VncCmd::Tab,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
         () => {
             vec![
-                crate::builder::vnc::VncCmd::Tab,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::Tab,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
     }
@@ -531,21 +526,21 @@ pub mod macros {
     #[macro_export]
     macro_rules! wait {
         ($duration:expr) => {
-            vec![crate::builder::vnc::VncCmd::Wait($duration)]
+            vec![$crate::builder::vnc::VncCmd::Wait($duration)]
         };
     }
 
     #[macro_export]
     macro_rules! wait_screen {
         ($hash:expr) => {
-            vec![crate::builder::vnc::VncCmd::WaitScreen($hash.to_string())]
+            vec![$crate::builder::vnc::VncCmd::WaitScreen($hash.to_string())]
         };
     }
 
     #[macro_export]
     macro_rules! wait_screen_rect {
         ($hash:expr, $top:expr, $left:expr, $width:expr, $height:expr) => {
-            vec![crate::builder::vnc::VncCmd::WaitScreenRect(
+            vec![$crate::builder::vnc::VncCmd::WaitScreenRect(
                 $hash.to_string(),
                 $top,
                 $left,
@@ -559,8 +554,8 @@ pub mod macros {
     macro_rules! input {
         ($text:expr) => {
             vec![
-                crate::builder::vnc::VncCmd::Type($text.to_string()),
-                crate::builder::vnc::VncCmd::Wait(1),
+                $crate::builder::vnc::VncCmd::Type($text.to_string()),
+                $crate::builder::vnc::VncCmd::Wait(1),
             ]
         };
     }
@@ -569,8 +564,8 @@ pub mod macros {
     macro_rules! leftSuper {
         () => {
             vec![
-                crate::builder::vnc::VncCmd::LeftSuper,
-                crate::builder::vnc::VncCmd::Wait(2),
+                $crate::builder::vnc::VncCmd::LeftSuper,
+                $crate::builder::vnc::VncCmd::Wait(2),
             ]
         };
     }
@@ -579,7 +574,7 @@ pub mod macros {
     #[macro_export]
     macro_rules! wait_text {
         ($pattern:expr) => {
-            vec![crate::builder::vnc::VncCmd::WaitText($pattern.to_string())]
+            vec![$crate::builder::vnc::VncCmd::WaitText($pattern.to_string())]
         };
     }
 }

@@ -68,7 +68,7 @@ pub struct PopOs {
 
 impl BuildImage for PopOs {
     fn build(&self, worker: &Builder) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;

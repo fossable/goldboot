@@ -15,7 +15,7 @@ pub fn render(
     }
 
     // Hotkeys footer - render first into a bottom panel so it's always visible
-    egui::TopBottomPanel::bottom("select_device_hotkeys")
+    egui::Panel::bottom("select_device_hotkeys")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
         .show_inside(ui, |ui| {
@@ -81,21 +81,20 @@ pub fn render(
                             let prev = current_idx.map(|i| i.saturating_sub(1)).unwrap_or(0);
                             state.selected_device = selectable.get(prev).map(|d| (*d).clone());
                         }
-                        if inp.key_pressed(egui::Key::Enter) {
-                            if state.selected_device.is_some() {
-                                *screen = Screen::Confirm;
-                            }
+                        if inp.key_pressed(egui::Key::Enter) && state.selected_device.is_some() {
+                            *screen = Screen::Confirm;
                         }
                         if inp.key_pressed(egui::Key::Escape) {
                             *screen = Screen::SelectImage;
                         }
                         // 'V' to verify (without writing)
-                        if inp.events.iter().any(|e| {
-                            matches!(e, egui::Event::Text(t) if t.to_uppercase() == "V")
-                        }) {
-                            if state.selected_device.is_some() {
-                                start_verify = true;
-                            }
+                        if inp
+                            .events
+                            .iter()
+                            .any(|e| matches!(e, egui::Event::Text(t) if t.to_uppercase() == "V"))
+                            && state.selected_device.is_some()
+                        {
+                            start_verify = true;
                         }
                     });
                     if start_verify {

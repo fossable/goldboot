@@ -8,7 +8,7 @@ pub fn render(
     theme: &Theme,
     _screen: &mut Screen,
 ) {
-    egui::TopBottomPanel::bottom("sudo_confirm_hotkeys")
+    egui::Panel::bottom("sudo_confirm_hotkeys")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
         .show_inside(ui, |ui| {

@@ -66,10 +66,10 @@ impl Validate for Size {
     }
 }
 
-impl Into<u64> for Size {
-    fn into(self) -> u64 {
+impl From<Size> for u64 {
+    fn from(val: Size) -> Self {
         // Assume Size was validated previously
-        self.0
+        val.0
             .parse::<Byte>()
             .expect("Size was not validated")
             .as_u64()

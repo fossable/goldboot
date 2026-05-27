@@ -162,15 +162,15 @@ autoinstall:
 
 impl BuildImage for Ubuntu {
     fn build(&self, worker: &Builder) -> Result<()> {
-        let mut qemu = QemuBuilder::new(&worker, OsCategory::Linux)
+        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
             .prepare_ssh()?
             .start()?;
 
         // Serve autoinstall config via HTTP
-        let http = HttpServer::new()?
+        let http = HttpServer::builder()?
             .file("user-data", self.generate_autoinstall().into_bytes())?
-            .file("meta-data", b"".to_vec())?
+            .file("meta-data", b"")?
             .serve();
 
         // Send boot command — at the GRUB menu, append autoinstall ds= kernel param
@@ -202,23 +202,18 @@ impl BuildImage for Ubuntu {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Display)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, EnumIter, Display, Default)]
 pub enum UbuntuRelease {
     /// 25.10 (Questing Quokka) — interim
     #[serde(rename = "25.10")]
     V25_10,
     /// 24.04 LTS (Noble Numbat)
     #[serde(rename = "24.04")]
+    #[default]
     V24_04,
     /// 22.04 LTS (Jammy Jellyfish)
     #[serde(rename = "22.04")]
     V22_04,
-}
-
-impl Default for UbuntuRelease {
-    fn default() -> Self {
-        Self::V24_04
-    }
 }
 
 impl UbuntuRelease {
@@ -255,7 +250,7 @@ pub fn fetch_ubuntu_iso(release: UbuntuRelease, arch: ImageArch) -> Result<Iso> 
 
     let rs = reqwest::blocking::get(format!("https://releases.ubuntu.com/{codename}/SHA256SUMS"))?;
     if rs.status().is_success() {
-        for line in BufReader::new(rs).lines().filter_map(|result| result.ok()) {
+        for line in BufReader::new(rs).lines().map_while(Result::ok) {
             if line.contains("live-server") && line.contains(arch_str) && line.ends_with(".iso") {
                 let split: Vec<&str> = line.split_whitespace().collect();
                 if let [hash, filename] = split[..] {

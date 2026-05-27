@@ -36,7 +36,9 @@ impl PartitionLayout {
                 format!("mount {device}1 /mnt/boot"),
             ],
             PartitionLayout::UefiWithSwap { swap_size_mib } => vec![
-                format!("sgdisk -n1:0:+512M -t1:ef00 -n2:0:+{swap_size_mib}M -t2:8200 -n3:0:0 -t3:8300 {device}"),
+                format!(
+                    "sgdisk -n1:0:+512M -t1:ef00 -n2:0:+{swap_size_mib}M -t2:8200 -n3:0:0 -t3:8300 {device}"
+                ),
                 format!("mkfs.fat -F32 {device}1"),
                 format!("mkswap {device}2"),
                 format!("swapon {device}2"),
