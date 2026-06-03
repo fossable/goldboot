@@ -49,7 +49,12 @@ poll-promise = { version = "0.3", optional = true }
 quick-xml = { version = "0.40.1", features = ["serialize"] }
 rand = { workspace = true }
 regex = { workspace = true }
-reqwest = { workspace = true, features = ["stream", "blocking", "json"], optional = true }
+reqwest = { workspace = true, features = [
+  "stream",
+  "blocking",
+  "json",
+  "rustls",
+] }
 ron = { version = "0.12", optional = true }
 rustls = { version = "0.23.23" }
 roniker = { workspace = true, features = ["lsp"], optional = true }
@@ -79,6 +84,7 @@ vnc = { version = "0.4.0", optional = true }
 ocrs = { version = "0.12.2", optional = true }
 rten = { version = "0.24.0", optional = true }
 whoami = "2.1.1"
+zeroize = "1.8"
 zstd = { workspace = true }
 efivar = "2.0.0"
 
@@ -98,7 +104,7 @@ serde_json = "1.0.134"
 walkdir = "2"
 
 [features]
-default = ["build", "include_ovmf", "gui"]
+default = ["build", "include_ovmf", "gui", "cli"]
 
 # Support for registry server
 registry = []
@@ -119,7 +125,6 @@ build = [
   "dep:ssh-key",
   "dep:tokio",
   "dep:tower-http",
-  "dep:reqwest",
 ]
 
 # CLI support (commands, progress bars, prompts)

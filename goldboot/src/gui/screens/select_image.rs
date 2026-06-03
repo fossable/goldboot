@@ -1,7 +1,54 @@
-use super::super::{resources::TextureCache, state::AppState, theme::Theme, widgets};
+use super::super::{
+    resources::TextureCache,
+    state::{AppState, SelectedImage},
+    theme::Theme,
+    widgets,
+};
 use super::Screen;
 use goldboot_image::ImageArch;
 use ubyte::ToByteUnit;
+
+/// One entry in the merged local + registry image list.
+enum DisplayItem {
+    Local {
+        id: String,
+        name: String,
+        size_str: String,
+        arch: ImageArch,
+        os: Option<String>,
+    },
+    Registry {
+        host: String,
+        name: String,
+        tag: String,
+        size_str: String,
+        arch: ImageArch,
+    },
+}
+
+impl DisplayItem {
+    fn as_selected(&self) -> SelectedImage {
+        match self {
+            DisplayItem::Local { id, .. } => SelectedImage::Local(id.clone()),
+            DisplayItem::Registry { host, name, tag, .. } => SelectedImage::Registry {
+                host: host.clone(),
+                name: name.clone(),
+                tag: tag.clone(),
+            },
+        }
+    }
+
+    fn matches(&self, sel: &SelectedImage) -> bool {
+        match (self, sel) {
+            (DisplayItem::Local { id, .. }, SelectedImage::Local(s)) => id == s,
+            (
+                DisplayItem::Registry { host: h, name: n, tag: t, .. },
+                SelectedImage::Registry { host: sh, name: sn, tag: st },
+            ) => h == sh && n == sn && t == st,
+            _ => false,
+        }
+    }
+}
 
 #[cfg(feature = "uki")]
 use super::super::state::DebugShell;
@@ -149,28 +196,56 @@ pub fn render(
 
                 ui.add_space(10.0);
 
-                // Keyboard navigation
-                if !state.images.is_empty() {
-                    if state.selected_image.is_none() {
-                        if let Some(first) = state.images.first() {
-                            state.selected_image = Some(first.id.clone());
-                        }
-                    }
+                // Build merged display list: local images then registry
+                // images. The order is stable across frames so keyboard
+                // navigation is predictable.
+                let registry_host = if state.registry_address.is_empty() {
+                    "registry".to_string()
+                } else {
+                    state.registry_address.clone()
+                };
+                let mut items: Vec<DisplayItem> = Vec::new();
+                for img in state.images.iter() {
+                    items.push(DisplayItem::Local {
+                        id: img.id.clone(),
+                        name: img.primary_header.name(),
+                        size_str: format!(
+                            "{} compressed / {} expanded",
+                            img.file_size.bytes(),
+                            img.primary_header.size.bytes(),
+                        ),
+                        arch: img.primary_header.arch,
+                        os: img.primary_header.elements.first().map(|e| e.os()),
+                    });
+                }
+                for entry in state.registry_images.iter() {
+                    items.push(DisplayItem::Registry {
+                        host: registry_host.clone(),
+                        name: entry.name.clone(),
+                        tag: entry.tag.clone(),
+                        size_str: format!("{} expanded", entry.size.bytes()),
+                        arch: entry.arch,
+                    });
+                }
 
-                    let ids: Vec<String> = state.images.iter().map(|i| i.id.clone()).collect();
+                // Keyboard navigation across the merged list
+                if !items.is_empty() {
+                    if state.selected_image.is_none() {
+                        state.selected_image = Some(items[0].as_selected());
+                    }
                     let current_idx = state
                         .selected_image
                         .as_ref()
-                        .and_then(|id| ids.iter().position(|i| i == id));
+                        .and_then(|sel| items.iter().position(|d| d.matches(sel)));
 
                     ui.ctx().input(|inp| {
                         if inp.key_pressed(egui::Key::ArrowDown) {
-                            let next = current_idx.map(|i| (i + 1).min(ids.len() - 1)).unwrap_or(0);
-                            state.selected_image = ids.get(next).cloned();
+                            let next = current_idx.map(|i| (i + 1).min(items.len() - 1)).unwrap_or(0);
+                            state.selected_image = items.get(next).map(|d| d.as_selected());
                         }
                         if inp.key_pressed(egui::Key::ArrowUp) {
                             let prev = current_idx.map(|i| i.saturating_sub(1)).unwrap_or(0);
-                            state.selected_image = ids.get(prev).cloned();
+                            state.selected_image = items.get(prev).map(|d| d.as_selected());
                         }
                         if inp.key_pressed(egui::Key::Enter) && state.selected_image.is_some() {
                             *screen = Screen::SelectDevice;
@@ -218,22 +293,55 @@ pub fn render(
                         egui::ScrollArea::vertical()
                             .auto_shrink([false, false])
                             .show(ui, |ui| {
-                                if state.images.is_empty() {
+                                if items.is_empty() {
+                                    let msg = if state.registry_list_loading {
+                                        "Loading registry…"
+                                    } else {
+                                        "No images found. Press F5 to log in to a registry."
+                                    };
                                     ui.label(
-                                        egui::RichText::new("No images found")
+                                        egui::RichText::new(msg)
                                             .color(theme.text_secondary),
                                     );
                                 } else {
-                                    for image in state.images.iter() {
-                                        let is_selected =
-                                            state.selected_image.as_ref() == Some(&image.id);
+                                    for item in items.iter() {
+                                        let is_selected = state
+                                            .selected_image
+                                            .as_ref()
+                                            .map(|s| item.matches(s))
+                                            .unwrap_or(false);
 
-                                        let size_str = format!(
-                                            "{} compressed / {} expanded",
-                                            image.file_size.bytes(),
-                                            image.primary_header.size.bytes(),
-                                        );
-                                        let arch_str = arch_label(&image.primary_header.arch);
+                                        let (name, size_str, arch, os, source_label) = match item
+                                        {
+                                            DisplayItem::Local {
+                                                name,
+                                                size_str,
+                                                arch,
+                                                os,
+                                                ..
+                                            } => (
+                                                name.clone(),
+                                                size_str.clone(),
+                                                *arch,
+                                                os.clone(),
+                                                None,
+                                            ),
+                                            DisplayItem::Registry {
+                                                name,
+                                                tag,
+                                                size_str,
+                                                arch,
+                                                host,
+                                                ..
+                                            } => (
+                                                format!("{name}:{tag}"),
+                                                size_str.clone(),
+                                                *arch,
+                                                None,
+                                                Some(host.clone()),
+                                            ),
+                                        };
+                                        let arch_str = arch_label(&arch);
 
                                         let row_fill = if is_selected {
                                             theme.accent_gold.linear_multiply(0.2)
@@ -248,27 +356,18 @@ pub fn render(
                                             .show(ui, |ui| {
                                                 ui.set_min_width(ui.available_width());
                                                 ui.horizontal(|ui| {
-                                                    // Left column: icon above arch badge, left-aligned
-                                                    // but items centered on each other within the column
                                                     ui.allocate_ui_with_layout(
                                                         egui::vec2(52.0, 0.0),
                                                         egui::Layout::top_down(egui::Align::Center),
                                                         |ui| {
                                                             let mut any_icon = false;
-                                                            for element in
-                                                                image.primary_header.elements.iter()
-                                                            {
-                                                                let os_name = element.os();
+                                                            if let Some(os_name) = &os {
                                                                 if let Some(tex) =
-                                                                    textures.os_icon(&os_name)
+                                                                    textures.os_icon(os_name)
                                                                 {
                                                                     ui.add(
                                                                         egui::Image::new(tex)
-                                                                            .max_size(
-                                                                                egui::Vec2::splat(
-                                                                                    32.0,
-                                                                                ),
-                                                                            ),
+                                                                            .max_size(egui::Vec2::splat(32.0)),
                                                                     );
                                                                     any_icon = true;
                                                                 }
@@ -309,16 +408,25 @@ pub fn render(
 
                                                     ui.add_space(10.0);
 
-                                                    // Right: two lines, left-aligned
                                                     ui.vertical(|ui| {
-                                                        ui.label(
-                                                            egui::RichText::new(
-                                                                image.primary_header.name(),
-                                                            )
-                                                            .color(theme.text_primary)
-                                                            .strong()
-                                                            .size(14.0),
-                                                        );
+                                                        ui.horizontal(|ui| {
+                                                            ui.label(
+                                                                egui::RichText::new(&name)
+                                                                    .color(theme.text_primary)
+                                                                    .strong()
+                                                                    .size(14.0),
+                                                            );
+                                                            if let Some(src) = &source_label {
+                                                                ui.label(
+                                                                    egui::RichText::new(format!(
+                                                                        "registry · {src}"
+                                                                    ))
+                                                                    .color(theme.accent_gold)
+                                                                    .monospace()
+                                                                    .size(10.0),
+                                                                );
+                                                            }
+                                                        });
                                                         ui.label(
                                                             egui::RichText::new(&size_str)
                                                                 .color(theme.text_secondary)

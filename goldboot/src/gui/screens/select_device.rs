@@ -45,11 +45,7 @@ pub fn render(
                 // Keyboard navigation
                 if !state.devices.is_empty() {
                     // Auto-select first device if nothing selected
-                    let required_bytes: Option<u64> = state
-                        .selected_image
-                        .as_ref()
-                        .and_then(|id| state.images.iter().find(|i| &i.id == id))
-                        .map(|i| i.primary_header.size);
+                    let required_bytes = state.selected_image_size();
 
                     // Only selectable devices (sufficient capacity)
                     let selectable: Vec<&block_utils::Device> = state
@@ -142,12 +138,7 @@ pub fn render(
                                             .color(theme.text_secondary),
                                     );
                                 } else {
-                                    // Required capacity from selected image
-                                    let required_bytes: Option<u64> = state
-                                        .selected_image
-                                        .as_ref()
-                                        .and_then(|id| state.images.iter().find(|i| &i.id == id))
-                                        .map(|i| i.primary_header.size);
+                                    let required_bytes = state.selected_image_size();
 
                                     for device in state.devices.iter() {
                                         let too_small = required_bytes

@@ -1,4 +1,8 @@
 pub mod api;
+pub mod client;
+pub mod protocol;
+
+pub use client::{Client, registry_root};
 
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};

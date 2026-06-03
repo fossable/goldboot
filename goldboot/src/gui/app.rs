@@ -67,6 +67,10 @@ impl eframe::App for GuiApp {
         self.theme.render_background(&ctx);
         self.handle_hotkeys(&ctx);
 
+        // Drain any pending registry login / list events before rendering.
+        registry_login::poll_login_events(&mut self.state);
+        registry_login::poll_list_events(&mut self.state);
+
         self.screen
             .render(ui, &mut self.state, &self.textures, &self.theme);
 

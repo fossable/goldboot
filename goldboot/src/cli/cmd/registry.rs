@@ -1,11 +1,12 @@
-use dialoguer::{Password, theme::ColorfulTheme};
+use dialoguer::{Input, Password, theme::ColorfulTheme};
 use std::process::ExitCode;
 use tracing::info;
+use zeroize::Zeroize;
 
 use super::RegistryCommands;
 use crate::{
     library::ImageLibrary,
-    registry::{RegistryCredentials, RegistryEntry, parse_image_ref},
+    registry::{Client, RegistryCredentials, RegistryEntry, parse_image_ref},
 };
 
 pub fn run(cmd: super::Commands) -> ExitCode {
@@ -14,11 +15,46 @@ pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Registry { command } => match command {
             RegistryCommands::Login { registry } => {
-                let token: String = Password::with_theme(&theme)
-                    .with_prompt(format!("Enter token for {registry}"))
+                let username: String = match Input::with_theme(&theme)
+                    .with_prompt(format!("Username for {registry}"))
+                    .interact_text()
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("Input cancelled: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                let mut password: String = match Password::with_theme(&theme)
+                    .with_prompt("Password")
                     .interact()
-                    .unwrap();
+                {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("Input cancelled: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
 
+                let mut client = match Client::new(&registry) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        password.zeroize();
+                        eprintln!("Bad registry address: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                let login_result = client.login(&username, &password);
+                password.zeroize();
+                let perms = match login_result {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("Login failed: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+
+                let token = client.token().expect("token after login").to_string();
                 let mut creds = RegistryCredentials::load().unwrap_or_default();
                 creds
                     .registries
@@ -27,7 +63,10 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     eprintln!("Failed to save credentials: {e}");
                     return ExitCode::FAILURE;
                 }
-                println!("Logged in to {registry}");
+                println!(
+                    "Logged in to {registry} as {username} (pull={} push={})",
+                    perms.pull, perms.push
+                );
                 ExitCode::SUCCESS
             }
 
@@ -55,60 +94,28 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
-                let scheme = std::env::var("GOLDBOOT_REGISTRY_SCHEME")
-                    .unwrap_or_else(|_| "https".to_string());
-                let url = format!("{scheme}://{host}/images/{name}/tags/{tag}");
-                info!("Pulling {reference} from {url}");
+                let mut client = match Client::new(&host) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("Bad registry address: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                client.set_token_from_storage(token);
 
                 let library = ImageLibrary::open();
                 let tmp = library.temporary();
-
-                let client = reqwest::blocking::Client::new();
-                let mut response = match client
-                    .get(&url)
-                    .header("Authorization", format!("Bearer {token}"))
-                    .send()
-                {
-                    Ok(r) => r,
-                    Err(e) => {
-                        eprintln!("Request failed: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-
-                if !response.status().is_success() {
-                    eprintln!("Pull failed: HTTP {}", response.status());
-                    return ExitCode::FAILURE;
-                }
-
-                let mut file = match std::fs::File::create(&tmp) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        eprintln!("Failed to create temp file: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-
-                use crate::cli::progress::ProgressBar;
-                let copy_result = if let Some(length) = response.content_length() {
-                    ProgressBar::Download.copy(&mut response, &mut file, length)
-                } else {
-                    std::io::copy(&mut response, &mut file)
-                        .map(|_| ())
-                        .map_err(anyhow::Error::from)
-                };
-                if let Err(e) = copy_result {
-                    eprintln!("Download failed: {e}");
+                info!("Pulling {reference}");
+                if let Err(e) = client.pull_to_file(&name, &tag, &tmp) {
+                    eprintln!("Pull failed: {e}");
                     let _ = std::fs::remove_file(&tmp);
                     return ExitCode::FAILURE;
                 }
-
                 if let Err(e) = library.add_move(&tmp) {
                     eprintln!("Failed to add image to library: {e}");
                     let _ = std::fs::remove_file(&tmp);
                     return ExitCode::FAILURE;
                 }
-
                 println!("Pulled {reference}");
                 ExitCode::SUCCESS
             }
@@ -137,19 +144,13 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
-                // Find a local image whose name matches the reference name
                 let image = match ImageLibrary::find_by_name(&name) {
                     Ok(img) => img,
                     Err(e) => {
-                        eprintln!("Image '{}' not found in local library: {e}", name);
+                        eprintln!("Image '{name}' not found in local library: {e}");
                         return ExitCode::FAILURE;
                     }
                 };
-
-                let scheme = std::env::var("GOLDBOOT_REGISTRY_SCHEME")
-                    .unwrap_or_else(|_| "https".to_string());
-                let url = format!("{scheme}://{host}/images/{name}/tags/{tag}");
-                info!("Pushing {} to {url}", image.path.display());
 
                 let file_len = match std::fs::metadata(&image.path) {
                     Ok(m) => m.len(),
@@ -166,36 +167,20 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
-                use crate::cli::progress::{ProgressBar, ProgressReader, show_progress};
-                let progress_file = if show_progress() {
-                    let bar = ProgressBar::Upload.bar(file_len);
-                    let reader: Box<dyn std::io::Read + Send + 'static> =
-                        Box::new(ProgressReader::new(file, bar));
-                    reader
-                } else {
-                    Box::new(file)
-                };
-
-                let client = reqwest::blocking::Client::new();
-                let response = match client
-                    .put(&url)
-                    .header("Authorization", format!("Bearer {token}"))
-                    .header("Content-Length", file_len)
-                    .body(reqwest::blocking::Body::sized(progress_file, file_len))
-                    .send()
-                {
-                    Ok(r) => r,
+                let mut client = match Client::new(&host) {
+                    Ok(c) => c,
                     Err(e) => {
-                        eprintln!("Request failed: {e}");
+                        eprintln!("Bad registry address: {e}");
                         return ExitCode::FAILURE;
                     }
                 };
+                client.set_token_from_storage(token);
 
-                if !response.status().is_success() {
-                    eprintln!("Push failed: HTTP {}", response.status());
+                info!("Pushing {} ({} bytes)", image.path.display(), file_len);
+                if let Err(e) = client.push_image(&name, &tag, file, file_len) {
+                    eprintln!("Push failed: {e}");
                     return ExitCode::FAILURE;
                 }
-
                 println!("Pushed {reference}");
                 ExitCode::SUCCESS
             }

@@ -14,6 +14,28 @@ fn arch_label(arch: &ImageArch) -> &'static str {
     }
 }
 
+fn render_image_info_rows(ui: &mut egui::Ui, theme: &Theme, rows: &[(&str, String)]) {
+    egui::Grid::new("image_info_grid")
+        .num_columns(2)
+        .spacing([12.0, 4.0])
+        .show(ui, |ui| {
+            for (label, value) in rows {
+                ui.label(
+                    egui::RichText::new(*label)
+                        .color(theme.text_secondary)
+                        .size(12.0),
+                );
+                ui.label(
+                    egui::RichText::new(value)
+                        .color(theme.text_primary)
+                        .monospace()
+                        .size(12.0),
+                );
+                ui.end_row();
+            }
+        });
+}
+
 fn media_type_label(mt: &block_utils::MediaType) -> &'static str {
     match mt {
         block_utils::MediaType::SolidState => "SSD",
@@ -83,78 +105,88 @@ pub fn render(
                             );
                             ui.add_space(8.0);
 
-                            if let Some(image_id) = &state.selected_image.clone() {
-                                if let Some(image) = state.images.iter().find(|i| &i.id == image_id)
-                                {
-                                    let h = &image.primary_header;
-
-                                    // OS icons + name
-                                    ui.horizontal(|ui| {
-                                        for element in h.elements.iter() {
-                                            let os_name = element.os();
-                                            if let Some(tex) = textures.os_icon(&os_name) {
-                                                ui.add(
-                                                    egui::Image::new(tex)
-                                                        .max_size(egui::Vec2::splat(24.0)),
-                                                );
+                            match &state.selected_image.clone() {
+                                Some(super::super::state::SelectedImage::Local(image_id)) => {
+                                    if let Some(image) =
+                                        state.images.iter().find(|i| &i.id == image_id)
+                                    {
+                                        let h = &image.primary_header;
+                                        ui.horizontal(|ui| {
+                                            for element in h.elements.iter() {
+                                                let os_name = element.os();
+                                                if let Some(tex) = textures.os_icon(&os_name) {
+                                                    ui.add(
+                                                        egui::Image::new(tex)
+                                                            .max_size(egui::Vec2::splat(24.0)),
+                                                    );
+                                                }
                                             }
-                                        }
-                                        ui.label(
-                                            egui::RichText::new(h.name())
-                                                .color(theme.text_primary)
-                                                .strong()
-                                                .size(14.0),
-                                        );
-                                    });
-
-                                    ui.add_space(8.0);
-
-                                    let rows: &[(&str, String)] = &[
-                                        ("Architecture", arch_label(&h.arch).to_string()),
-                                        ("Size on disk", format!("{}", image.file_size.bytes())),
-                                        ("Expanded size", format!("{}", h.size.bytes())),
-                                        (
-                                            "Elements",
-                                            h.elements
-                                                .iter()
-                                                .map(|e| e.name())
-                                                .collect::<Vec<_>>()
-                                                .join(", "),
-                                        ),
-                                        ("Encryption", format!("{:?}", h.encryption_type)),
-                                        ("ID", image.id[..12].to_string()),
-                                    ];
-
-                                    egui::Grid::new("image_info_grid")
-                                        .num_columns(2)
-                                        .spacing([12.0, 4.0])
-                                        .show(ui, |ui| {
-                                            for (label, value) in rows {
-                                                ui.label(
-                                                    egui::RichText::new(*label)
-                                                        .color(theme.text_secondary)
-                                                        .size(12.0),
-                                                );
-                                                ui.label(
-                                                    egui::RichText::new(value)
-                                                        .color(theme.text_primary)
-                                                        .monospace()
-                                                        .size(12.0),
-                                                );
-                                                ui.end_row();
-                                            }
+                                            ui.label(
+                                                egui::RichText::new(h.name())
+                                                    .color(theme.text_primary)
+                                                    .strong()
+                                                    .size(14.0),
+                                            );
                                         });
-                                } else {
+                                        ui.add_space(8.0);
+                                        let rows: &[(&str, String)] = &[
+                                            ("Source", "local library".to_string()),
+                                            ("Architecture", arch_label(&h.arch).to_string()),
+                                            ("Size on disk", format!("{}", image.file_size.bytes())),
+                                            ("Expanded size", format!("{}", h.size.bytes())),
+                                            (
+                                                "Elements",
+                                                h.elements
+                                                    .iter()
+                                                    .map(|e| e.name())
+                                                    .collect::<Vec<_>>()
+                                                    .join(", "),
+                                            ),
+                                            ("Encryption", format!("{:?}", h.encryption_type)),
+                                            ("ID", image.id[..12].to_string()),
+                                        ];
+                                        render_image_info_rows(ui, theme, rows);
+                                    } else {
+                                        ui.label(
+                                            egui::RichText::new("Image not found")
+                                                .color(theme.text_secondary),
+                                        );
+                                    }
+                                }
+                                Some(super::super::state::SelectedImage::Registry {
+                                    host,
+                                    name,
+                                    tag,
+                                }) => {
+                                    let entry = state
+                                        .registry_images
+                                        .iter()
+                                        .find(|e| &e.name == name && &e.tag == tag);
                                     ui.label(
-                                        egui::RichText::new("Image not found")
+                                        egui::RichText::new(format!("{name}:{tag}"))
+                                            .color(theme.text_primary)
+                                            .strong()
+                                            .size(14.0),
+                                    );
+                                    ui.add_space(8.0);
+                                    let rows: Vec<(&str, String)> = if let Some(e) = entry {
+                                        vec![
+                                            ("Source", format!("registry · {host}")),
+                                            ("Architecture", arch_label(&e.arch).to_string()),
+                                            ("Expanded size", format!("{}", e.size.bytes())),
+                                            ("ID", e.id.chars().take(12).collect()),
+                                        ]
+                                    } else {
+                                        vec![("Source", format!("registry · {host}"))]
+                                    };
+                                    render_image_info_rows(ui, theme, &rows);
+                                }
+                                None => {
+                                    ui.label(
+                                        egui::RichText::new("No image selected")
                                             .color(theme.text_secondary),
                                     );
                                 }
-                            } else {
-                                ui.label(
-                                    egui::RichText::new("No image selected")
-                                        .color(theme.text_secondary),
-                                );
                             }
                         });
 

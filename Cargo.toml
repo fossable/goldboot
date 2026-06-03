@@ -2,7 +2,13 @@
 strip = true
 
 [workspace]
-members = ["goldboot", "goldboot-image", "goldboot-macros", "goldboot-registry"]
+members = [
+  "goldboot",
+  "goldboot-image",
+  "goldboot-macros",
+  "goldboot-registry",
+]
+resolver = "3"
 
 [workspace.dependencies]
 anyhow = "1.0.76"

@@ -1,35 +1,36 @@
-use crate::cmd::Commands;
-use axum::{Router, routing::get};
 use clap::Parser;
 
-pub mod api;
-pub mod cmd;
-pub mod extract;
+mod api;
+mod auth;
+mod cmd;
+mod config;
+mod storage;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct CommandLine {
     #[clap(subcommand)]
-    command: Option<Commands>,
+    command: cmd::Commands,
 }
 
-#[derive(Clone)]
-pub struct RegistryState {}
-
-#[tokio::main]
-async fn main() {
-    let _command_line = CommandLine::parse();
+fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
         .init();
 
-    let state = RegistryState {};
+    let cli = CommandLine::parse();
 
-    let app = Router::new()
-        .route("/image/list", get(api::image::list))
-        .route("/image/info/:image_id", get(api::image::info))
-        .with_state(state);
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    match cli.command {
+        cmd::Commands::Start { config } => {
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(cmd::start::run(&config))?;
+        }
+        cmd::Commands::User { command } => {
+            cmd::user::run(command)?;
+        }
+    }
+    Ok(())
 }

@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
     path::Path,
@@ -347,6 +348,157 @@ fn new_key(password: String) -> Aes256Gcm {
     Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&hash))
 }
 
+/// Build a map from `cluster_offset` to the unique-cluster ordinal (the
+/// position of that cluster_offset in first-seen order across the digest
+/// table). Used to look up per-cluster nonces, since `nonce_table` only
+/// holds one entry per *unique* cluster while `digest_table` has one entry
+/// per *block* (deduplicated clusters share an offset and thus a nonce).
+fn build_cluster_ordinal_map(digest_table: &[DigestTableEntry]) -> HashMap<u64, usize> {
+    let mut map: HashMap<u64, usize> = HashMap::new();
+    for entry in digest_table {
+        let next_idx = map.len();
+        map.entry(entry.cluster_offset).or_insert(next_idx);
+    }
+    map
+}
+
+/// GBMF manifest magic. The server's `/manifest` endpoint returns a small
+/// binary blob in this format so a streaming client can parse the four
+/// metadata sections (primary header, protected header, directory, digest
+/// table) without seeking into the much larger cluster region.
+pub const MANIFEST_MAGIC: &[u8; 4] = b"GBMF";
+pub const MANIFEST_VERSION: u8 = 1;
+pub const MANIFEST_FLAG_HEADERS_ENCRYPTED: u8 = 0x01;
+
+/// Parsed manifest in raw byte form: each section is the bytes as they
+/// appear on disk (encrypted if the source `.gb` is encrypted). Decrypted
+/// metadata is obtained via [`parse_manifest`].
+pub struct ManifestBlob {
+    pub headers_encrypted: bool,
+    pub primary_bytes: Vec<u8>,
+    pub protected_bytes: Vec<u8>,
+    pub directory_bytes: Vec<u8>,
+    pub digest_table_bytes: Vec<u8>,
+}
+
+impl ManifestBlob {
+    /// Read a manifest blob from a server response or in-memory buffer.
+    pub fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+        let mut magic = [0u8; 4];
+        reader.read_exact(&mut magic)?;
+        if &magic != MANIFEST_MAGIC {
+            bail!("invalid manifest magic: {:?}", magic);
+        }
+        let mut hdr = [0u8; 4];
+        reader.read_exact(&mut hdr)?;
+        if hdr[0] != MANIFEST_VERSION {
+            bail!("unsupported manifest version: {}", hdr[0]);
+        }
+        let headers_encrypted = hdr[1] & MANIFEST_FLAG_HEADERS_ENCRYPTED != 0;
+
+        let primary_bytes = read_length_prefixed(reader)?;
+        let protected_bytes = read_length_prefixed(reader)?;
+        let directory_bytes = read_length_prefixed(reader)?;
+        let digest_table_bytes = read_length_prefixed(reader)?;
+        Ok(Self {
+            headers_encrypted,
+            primary_bytes,
+            protected_bytes,
+            directory_bytes,
+            digest_table_bytes,
+        })
+    }
+
+    /// Serialise the manifest blob to bytes.
+    pub fn write_to(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(MANIFEST_MAGIC);
+        out.push(MANIFEST_VERSION);
+        out.push(if self.headers_encrypted {
+            MANIFEST_FLAG_HEADERS_ENCRYPTED
+        } else {
+            0
+        });
+        out.extend_from_slice(&[0u8; 2]); // reserved
+        write_length_prefixed(&mut out, &self.primary_bytes);
+        write_length_prefixed(&mut out, &self.protected_bytes);
+        write_length_prefixed(&mut out, &self.directory_bytes);
+        write_length_prefixed(&mut out, &self.digest_table_bytes);
+        out
+    }
+}
+
+fn read_length_prefixed<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
+    let mut len_bytes = [0u8; 4];
+    reader.read_exact(&mut len_bytes)?;
+    let len = u32::from_be_bytes(len_bytes) as usize;
+    if len > 32 * 1024 * 1024 {
+        bail!("manifest section length {} exceeds 32 MiB cap", len);
+    }
+    let mut buf = vec![0u8; len];
+    reader.read_exact(&mut buf)?;
+    Ok(buf)
+}
+
+fn write_length_prefixed(out: &mut Vec<u8>, data: &[u8]) {
+    let len = data.len() as u32;
+    out.extend_from_slice(&len.to_be_bytes());
+    out.extend_from_slice(data);
+}
+
+/// Parse a manifest blob into the four typed metadata structures, decrypting
+/// each section if the source image is encrypted. Returns the cluster region
+/// start offset (= end of protected header bytes in the original `.gb` file).
+pub fn parse_manifest(
+    blob: &ManifestBlob,
+    password: Option<String>,
+) -> Result<(PrimaryHeader, ProtectedHeader, Directory, DigestTable, u64)> {
+    let primary: PrimaryHeader = Cursor::new(&blob.primary_bytes).read_be()?;
+
+    let header_cipher = new_key(password.unwrap_or_default());
+    let directory: Directory = match primary.encryption_type {
+        HeaderEncryptionType::None => Cursor::new(&blob.directory_bytes).read_be()?,
+        HeaderEncryptionType::Aes256 => {
+            let plain = header_cipher
+                .decrypt(
+                    Nonce::from_slice(&primary.directory_nonce),
+                    blob.directory_bytes.as_slice(),
+                )
+                .map_err(|e| anyhow::anyhow!("decrypt directory: {e}"))?;
+            Cursor::new(plain).read_be()?
+        }
+    };
+
+    let protected: ProtectedHeader = match primary.encryption_type {
+        HeaderEncryptionType::None => Cursor::new(&blob.protected_bytes).read_be()?,
+        HeaderEncryptionType::Aes256 => {
+            let plain = header_cipher
+                .decrypt(
+                    Nonce::from_slice(&directory.protected_nonce),
+                    blob.protected_bytes.as_slice(),
+                )
+                .map_err(|e| anyhow::anyhow!("decrypt protected: {e}"))?;
+            Cursor::new(plain).read_be()?
+        }
+    };
+
+    let digest: DigestTable = match primary.encryption_type {
+        HeaderEncryptionType::None => Cursor::new(&blob.digest_table_bytes).read_be()?,
+        HeaderEncryptionType::Aes256 => {
+            let plain = header_cipher
+                .decrypt(
+                    Nonce::from_slice(&directory.digest_table_nonce),
+                    blob.digest_table_bytes.as_slice(),
+                )
+                .map_err(|e| anyhow::anyhow!("decrypt digest_table: {e}"))?;
+            Cursor::new(plain).read_be()?
+        }
+    };
+
+    let cluster_region_start = blob.primary_bytes.len() as u64 + blob.protected_bytes.len() as u64;
+    Ok((primary, protected, directory, digest, cluster_region_start))
+}
+
 /// Hash the entire image file to produce the image ID.
 pub fn compute_id(path: impl AsRef<Path>) -> Result<String> {
     use sha2::Digest;
@@ -487,6 +639,88 @@ impl ImageHandle {
         }
     }
 
+    /// Compute the byte length of the primary header as serialised on
+    /// disk. Used by the registry server (and other tools) to slice .gb
+    /// files at known offsets without re-implementing the binary layout.
+    pub fn primary_header_len(&self) -> Result<u64> {
+        let mut cur = Cursor::new(Vec::new());
+        self.primary_header.write(&mut cur)?;
+        Ok(cur.into_inner().len() as u64)
+    }
+
+    /// Read a [`ManifestBlob`] directly from this image's on-disk file. The
+    /// returned bytes are exactly the four metadata sections as stored
+    /// (still encrypted if the source is encrypted). Used by the registry
+    /// server to answer `/manifest` requests without ever needing the
+    /// image password.
+    pub fn read_manifest_blob(&self) -> Result<ManifestBlob> {
+        let directory = self
+            .directory
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("directory not loaded"))?;
+        let primary_len = self.primary_header_len()?;
+
+        let mut file = File::open(&self.path)?;
+        let mut primary_bytes = vec![0u8; primary_len as usize];
+        file.seek(SeekFrom::Start(0))?;
+        file.read_exact(&mut primary_bytes)?;
+
+        let mut protected_bytes = vec![0u8; directory.protected_size as usize];
+        file.seek(SeekFrom::Start(primary_len))?;
+        file.read_exact(&mut protected_bytes)?;
+
+        let mut digest_table_bytes = vec![0u8; directory.digest_table_size as usize];
+        file.seek(SeekFrom::Start(directory.digest_table_offset))?;
+        file.read_exact(&mut digest_table_bytes)?;
+
+        let mut directory_bytes = vec![0u8; self.primary_header.directory_size as usize];
+        file.seek(SeekFrom::Start(self.primary_header.directory_offset))?;
+        file.read_exact(&mut directory_bytes)?;
+
+        Ok(ManifestBlob {
+            headers_encrypted: matches!(
+                self.primary_header.encryption_type,
+                HeaderEncryptionType::Aes256
+            ),
+            primary_bytes,
+            protected_bytes,
+            directory_bytes,
+            digest_table_bytes,
+        })
+    }
+
+    /// Compute the byte range `[start, end)` within the underlying `.gb`
+    /// file that contains the cluster region (i.e. all `Cluster` records
+    /// laid out back-to-back, excluding the headers and the trailing digest
+    /// table / directory). Used by the registry server to stream the
+    /// cluster region in response to `/clusters` requests without parsing
+    /// any encrypted bytes itself.
+    ///
+    /// Requires that `directory` and `protected_header.cluster_count > 0`
+    /// have been loaded — typically via [`ImageHandle::open`] (unencrypted)
+    /// or [`ImageHandle::load`] (encrypted).
+    pub fn cluster_region_bounds(&self) -> Result<(u64, u64)> {
+        let directory = self
+            .directory
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("directory not loaded"))?;
+
+        // The protected header sits immediately after the primary header.
+        let mut primary_only = Cursor::new(Vec::new());
+        self.primary_header.write(&mut primary_only)?;
+        let primary_len = primary_only.into_inner().len() as u64;
+        let start = primary_len + directory.protected_size as u64;
+        let end = directory.digest_table_offset;
+        if end < start {
+            bail!(
+                "malformed image: digest_table_offset {} precedes cluster region start {}",
+                end,
+                start
+            );
+        }
+        Ok((start, end))
+    }
+
     /// Modify the password and re-encrypt all encrypted sections. This doesn't
     /// re-encrypt the clusters because they are encrypted with the cluster key.
     pub fn change_password(&self, _old_password: String, new_password: String) -> Result<()> {
@@ -549,6 +783,9 @@ impl ImageHandle {
 
         let mut block = vec![0u8; protected_header.block_size as usize];
 
+        // Map cluster_offset → unique-cluster ordinal (nonce_table index)
+        let cluster_ordinal = build_cluster_ordinal_map(&digest_table);
+
         // Write all of the clusters that have changed
         for (i, entry) in digest_table.iter().enumerate() {
             // Jump to the block corresponding to the cluster
@@ -579,15 +816,22 @@ impl ImageHandle {
                     "Read dirty cluster",
                 );
 
-                // Reverse encryption
+                // Reverse encryption — nonces are keyed by unique-cluster ordinal,
+                // not by digest-table index (multiple digest entries can alias the
+                // same cluster_offset via dedup).
                 cluster.data = match protected_header.cluster_encryption {
                     ClusterEncryptionType::None => cluster.data,
-                    ClusterEncryptionType::Aes256 => cluster_cipher
-                        .decrypt(
-                            Nonce::from_slice(&protected_header.nonce_table[i]),
-                            cluster.data.as_ref(),
-                        )
-                        .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?,
+                    ClusterEncryptionType::Aes256 => {
+                        let nonce_idx = *cluster_ordinal
+                            .get(&entry.cluster_offset)
+                            .ok_or_else(|| anyhow::anyhow!("missing cluster ordinal"))?;
+                        cluster_cipher
+                            .decrypt(
+                                Nonce::from_slice(&protected_header.nonce_table[nonce_idx]),
+                                cluster.data.as_ref(),
+                            )
+                            .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?
+                    }
                 };
 
                 // Reverse compression
@@ -610,6 +854,175 @@ impl ImageHandle {
             }
 
             progress(i, Some(is_dirty));
+        }
+
+        Ok(())
+    }
+
+    /// Write image contents to `dest` by consuming a *stream* of cluster
+    /// bytes (no local seekable copy of the `.gb` file required).
+    ///
+    /// `cluster_stream` must deliver the byte range
+    /// `[cluster_data_start_offset .. digest_table_offset)` from the source
+    /// `.gb` file in order. Clusters in this range are encoded as
+    /// `Cluster { size: u32 BE, data: [u8; size] }` back-to-back, in the
+    /// same order they appear in the file (which matches the first-seen
+    /// order of unique `cluster_offset`s in the digest table — clusters are
+    /// always appended monotonically by `from_qcow`).
+    ///
+    /// The function tolerates duplicate digest entries pointing at the same
+    /// `cluster_offset`: each cluster is consumed from the stream exactly
+    /// once, decoded, then placed at every `block_offset` that references
+    /// it. Per-block hashing avoids unnecessary writes.
+    pub fn stream_write<R: Read, F: Fn(usize, Option<bool>)>(
+        primary_header: &PrimaryHeader,
+        protected_header: &ProtectedHeader,
+        digest_table: &DigestTable,
+        cluster_stream: R,
+        cluster_data_start_offset: u64,
+        dest: impl AsRef<Path>,
+        progress: F,
+    ) -> Result<()> {
+        let cluster_cipher =
+            Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&protected_header.cluster_key));
+
+        // Build (unique_idx, cluster_offset) in first-seen order across the
+        // digest table, plus the reverse index for placement at write time.
+        let mut unique_offsets: Vec<u64> = Vec::new();
+        let mut nonce_idx_by_offset: HashMap<u64, usize> = HashMap::new();
+        let mut entries_by_offset: HashMap<u64, Vec<usize>> = HashMap::new();
+        for (i, entry) in digest_table.digest_table.iter().enumerate() {
+            if !nonce_idx_by_offset.contains_key(&entry.cluster_offset) {
+                nonce_idx_by_offset.insert(entry.cluster_offset, unique_offsets.len());
+                unique_offsets.push(entry.cluster_offset);
+            }
+            entries_by_offset
+                .entry(entry.cluster_offset)
+                .or_default()
+                .push(i);
+        }
+
+        // Sort streaming order ascending — this matches `from_qcow`'s output
+        // (clusters are appended monotonically), but we sort defensively to
+        // catch any future format where first-seen order would diverge from
+        // file order. If they ever differ, the stream-skip step below will
+        // hit a negative delta and we'll bail loudly.
+        unique_offsets.sort_unstable();
+
+        let dest = dest.as_ref();
+        info!(dest = ?dest, "Preparing to stream-write image");
+
+        let mut dest_file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(dest)?;
+
+        // Extend regular files to the full virtual disk size. Do not
+        // truncate — when writing to a block device, the file represents the
+        // whole device and truncate() would be either no-op or harmful.
+        let meta = dest_file.metadata()?;
+        if meta.is_file() && meta.len() < primary_header.size {
+            dest_file.set_len(primary_header.size)?;
+        }
+
+        let mut block = vec![0u8; protected_header.block_size as usize];
+        let mut reader = BufReader::new(cluster_stream);
+        let mut stream_pos = cluster_data_start_offset;
+        let max_cluster_bytes = (protected_header.block_size as u64).saturating_mul(4);
+
+        for cluster_offset in unique_offsets {
+            // Advance the stream to the cluster's offset by reading and
+            // discarding any padding bytes. Negative delta = fatal.
+            if cluster_offset < stream_pos {
+                bail!(
+                    "stream delivered clusters out of order: pos={} but next cluster_offset={}",
+                    stream_pos,
+                    cluster_offset
+                );
+            }
+            let skip = cluster_offset - stream_pos;
+            if skip > 0 {
+                std::io::copy(&mut (&mut reader).take(skip), &mut std::io::sink())?;
+            }
+            stream_pos = cluster_offset;
+
+            // Read the cluster header (u32 BE size)
+            let mut size_bytes = [0u8; 4];
+            reader.read_exact(&mut size_bytes)?;
+            let cluster_size = u32::from_be_bytes(size_bytes) as u64;
+            if cluster_size > max_cluster_bytes {
+                bail!(
+                    "cluster at offset {} declares size {} which exceeds the {}-byte cap",
+                    cluster_offset,
+                    cluster_size,
+                    max_cluster_bytes
+                );
+            }
+            let mut data = Vec::with_capacity(cluster_size as usize);
+            (&mut reader).take(cluster_size).read_to_end(&mut data)?;
+            if data.len() as u64 != cluster_size {
+                bail!(
+                    "short read on cluster at offset {}: expected {}, got {}",
+                    cluster_offset,
+                    cluster_size,
+                    data.len()
+                );
+            }
+            stream_pos += 4 + cluster_size;
+
+            // Reverse encryption
+            let nonce_idx = *nonce_idx_by_offset
+                .get(&cluster_offset)
+                .expect("nonce idx for known cluster_offset");
+            let plain = match protected_header.cluster_encryption {
+                ClusterEncryptionType::None => data,
+                ClusterEncryptionType::Aes256 => cluster_cipher
+                    .decrypt(
+                        Nonce::from_slice(&protected_header.nonce_table[nonce_idx]),
+                        data.as_ref(),
+                    )
+                    .map_err(|e| anyhow::anyhow!("decrypt cluster {cluster_offset}: {e}"))?,
+            };
+
+            // Reverse compression
+            let plain = match protected_header.cluster_compression {
+                ClusterCompressionType::None => plain,
+                ClusterCompressionType::Zstd => zstd::decode_all(Cursor::new(plain))?,
+            };
+
+            // Place at every block_offset that references this cluster.
+            let entry_indices = entries_by_offset
+                .get(&cluster_offset)
+                .expect("entries for known cluster_offset");
+            for &i in entry_indices {
+                let entry = &digest_table.digest_table[i];
+
+                dest_file.seek(SeekFrom::Start(entry.block_offset))?;
+                let hash: [u8; 32] = match dest_file.read_exact(&mut block) {
+                    Ok(_) => Sha256::new().chain_update(&block).finalize().into(),
+                    Err(_) => [0u8; 32],
+                };
+                let is_dirty = hash != entry.digest;
+
+                if is_dirty {
+                    progress(i, None);
+                    dest_file.seek(SeekFrom::Start(entry.block_offset))?;
+
+                    // Handle a trailing partial block at end-of-disk
+                    let max_len = primary_header
+                        .size
+                        .saturating_sub(entry.block_offset) as usize;
+                    let to_write = if plain.len() > max_len {
+                        &plain[..max_len]
+                    } else {
+                        &plain[..]
+                    };
+                    dest_file.write_all(to_write)?;
+                }
+
+                progress(i, Some(is_dirty));
+            }
         }
 
         Ok(())
@@ -927,5 +1340,359 @@ impl ImageHandle {
             file_size: std::fs::metadata(&dest)?.len(),
             path: dest.as_ref().to_path_buf(),
         })
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Test helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+    use rand::Rng;
+
+    /// Build a synthetic .gb image from a list of raw blocks, deduplicating by
+    /// content hash so duplicate blocks share a cluster (and thus a nonce).
+    /// Encryption + zstd compression always on. Used to deterministically
+    /// exercise the dedup/nonce code paths without depending on qemu-img.
+    pub(crate) fn build_synthetic_image(
+        path: &Path,
+        blocks: &[Vec<u8>],
+        block_size: u32,
+        password: &str,
+    ) -> Result<()> {
+        let header_cipher = new_key(password.to_string());
+        let mut rng = rand::rng();
+
+        // Compute digests and figure out unique clusters (first-seen order)
+        let mut unique_block_data: Vec<Vec<u8>> = Vec::new();
+        let mut digest_to_unique_idx: HashMap<[u8; 32], usize> = HashMap::new();
+        let mut per_entry: Vec<(u64, [u8; 32], usize)> = Vec::new(); // (block_offset, digest, unique_idx)
+        let mut block_offset: u64 = 0;
+        for block in blocks {
+            let digest: [u8; 32] = Sha256::new().chain_update(block).finalize().into();
+            let unique_idx = match digest_to_unique_idx.get(&digest) {
+                Some(idx) => *idx,
+                None => {
+                    let idx = unique_block_data.len();
+                    digest_to_unique_idx.insert(digest, idx);
+                    unique_block_data.push(block.clone());
+                    idx
+                }
+            };
+            per_entry.push((block_offset, digest, unique_idx));
+            block_offset += block_size as u64;
+        }
+        let unique_cluster_count = unique_block_data.len();
+        let total_size: u64 = blocks.iter().map(|b| b.len() as u64).sum();
+
+        // Build per-cluster nonces and the cluster encryption key
+        let nonce_table: Vec<[u8; 12]> = (0..unique_cluster_count)
+            .map(|_| {
+                let mut b = [0u8; 12];
+                rng.fill_bytes(&mut b);
+                b
+            })
+            .collect();
+        let mut cluster_key = [0u8; 32];
+        rng.fill_bytes(&mut cluster_key);
+        let cluster_cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&cluster_key));
+
+        let protected_header = ProtectedHeader {
+            block_size,
+            cluster_count: unique_cluster_count as u32,
+            cluster_compression: ClusterCompressionType::Zstd,
+            cluster_encryption: ClusterEncryptionType::Aes256,
+            nonce_table: nonce_table.clone(),
+            cluster_key,
+        };
+
+        // Encode the protected header (will be encrypted)
+        let mut protected_bytes = Cursor::new(Vec::new());
+        protected_header.write(&mut protected_bytes)?;
+        let protected_nonce = {
+            let mut b = [0u8; 12];
+            rng.fill_bytes(&mut b);
+            b
+        };
+        let protected_enc = header_cipher
+            .encrypt(
+                Nonce::from_slice(&protected_nonce),
+                protected_bytes.into_inner().as_slice(),
+            )
+            .map_err(|e| anyhow::anyhow!("encrypt protected: {e}"))?;
+
+        let directory_nonce = {
+            let mut b = [0u8; 12];
+            rng.fill_bytes(&mut b);
+            b
+        };
+        let digest_table_nonce = {
+            let mut b = [0u8; 12];
+            rng.fill_bytes(&mut b);
+            b
+        };
+
+        // Build a placeholder primary header so we can compute its serialised
+        // length (the cluster region starts immediately after).
+        let mut primary_header = PrimaryHeader {
+            version: 1,
+            size: total_size,
+            timestamp: 0,
+            encryption_type: HeaderEncryptionType::Aes256,
+            element_count: 1,
+            elements: vec![ElementHeader::new("test", "synthetic")?],
+            arch: ImageArch::Amd64,
+            directory_nonce,
+            directory_offset: 0,
+            directory_size: 0,
+        };
+
+        // Write the file
+        let mut dest = File::create(path)?;
+        primary_header.write(&mut dest)?;
+        dest.write_all(&protected_enc)?;
+
+        // Write clusters, recording cluster_offsets per unique cluster
+        let mut cluster_offsets: Vec<u64> = Vec::with_capacity(unique_cluster_count);
+        for (i, block_data) in unique_block_data.iter().enumerate() {
+            let off = dest.stream_position()?;
+            cluster_offsets.push(off);
+
+            let compressed = zstd::encode_all(Cursor::new(block_data.as_slice()), 0)?;
+            let encrypted = cluster_cipher
+                .encrypt(Nonce::from_slice(&nonce_table[i]), compressed.as_slice())
+                .map_err(|e| anyhow::anyhow!("encrypt cluster: {e}"))?;
+            let cluster = Cluster {
+                size: encrypted.len() as u32,
+                data: encrypted,
+            };
+            cluster.write(&mut dest)?;
+        }
+
+        // Build digest_table
+        let digest_table = DigestTable {
+            digest_count: per_entry.len() as u32,
+            digest_table: per_entry
+                .iter()
+                .map(|(block_offset, digest, unique_idx)| DigestTableEntry {
+                    cluster_offset: cluster_offsets[*unique_idx],
+                    block_offset: *block_offset,
+                    digest: *digest,
+                })
+                .collect(),
+        };
+        let mut digest_bytes = Cursor::new(Vec::new());
+        digest_table.write(&mut digest_bytes)?;
+        let digest_enc = header_cipher
+            .encrypt(
+                Nonce::from_slice(&digest_table_nonce),
+                digest_bytes.into_inner().as_slice(),
+            )
+            .map_err(|e| anyhow::anyhow!("encrypt digest_table: {e}"))?;
+
+        let digest_table_offset = dest.stream_position()?;
+        dest.write_all(&digest_enc)?;
+
+        // Build and write directory
+        let directory = Directory {
+            protected_nonce,
+            protected_size: protected_enc.len() as u32,
+            digest_table_nonce,
+            digest_table_offset,
+            digest_table_size: digest_enc.len() as u32,
+        };
+        let mut dir_bytes = Cursor::new(Vec::new());
+        directory.write(&mut dir_bytes)?;
+        let dir_enc = header_cipher
+            .encrypt(
+                Nonce::from_slice(&directory_nonce),
+                dir_bytes.into_inner().as_slice(),
+            )
+            .map_err(|e| anyhow::anyhow!("encrypt directory: {e}"))?;
+
+        let directory_offset = dest.stream_position()?;
+        dest.write_all(&dir_enc)?;
+
+        // Patch the primary header's directory_offset/size
+        primary_header.directory_offset = directory_offset;
+        primary_header.directory_size = dir_enc.len() as u32;
+        dest.seek(SeekFrom::Start(0))?;
+        primary_header.write(&mut dest)?;
+        dest.flush()?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::test_support::build_synthetic_image;
+    use tempfile::tempdir;
+
+    /// Regression test for the nonce_table indexing bug: an encrypted image
+    /// containing duplicate blocks must round-trip through write() without
+    /// panicking or producing incorrect bytes.
+    #[test]
+    fn write_encrypted_with_duplicate_clusters() -> Result<()> {
+        let dir = tempdir()?;
+        let img_path = dir.path().join("image.gb");
+        let dest_path = dir.path().join("disk.raw");
+
+        let block_size: u32 = 4096;
+        let block_a = vec![0xAAu8; block_size as usize];
+        let block_b = vec![0xBBu8; block_size as usize];
+        let blocks = vec![block_a.clone(), block_b.clone(), block_a.clone()];
+
+        build_synthetic_image(&img_path, &blocks, block_size, "test")?;
+
+        let mut handle = ImageHandle::open(&img_path)?;
+        handle.load(Some("test".to_string()))?;
+        handle.write(&dest_path, false, |_, _| {})?;
+
+        let mut actual = Vec::new();
+        File::open(&dest_path)?.read_to_end(&mut actual)?;
+
+        let mut expected = Vec::new();
+        for b in &blocks {
+            expected.extend_from_slice(b);
+        }
+        assert_eq!(actual, expected, "round-tripped disk image must match input");
+        Ok(())
+    }
+
+    /// stream_write must correctly reconstruct a disk by consuming the
+    /// cluster region as a Read stream. Exercises dedup, encryption, and
+    /// the GBMF manifest round-trip.
+    #[test]
+    fn stream_write_round_trip_encrypted_with_duplicates() -> Result<()> {
+        let dir = tempdir()?;
+        let img_path = dir.path().join("image.gb");
+        let dest_path = dir.path().join("disk.raw");
+
+        let block_size: u32 = 4096;
+        let block_a = vec![0x11u8; block_size as usize];
+        let block_b = vec![0x22u8; block_size as usize];
+        let blocks = vec![
+            block_a.clone(),
+            block_b.clone(),
+            block_a.clone(),
+            block_b.clone(),
+            block_a.clone(),
+        ];
+
+        build_synthetic_image(&img_path, &blocks, block_size, "pw")?;
+
+        // Load the image normally so we have the parsed headers
+        let mut handle = ImageHandle::open(&img_path)?;
+        handle.load(Some("pw".to_string()))?;
+        let primary = handle.primary_header;
+        let protected = handle.protected_header.unwrap();
+        let directory = handle.directory.unwrap();
+        let digest = handle.digest_table.unwrap();
+
+        // Compute cluster region bounds from the parsed headers
+        let mut primary_only = Cursor::new(Vec::new());
+        primary.write(&mut primary_only)?;
+        let primary_len = primary_only.into_inner().len() as u64;
+        let cluster_start = primary_len + directory.protected_size as u64;
+        let cluster_end = directory.digest_table_offset;
+
+        // Slice out the cluster region as the "network stream"
+        let mut img = File::open(&img_path)?;
+        img.seek(SeekFrom::Start(cluster_start))?;
+        let mut cluster_region = vec![0u8; (cluster_end - cluster_start) as usize];
+        img.read_exact(&mut cluster_region)?;
+
+        ImageHandle::stream_write(
+            &primary,
+            &protected,
+            &digest,
+            Cursor::new(cluster_region),
+            cluster_start,
+            &dest_path,
+            |_, _| {},
+        )?;
+
+        let mut actual = Vec::new();
+        File::open(&dest_path)?.read_to_end(&mut actual)?;
+        let mut expected = Vec::new();
+        for b in &blocks {
+            expected.extend_from_slice(b);
+        }
+        assert_eq!(actual, expected, "stream-written disk must match input");
+        Ok(())
+    }
+
+    /// stream_write must fail cleanly on a bogus oversized cluster size
+    /// (cap protects against allocation DoS from a malicious server).
+    #[test]
+    fn stream_write_rejects_oversized_cluster() -> Result<()> {
+        let dir = tempdir()?;
+        let img_path = dir.path().join("image.gb");
+        let block_size: u32 = 4096;
+        let blocks = vec![vec![0x33u8; block_size as usize]];
+        build_synthetic_image(&img_path, &blocks, block_size, "pw")?;
+
+        let mut handle = ImageHandle::open(&img_path)?;
+        handle.load(Some("pw".to_string()))?;
+        let primary = handle.primary_header;
+        let protected = handle.protected_header.unwrap();
+        let directory = handle.directory.unwrap();
+        let digest = handle.digest_table.unwrap();
+
+        let mut primary_only = Cursor::new(Vec::new());
+        primary.write(&mut primary_only)?;
+        let primary_len = primary_only.into_inner().len() as u64;
+        let cluster_start = primary_len + directory.protected_size as u64;
+
+        // Craft a malicious "stream" that announces a 1 GiB cluster — way
+        // above the 4 * block_size cap.
+        let mut evil = Vec::new();
+        evil.extend_from_slice(&(1024u32 * 1024 * 1024).to_be_bytes());
+        evil.extend_from_slice(&[0u8; 8]);
+
+        let dest_path = dir.path().join("disk.raw");
+        let result = ImageHandle::stream_write(
+            &primary,
+            &protected,
+            &digest,
+            Cursor::new(evil),
+            cluster_start,
+            &dest_path,
+            |_, _| {},
+        );
+        assert!(result.is_err(), "stream_write must reject oversized cluster size");
+        Ok(())
+    }
+
+    /// verify() must report all blocks as matching after a fresh write.
+    #[test]
+    fn verify_encrypted_with_duplicate_clusters() -> Result<()> {
+        let dir = tempdir()?;
+        let img_path = dir.path().join("image.gb");
+        let dest_path = dir.path().join("disk.raw");
+
+        let block_size: u32 = 4096;
+        let block_a = vec![0xCCu8; block_size as usize];
+        let block_b = vec![0xDDu8; block_size as usize];
+        let blocks = vec![block_a.clone(), block_a.clone(), block_b.clone(), block_a.clone()];
+
+        build_synthetic_image(&img_path, &blocks, block_size, "secret")?;
+
+        let mut handle = ImageHandle::open(&img_path)?;
+        handle.load(Some("secret".to_string()))?;
+        handle.write(&dest_path, false, |_, _| {})?;
+
+        let all_verified = std::cell::Cell::new(true);
+        handle.verify(&dest_path, |_, ok| {
+            if let Some(false) = ok {
+                all_verified.set(false);
+            }
+        })?;
+        assert!(all_verified.get(), "all blocks must verify after a fresh write");
+        Ok(())
     }
 }

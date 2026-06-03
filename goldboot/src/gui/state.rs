@@ -1,7 +1,21 @@
-use crate::{can_preload, gpt::fixup_backup_gpt};
+use crate::{can_preload, gpt::fixup_backup_gpt, registry::Client};
 use goldboot_image::ImageHandle;
+use crate::registry::protocol::RegistryImageEntry;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+
+/// What the user picked on the SelectImage screen.
+#[derive(Debug, Clone)]
+pub enum SelectedImage {
+    /// An image in the local library, identified by its SHA256 id.
+    Local(String),
+    /// An image on a remote registry, identified by `host`, `name`, `tag`.
+    Registry {
+        host: String,
+        name: String,
+        tag: String,
+    },
+}
 
 #[cfg(feature = "uki")]
 pub struct DebugShell {
@@ -210,7 +224,7 @@ impl WriteProgress {
 pub struct AppState {
     // Image selection
     pub images: Vec<ImageHandle>,
-    pub selected_image: Option<String>,
+    pub selected_image: Option<SelectedImage>,
 
     // Device selection
     pub devices: Vec<block_utils::Device>,
@@ -222,9 +236,18 @@ pub struct AppState {
 
     // Registry login
     pub registry_address: String,
+    pub registry_username: String,
     pub registry_password: String,
     pub show_registry_dialog: bool,
     pub registry_login_error: Option<String>,
+    pub registry_login_in_progress: bool,
+
+    /// Authenticated registry client (shared between background threads).
+    pub registry_client: Option<Arc<Mutex<Client>>>,
+    /// Images available from the currently-logged-in registry.
+    pub registry_images: Vec<RegistryImageEntry>,
+    pub registry_list_loading: bool,
+    pub registry_list_error: Option<String>,
 
     // Image writing progress (shared with write thread)
     pub write_progress: Option<Arc<Mutex<WriteProgress>>>,
@@ -261,9 +284,15 @@ impl AppState {
                 rand::rng().sample(rand::distr::Uniform::new(b'a', b'z' + 1).unwrap()) as char
             },
             registry_address: String::new(),
+            registry_username: String::new(),
             registry_password: String::new(),
             show_registry_dialog: false,
             registry_login_error: None,
+            registry_login_in_progress: false,
+            registry_client: None,
+            registry_images: Vec::new(),
+            registry_list_loading: false,
+            registry_list_error: None,
             write_progress: None,
             #[cfg(feature = "uki")]
             debug_shell: None,
@@ -271,10 +300,29 @@ impl AppState {
         }
     }
 
+    /// Return the expanded byte size of the currently selected image, if one is selected.
+    pub fn selected_image_size(&self) -> Option<u64> {
+        match self.selected_image.as_ref()? {
+            SelectedImage::Local(id) => self.images.iter().find(|i| &i.id == id).map(|i| i.primary_header.size),
+            SelectedImage::Registry { name, tag, .. } => {
+                self.registry_images.iter().find(|e| &e.name == name && &e.tag == tag).map(|e| e.size)
+            }
+        }
+    }
+
     /// Load the selected image and spawn a background thread that writes it to the selected
-    /// device, updating `write_progress` per cluster.
+    /// device, updating `write_progress` per cluster. Dispatches between
+    /// local-library writes and streaming writes from a registry.
     pub fn start_write(&mut self) -> Result<(), String> {
-        let image_id = self.selected_image.clone().ok_or("No image selected")?;
+        match self.selected_image.clone().ok_or("No image selected")? {
+            SelectedImage::Local(id) => self.start_local_write(&id),
+            SelectedImage::Registry { host: _, name, tag } => {
+                self.start_stream_write(&name, &tag)
+            }
+        }
+    }
+
+    fn start_local_write(&mut self, image_id: &str) -> Result<(), String> {
         let device = self.selected_device.clone().ok_or("No device selected")?;
         let device_path = format!("/dev/{}", device.name);
         let device_size = device.capacity;
@@ -332,9 +380,74 @@ impl AppState {
         Ok(())
     }
 
+    /// Stream an image from the currently-logged-in registry directly to
+    /// the selected target device. Used for UKI mode (no local staging).
+    pub fn start_stream_write(&mut self, name: &str, tag: &str) -> Result<(), String> {
+        let device = self.selected_device.clone().ok_or("No device selected")?;
+        let device_path = format!("/dev/{}", device.name);
+        let device_size = device.capacity;
+        let client = self
+            .registry_client
+            .clone()
+            .ok_or("Not logged in to a registry")?;
+        let name = name.to_string();
+        let tag = tag.to_string();
+
+        // Fetch the manifest synchronously so we can build the progress
+        // tracker before kicking off the streaming download.
+        let (cluster_count, block_size) = {
+            let client = client.lock().map_err(|_| "client poisoned")?;
+            let (_p, protected, _d, digest, _start) =
+                client.fetch_manifest(&name, &tag).map_err(|e| e.to_string())?;
+            (digest.digest_count as usize, protected.block_size as u64)
+        };
+        let progress = Arc::new(Mutex::new(WriteProgress::new(cluster_count, block_size)));
+        self.write_progress = Some(progress.clone());
+
+        std::thread::spawn(move || {
+            let result = (|| -> anyhow::Result<()> {
+                let client = client.lock().map_err(|_| anyhow::anyhow!("client poisoned"))?;
+                let progress_inner = progress.clone();
+                client.stream_write_to_dest(&name, &tag, std::path::Path::new(&device_path), move |idx, state| {
+                    if let Ok(mut p) = progress_inner.lock() {
+                        p.record_cluster(idx, state);
+                    }
+                })?;
+                // Fix up the backup GPT after writing
+                let mut f = std::fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(&device_path)?;
+                fixup_backup_gpt(&mut f, device_size)?;
+                Ok(())
+            })();
+
+            if let Ok(mut p) = progress.lock() {
+                p.elapsed_final = Some(p.start_time.elapsed().as_secs_f64());
+                p.done = true;
+                if let Err(e) = result {
+                    p.error = Some(e.to_string());
+                } else {
+                    p.post_write_dialog = Some(PostWriteDialog::Visible);
+                }
+            }
+        });
+
+        Ok(())
+    }
+
     /// Spawn a background thread that verifies the written image by hashing each block.
+    /// Only supported for local-library images; registry-streamed images
+    /// rely on the per-block hash check already done during write.
     pub fn start_verify(&mut self) -> Result<(), String> {
-        let image_id = self.selected_image.clone().ok_or("No image selected")?;
+        let image_id = match self.selected_image.clone().ok_or("No image selected")? {
+            SelectedImage::Local(id) => id,
+            SelectedImage::Registry { .. } => {
+                return Err(
+                    "Verify is not supported for registry-streamed images".to_string()
+                );
+            }
+        };
         let device_path = self
             .selected_device
             .as_ref()
@@ -391,7 +504,14 @@ impl AppState {
 
     /// Spawn a background thread that verifies the device against the image (without writing first).
     pub fn start_verify_only(&mut self) -> Result<(), String> {
-        let image_id = self.selected_image.clone().ok_or("No image selected")?;
+        let image_id = match self.selected_image.clone().ok_or("No image selected")? {
+            SelectedImage::Local(id) => id,
+            SelectedImage::Registry { .. } => {
+                return Err(
+                    "Verify-only is not supported for registry images yet".to_string()
+                );
+            }
+        };
         let device_path = self
             .selected_device
             .as_ref()

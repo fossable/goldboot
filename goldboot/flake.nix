@@ -2,7 +2,7 @@
   description = "Goldboot - Immutable infrastructure for bare metal";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -12,57 +12,13 @@
         pkgs = import nixpkgs { inherit system; };
 
         # wlroots without xwayland or x11 backend
-        wlroots-no-xwayland = pkgs.wlroots_0_19.overrideAttrs (old: {
+        wlroots-no-xwayland = pkgs.wlroots_0_20.overrideAttrs (old: {
           buildInputs = builtins.filter (p:
             let name = p.pname or "";
             in !(pkgs.lib.hasPrefix "libx11" name)
             && !(pkgs.lib.hasPrefix "libxcb" name) && name != "xwayland")
             old.buildInputs;
           mesonFlags = [ "-Dxwayland=disabled" "-Dbackends=drm,libinput" ];
-        });
-
-        # Mesa with only the software rasterizer (llvmpipe produces swrast_dri.so)
-        mesa-minimal = (pkgs.mesa.override {
-          galliumDrivers = [ "llvmpipe" ];
-          vulkanDrivers = [];
-          vulkanLayers = [];
-          eglPlatforms = [ "wayland" ];
-          enablePatentEncumberedCodecs = false;
-          withValgrind = false;
-        }).overrideAttrs (old: {
-          outputs = [ "out" "dev" ];
-          separateDebugInfo = false;
-          postInstall = "";
-          postFixup = "";
-          mesonFlags = let
-            # Drop all original flags and replace with a minimal set
-            keepFlag = flag:
-              if builtins.isString flag then
-                (builtins.match "^-D(platforms|gallium-drivers|vulkan-drivers|vulkan-layers|glvnd|gbm|libgbm-external|valgrind|clang-libdir|freedreno-kmds|amdgpu-virtio)=.*" flag) != null
-              else true;
-          in builtins.filter keepFlag old.mesonFlags ++ [
-            "-Dauto_features=disabled"
-            "-Degl=enabled"
-            "-Dopengl=true"
-            "-Dgles1=enabled"
-            "-Dgles2=enabled"
-            "-Dglx=disabled"
-            "-Dxlib-lease=disabled"
-            "-Dgallium-extra-hud=false"
-            "-Dgallium-vdpau=disabled"
-            "-Dgallium-va=disabled"
-            "-Dgallium-rusticl=false"
-            "-Dteflon=false"
-            "-Dintel-rt=disabled"
-            "-Dtools="
-            "-Dinstall-mesa-clc=false"
-            "-Dinstall-precomp-compiler=false"
-            "-Dmicrosoft-clc=disabled"
-            "-Dandroid-libbacktrace=disabled"
-            "-Dgallium-mediafoundation=disabled"
-            "-Dllvm=enabled"
-            "-Dshared-llvm=enabled"
-          ];
         });
 
         # cage without xwayland
@@ -87,7 +43,7 @@
             lockFile = ../Cargo.lock;
             outputHashes = {
               "egui_term-0.1.0" =
-                "sha256-M9/2tkNZUqrt7ca/l80xkE3BcPisy1SPXGnPaCoJCI4=";
+                "sha256-LpaxSfr6S9nUgLw8KS2O/0wVDwV5SLn/XZqTElfXZ18=";
             };
           };
 
@@ -278,7 +234,7 @@
         '';
 
         modulesClosure = pkgs.makeModulesClosure {
-          kernel = kernel.modules;
+          kernel = pkgs.linuxPackages_latest.kernel.modules;
           firmware = pkgs.linux-firmware;
           allowMissing = false;
           rootModules = [
@@ -377,7 +333,7 @@
                 symlink = "/lib/xz";
               }
               {
-                object = mesa-minimal;
+                object = pkgs.mesa;
                 symlink = "/run/opengl-driver";
               }
               {
@@ -451,55 +407,7 @@
             ];
           };
 
-        kernel = pkgs.linuxPackages_latest.kernel.override {
-          ignoreConfigErrors = true;
-          structuredExtraConfig = with pkgs.lib.kernel; with pkgs.lib; {
-            # ── Disable unused subsystems ──
-            SOUND = mkForce no;
-            BT = mkForce no;
-            WIRELESS = mkForce (option no);
-            CFG80211 = mkForce no;
-            MAC80211 = mkForce no;
-            INFINIBAND = mkForce no;
-            FIREWIRE = mkForce no;
-            PCMCIA = mkForce no;
-            MEDIA_SUPPORT = mkForce no;
-            CAN = mkForce no;
-            NFC = mkForce no;
-            HAMRADIO = mkForce no;
-            CAIF = mkForce no;
-            WIMAX = mkForce (option no);
-            WWAN = mkForce no;
-            GNSS = mkForce no;
-            COMEDI = mkForce no;
-            GREYBUS = mkForce no;
-            ACCESSIBILITY = mkForce no;
-
-            # ── Disable unused network protocols ──
-            NET_SCTP = mkForce no;
-            NET_DCCP = mkForce no;
-            NET_RDS = mkForce no;
-            NET_TIPC = mkForce no;
-            ATM = mkForce no;
-            DECNET = mkForce no;
-            LLC2 = mkForce no;
-            PHONET = mkForce no;
-            IEEE802154 = mkForce no;
-
-            # ── Disable debugging/tracing overhead ──
-            DEBUG_KERNEL = mkForce no;
-            FTRACE = mkForce no;
-            KPROBES = mkForce no;
-            KALLSYMS = mkForce no;
-
-            # ── Disable unused storage/block features ──
-            BLK_DEV_SR = mkForce no;
-
-            # ── Disable misc ──
-            PROFILING = mkForce no;
-            VIRTUALIZATION = mkForce no;
-          };
-        };
+        kernel = pkgs.linuxPackages_latest.kernel;
 
         initramfs = buildInitramfs kernel;
 
