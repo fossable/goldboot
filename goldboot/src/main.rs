@@ -74,9 +74,6 @@ fn cli_main() -> ExitCode {
         Some(Commands::Image { .. }) => {
             goldboot::cli::cmd::image::run(command_line.command.unwrap())
         }
-        Some(Commands::Registry { .. }) => {
-            goldboot::cli::cmd::registry::run(command_line.command.unwrap())
-        }
         Some(Commands::Deploy { .. }) => {
             goldboot::cli::cmd::deploy::run(command_line.command.unwrap())
         }

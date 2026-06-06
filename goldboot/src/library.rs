@@ -1,11 +1,8 @@
 use anyhow::{Result, anyhow, bail};
-use goldboot_image::ImageHandle;
+use goldboot_image::{ImageHandle, ImageRef, validate_host_segment, validate_ref_segment};
 use rand::RngExt;
 use sha2::{Digest, Sha256};
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 /// Return the path to the goldboot build cache directory, creating it if needed.
@@ -18,7 +15,7 @@ pub fn cache_dir() -> PathBuf {
 
 /// Return the persistent qcow2 path for a given context directory.
 ///
-/// The path is stable across runs: `~/.goldboot/cache/<sha256(canonical_path)>.qcow2`.
+/// The path is stable across runs: `~/.cache/goldboot/images/<sha256(canonical_path)>.qcow2`.
 pub fn qcow_cache_path(context_dir: &Path) -> Result<PathBuf> {
     let canonical = context_dir.canonicalize()?;
     let hash = hex::encode(
@@ -29,13 +26,18 @@ pub fn qcow_cache_path(context_dir: &Path) -> Result<PathBuf> {
     Ok(cache_dir().join(format!("{hash}.qcow2")))
 }
 
-/// Represents the local image library.
+/// Local image library.
 ///
-/// Depending on the platform, the directory will be located at:
-///     - /var/lib/goldboot/images (linux)
+/// On-disk layout (Linux/macOS):
 ///
-/// Images are named according to their SHA256 hash (ID) and have a file
-/// extension of ".gb".
+/// ```text
+/// <library>/<name>/<tag>.gb           — locally-built image (host = None)
+/// <library>/<host>/<name>/<tag>.gb    — image pulled from / pushed to a registry
+/// ```
+///
+/// `find_all` walks both shapes by inspecting whether each top-level
+/// directory holds `.gb` files (local) or further subdirectories
+/// (host bucket).
 pub struct ImageLibrary {
     pub directory: PathBuf,
 }
@@ -54,66 +56,195 @@ impl ImageLibrary {
         ImageLibrary { directory }
     }
 
+    /// Return a fresh, unused path under the library directory suitable
+    /// for staging a build before promoting it to its final reference path.
     pub fn temporary(&self) -> PathBuf {
         let name: String = rand::rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(12)
             .map(char::from)
             .collect();
-        self.directory.join(name)
+        self.directory.join(format!(".tmp-{name}"))
     }
 
-    /// Add an image to the library. The image will be hashed and copied to the
-    /// library with the appropriate name.
-    #[cfg(feature = "cli")]
-    pub fn add_copy(&self, image_path: impl AsRef<Path>) -> Result<()> {
-        use crate::cli::progress::DigestWriter;
-        use crate::cli::progress::ProgressBar;
-        let mut hasher = DigestWriter(Sha256::new());
-        ProgressBar::Hash.copy(
-            &mut File::open(&image_path)?,
-            &mut hasher,
-            std::fs::metadata(&image_path)?.len(),
-        )?;
-        let hash = hex::encode(hasher.0.finalize());
-        let dest = self.directory.join(format!("{hash}.gb"));
-
-        info!(path = %dest.display(), "Copying image to library");
-        std::fs::copy(&image_path, &dest)?;
-        Ok(())
+    /// On-disk path for an [`ImageRef`]. **Tag must be set** — all on-disk
+    /// addressing requires a concrete tag. Host is optional: when `None`,
+    /// the image lives directly under the library root.
+    pub fn image_path(&self, r: &ImageRef) -> Result<PathBuf> {
+        validate_ref_segment(&r.name).map_err(|e| anyhow!("invalid name: {e}"))?;
+        let tag = r
+            .tag
+            .as_deref()
+            .ok_or_else(|| anyhow!("a concrete tag is required to address an image"))?;
+        validate_ref_segment(tag).map_err(|e| anyhow!("invalid tag: {e}"))?;
+        let parent = match r.host_bare() {
+            Some(host) => {
+                validate_host_segment(host).map_err(|e| anyhow!("invalid host: {e}"))?;
+                self.directory.join(host).join(&r.name)
+            }
+            None => self.directory.join(&r.name),
+        };
+        Ok(parent.join(format!("{tag}.gb")))
     }
 
-    /// Add an image to the library. The image will be hashed and moved to the
-    /// library with the appropriate name.
-    #[cfg(feature = "cli")]
-    pub fn add_move(&self, image_path: impl AsRef<Path>) -> Result<()> {
-        use crate::cli::progress::{DigestWriter, ProgressBar};
-        let mut hasher = DigestWriter(Sha256::new());
-        ProgressBar::Hash.copy(
-            &mut File::open(&image_path)?,
-            &mut hasher,
-            std::fs::metadata(&image_path)?.len(),
-        )?;
-        let hash = hex::encode(hasher.0.finalize());
-        let dest = self.directory.join(format!("{hash}.gb"));
-
-        info!(path = %dest.display(), "Moving image to library");
-        std::fs::rename(&image_path, &dest)?;
-        Ok(())
+    /// Move an already-built `.gb` file into the library at the canonical
+    /// path for the given reference. Returns the destination path.
+    pub fn add_built(&self, staged_path: impl AsRef<Path>, r: &ImageRef) -> Result<PathBuf> {
+        let dest = self.image_path(r)?;
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        info!(path = %dest.display(), "Moving image into library");
+        std::fs::rename(staged_path.as_ref(), &dest)?;
+        Ok(dest)
     }
 
-    /// Remove an image from the library by ID.
-    pub fn delete(&self, image_id: &str) -> Result<()> {
-        let image = Self::find_by_id(image_id)?;
-        std::fs::remove_file(&image.path)?;
-        debug!(path = %image.path.display(), "Deleted image");
-        Ok(())
+    /// Relocate an image already in the library from `from` to `to`. The
+    /// `name`/`tag` of both refs must match — only the host changes.
+    /// Used by push to record that an image now lives at a remote registry.
+    pub fn move_ref(&self, from: &ImageRef, to: &ImageRef) -> Result<PathBuf> {
+        if from.name != to.name || from.tag != to.tag {
+            bail!("move_ref: name/tag must match");
+        }
+        let from_path = self.image_path(from)?;
+        let to_path = self.image_path(to)?;
+        if from_path == to_path {
+            return Ok(to_path);
+        }
+        if let Some(parent) = to_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::rename(&from_path, &to_path)?;
+        prune_empty_parents(&self.directory, &from_path);
+        debug!(from = %from_path.display(), to = %to_path.display(), "Moved image");
+        Ok(to_path)
     }
 
-    /// Download a goldboot image over HTTP.
+    /// Delete an image. Tag must be concrete.
+    pub fn delete(&self, r: &ImageRef) -> Result<PathBuf> {
+        let path = self.image_path(r)?;
+        std::fs::remove_file(&path)?;
+        prune_empty_parents(&self.directory, &path);
+        debug!(path = %path.display(), "Deleted image");
+        Ok(path)
+    }
+
+    /// Resolve an image reference to a handle.
+    ///
+    /// - `r.tag = Some(_)`: open the exact `<host?>/<name>/<tag>.gb`.
+    /// - `r.tag = None`: list `<host?>/<name>/*.gb` and return the one
+    ///   with the highest `PrimaryHeader.timestamp`.
+    pub fn find_by_ref(&self, r: &ImageRef) -> Result<ImageHandle> {
+        validate_ref_segment(&r.name).map_err(|e| anyhow!("invalid name: {e}"))?;
+
+        let name_dir = match r.host_bare() {
+            Some(host) => {
+                validate_host_segment(host).map_err(|e| anyhow!("invalid host: {e}"))?;
+                self.directory.join(host).join(&r.name)
+            }
+            None => self.directory.join(&r.name),
+        };
+
+        if r.tag.is_some() {
+            let path = self.image_path(r)?;
+            return ImageHandle::open(&path).map_err(|e| anyhow!("no image '{r}' in library: {e}"));
+        }
+
+        let read =
+            std::fs::read_dir(&name_dir).map_err(|e| anyhow!("no image '{r}' in library: {e}"))?;
+        let mut best: Option<ImageHandle> = None;
+        for entry in read {
+            let path = entry?.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("gb") {
+                continue;
+            }
+            let handle = match ImageHandle::open(&path) {
+                Ok(h) => h,
+                Err(e) => {
+                    debug!(path = %path.display(), error = ?e, "skipping unreadable image");
+                    continue;
+                }
+            };
+            best = Some(match best {
+                None => handle,
+                Some(prev) if handle.primary_header.timestamp > prev.primary_header.timestamp => {
+                    handle
+                }
+                Some(prev) => prev,
+            });
+        }
+        best.ok_or_else(|| anyhow!("no image '{r}' in library"))
+    }
+
+    /// Walk the library tree and return one entry per image, paired with
+    /// the host (or `None` for locally-built images that have never been
+    /// promoted to a registry).
+    ///
+    /// Disambiguates layout per directory: if a top-level dir contains
+    /// `.gb` files it's treated as a name dir (local); if it contains
+    /// further subdirectories those are treated as name dirs under a
+    /// host bucket. A directory may contain both — both are reported.
+    pub fn find_all(&self) -> Result<Vec<(Option<String>, ImageHandle)>> {
+        let mut out = Vec::new();
+        let Ok(top_iter) = std::fs::read_dir(&self.directory) else {
+            return Ok(out);
+        };
+        for top_entry in top_iter {
+            let top_entry = top_entry?;
+            if !top_entry.file_type()?.is_dir() {
+                continue;
+            }
+            let top_name = top_entry.file_name();
+            let Some(top_str) = top_name.to_str() else {
+                continue;
+            };
+            // Skip our own temp-staging directories (they start with ".tmp-")
+            // and other dotfiles.
+            if top_str.starts_with('.') {
+                continue;
+            }
+
+            for inner in std::fs::read_dir(top_entry.path())? {
+                let inner = inner?;
+                let inner_path = inner.path();
+                let ft = inner.file_type()?;
+                if ft.is_file() && inner_path.extension().and_then(|s| s.to_str()) == Some("gb") {
+                    // <library>/<name>/<tag>.gb — local image.
+                    match ImageHandle::open(&inner_path) {
+                        Ok(handle) => out.push((None, handle)),
+                        Err(e) => {
+                            debug!(path = %inner_path.display(), error = ?e, "skipping unreadable image");
+                        }
+                    }
+                } else if ft.is_dir() {
+                    // <library>/<host>/<name>/<tag>.gb — top_str is a host.
+                    if validate_host_segment(top_str).is_err() {
+                        continue;
+                    }
+                    for tag_entry in std::fs::read_dir(&inner_path)? {
+                        let tag_entry = tag_entry?;
+                        let tag_path = tag_entry.path();
+                        if tag_path.extension().and_then(|s| s.to_str()) != Some("gb") {
+                            continue;
+                        }
+                        match ImageHandle::open(&tag_path) {
+                            Ok(handle) => out.push((Some(top_str.to_string()), handle)),
+                            Err(e) => {
+                                debug!(path = %tag_path.display(), error = ?e, "skipping unreadable image");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Download a goldboot image over HTTP. Used by the UKI flow.
     #[cfg(feature = "cli")]
     pub fn download(&self, url: String) -> Result<ImageHandle> {
         use crate::cli::progress::ProgressBar;
+        use std::fs::File;
         let path = self.directory.join("goldboot-uki.gb");
 
         let mut rs = reqwest::blocking::get(&url)?;
@@ -131,61 +262,20 @@ impl ImageLibrary {
             bail!("Failed to download");
         }
     }
+}
 
-    /// Find an image in the library by name (matches `PrimaryHeader::name()`).
-    /// Returns an error if zero or more than one image matches.
-    pub fn find_by_name(name: &str) -> Result<ImageHandle> {
-        let mut matches: Vec<ImageHandle> = Self::find_all()?
-            .into_iter()
-            .filter(|image| image.primary_header.name() == name)
-            .collect();
-        match matches.len() {
-            0 => bail!("No image named '{}' found in library", name),
-            1 => Ok(matches.remove(0)),
-            n => bail!(
-                "{} images named '{}' found; use 'goldboot image list' and push by ID instead",
-                n,
-                name
-            ),
+/// Recursively remove empty parent directories of `path` up to (but not
+/// including) `root`. Best-effort: failures are silently ignored — they
+/// mean another image lives in the directory.
+fn prune_empty_parents(root: &Path, path: &Path) {
+    let mut cur = path.parent();
+    while let Some(dir) = cur {
+        if dir == root {
+            break;
         }
-    }
-
-    /// Find images in the library by ID.
-    pub fn find_by_id(image_id: &str) -> Result<ImageHandle> {
-        Self::find_all()?
-            .into_iter()
-            .find(|image| image.id == image_id || image.id[0..12] == image_id[0..12])
-            .ok_or_else(|| anyhow!("Image not found"))
-    }
-
-    /// Find images in the library that have the given OS.
-    pub fn find_by_os(os: &str) -> Result<Vec<ImageHandle>> {
-        Ok(Self::find_all()?
-            .into_iter()
-            .filter(|image| {
-                image
-                    .primary_header
-                    .elements
-                    .iter()
-                    .any(|element| element.os() == os)
-            })
-            .collect())
-    }
-
-    /// Find all images present in the local image library.
-    pub fn find_all() -> Result<Vec<ImageHandle>> {
-        let mut images = Vec::new();
-
-        for p in Self::open().directory.read_dir()? {
-            let path = p?.path();
-
-            if let Some(ext) = path.extension() {
-                if ext == "gb" {
-                    images.push(ImageHandle::open(&path)?);
-                }
-            }
+        if std::fs::remove_dir(dir).is_err() {
+            break;
         }
-
-        Ok(images)
+        cur = dir.parent();
     }
 }

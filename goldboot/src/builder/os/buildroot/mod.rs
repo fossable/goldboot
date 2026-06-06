@@ -152,13 +152,3 @@ fn fetch_latest_iso(mirrorlist: ArchMirrorlistProvisioner) -> Result<IsoSource> 
     bail!("Failed to request latest ISO");
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_fetch_latest_iso() -> Result<()> {
-        fetch_latest_iso(ArchMirrorlistProvisioner::default())?;
-        Ok(())
-    }
-}

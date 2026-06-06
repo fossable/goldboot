@@ -7,6 +7,7 @@ use tracing::error;
 
 use crate::{
     can_preload, cli::progress::ProgressBar, gpt::fixup_backup_gpt, library::ImageLibrary,
+    registry::ImageRef,
 };
 
 pub fn run(cmd: super::Commands) -> ExitCode {
@@ -27,9 +28,20 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     Err(_) => return ExitCode::FAILURE,
                 }
             } else {
-                match ImageLibrary::find_by_id(&image) {
+                let r = match ImageRef::parse(&image) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        error!("Invalid image reference '{image}': {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                let library = ImageLibrary::open();
+                match library.find_by_ref(&r) {
                     Ok(image_handle) => image_handle,
-                    Err(_) => return ExitCode::FAILURE,
+                    Err(e) => {
+                        error!("{e}");
+                        return ExitCode::FAILURE;
+                    }
                 }
             };
             if image_handle.load(None).is_err() {

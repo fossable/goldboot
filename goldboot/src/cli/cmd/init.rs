@@ -1,6 +1,7 @@
 use console::Style;
-use dialoguer::{Confirm, Select, theme::ColorfulTheme};
-use goldboot_image::ImageArch;
+use dialoguer::{Confirm, Input, Select, theme::ColorfulTheme};
+use goldboot_image::{ImageArch, validate_ref_segment};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
@@ -23,7 +24,6 @@ fn print_banner() {
     }
 }
 
-/// Get the current theme for prompts.
 pub fn theme() -> ColorfulTheme {
     ColorfulTheme {
         values_style: Style::new().yellow().dim(),
@@ -34,13 +34,12 @@ pub fn theme() -> ColorfulTheme {
 pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Init {
-            name: _,
+            name,
             os,
             mimic_hardware: _,
         } => {
-            let config_path = ConfigPath::from_dir(".").unwrap_or_default();
+            let cwd = std::env::current_dir().unwrap();
 
-            // If OS was specified on the command line, resolve it to an OsConfig
             let initial_elements: Vec<OsConfig> = if let Some(os_names) = os {
                 os_names
                     .into_iter()
@@ -54,10 +53,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 Vec::new()
             };
 
-            let mut builder = Builder::new(initial_elements, std::env::current_dir().unwrap());
+            let initial_name = name.clone().unwrap_or_else(|| "image".to_string());
+            let mut builder = Builder::new(initial_name, initial_elements, cwd.clone());
+            let mut name_provided = name.is_some();
 
             if builder.elements.is_empty() {
-                // If no OS was given, begin interactive config
                 print_banner();
 
                 let theme = theme();
@@ -66,7 +66,20 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 println!("(it can be further edited later)");
                 println!();
 
-                // Prompt image architecture
+                builder.name = loop {
+                    let candidate: String = Input::with_theme(&theme)
+                        .with_prompt("Image name?")
+                        .with_initial_text(&builder.name)
+                        .interact_text()
+                        .unwrap();
+                    if let Err(e) = validate_ref_segment(&candidate) {
+                        eprintln!("invalid name: {e}");
+                        continue;
+                    }
+                    break candidate;
+                };
+                name_provided = true;
+
                 let arch = {
                     let architectures: Vec<ImageArch> = ImageArch::iter().collect();
                     let choice_index = Select::with_theme(&theme)
@@ -79,12 +92,10 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     architectures[choice_index]
                 };
 
-                // Prompt OS
                 loop {
-                    // Find operating systems suitable for the architecture
                     let supported_descriptors: Vec<&crate::builder::os::OsDescriptor> = os_iter()
                         .filter(|d| d.architectures.contains(&arch))
-                        .filter(|_d| builder.elements.is_empty()) // alloy: always false for now
+                        .filter(|_d| builder.elements.is_empty())
                         .collect();
 
                     let os_names: Vec<&str> =
@@ -121,8 +132,25 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
             }
 
-            // Finally write out the config
-            match config_path.write(&builder.elements) {
+            // Pick filename based on whether a name was provided/chosen.
+            let target_path: PathBuf = if name_provided {
+                cwd.join(format!("{}.goldboot.ron", builder.name))
+            } else {
+                cwd.join("goldboot.ron")
+            };
+
+            // Refuse to overwrite an existing config.
+            if target_path.exists() {
+                error!(
+                    "Refusing to overwrite existing config at {}",
+                    target_path.display()
+                );
+                return ExitCode::FAILURE;
+            }
+
+            let config_path = ConfigPath::with_path(target_path);
+            let elements = std::mem::take(&mut builder.elements);
+            match config_path.write(&elements) {
                 Err(err) => {
                     error!(error = ?err, "Failed to write config file");
                     ExitCode::FAILURE

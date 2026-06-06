@@ -23,7 +23,15 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 }
             } else {
-                match crate::library::ImageLibrary::find_by_id(&image) {
+                let r = match crate::registry::ImageRef::parse(&image) {
+                    Ok(r) => r,
+                    Err(err) => {
+                        error!(error = ?err, "Invalid image reference");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                let library = crate::library::ImageLibrary::open();
+                match library.find_by_ref(&r) {
                     Ok(h) => h,
                     Err(err) => {
                         error!(error = ?err, "Image not found");

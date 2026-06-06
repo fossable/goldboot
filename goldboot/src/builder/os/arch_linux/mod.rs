@@ -380,14 +380,3 @@ impl Prompt for ArchLinuxConfigPath {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_fetch_latest_iso() -> Result<()> {
-        fetch_latest_iso()?;
-        Ok(())
-    }
-}

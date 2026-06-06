@@ -1,6 +1,6 @@
+use crate::registry::protocol::RegistryImageEntry;
 use crate::{can_preload, gpt::fixup_backup_gpt, registry::Client};
 use goldboot_image::ImageHandle;
-use crate::registry::protocol::RegistryImageEntry;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -267,7 +267,14 @@ impl Default for AppState {
 impl AppState {
     pub fn new() -> Self {
         Self {
-            images: crate::library::ImageLibrary::find_all().unwrap_or_default(),
+            images: {
+                let lib = crate::library::ImageLibrary::open();
+                lib.find_all()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(_host, h)| h)
+                    .collect()
+            },
             selected_image: None,
             devices: {
                 let block_devices = block_utils::get_block_devices().unwrap_or_default();
@@ -303,10 +310,16 @@ impl AppState {
     /// Return the expanded byte size of the currently selected image, if one is selected.
     pub fn selected_image_size(&self) -> Option<u64> {
         match self.selected_image.as_ref()? {
-            SelectedImage::Local(id) => self.images.iter().find(|i| &i.id == id).map(|i| i.primary_header.size),
-            SelectedImage::Registry { name, tag, .. } => {
-                self.registry_images.iter().find(|e| &e.name == name && &e.tag == tag).map(|e| e.size)
-            }
+            SelectedImage::Local(id) => self
+                .images
+                .iter()
+                .find(|i| &i.id == id)
+                .map(|i| i.primary_header.size),
+            SelectedImage::Registry { name, tag, .. } => self
+                .registry_images
+                .iter()
+                .find(|e| &e.name == name && &e.tag == tag)
+                .map(|e| e.size),
         }
     }
 
@@ -316,9 +329,7 @@ impl AppState {
     pub fn start_write(&mut self) -> Result<(), String> {
         match self.selected_image.clone().ok_or("No image selected")? {
             SelectedImage::Local(id) => self.start_local_write(&id),
-            SelectedImage::Registry { host: _, name, tag } => {
-                self.start_stream_write(&name, &tag)
-            }
+            SelectedImage::Registry { host: _, name, tag } => self.start_stream_write(&name, &tag),
         }
     }
 
@@ -397,8 +408,9 @@ impl AppState {
         // tracker before kicking off the streaming download.
         let (cluster_count, block_size) = {
             let client = client.lock().map_err(|_| "client poisoned")?;
-            let (_p, protected, _d, digest, _start) =
-                client.fetch_manifest(&name, &tag).map_err(|e| e.to_string())?;
+            let (_p, protected, _d, digest, _start) = client
+                .fetch_manifest(&name, &tag)
+                .map_err(|e| e.to_string())?;
             (digest.digest_count as usize, protected.block_size as u64)
         };
         let progress = Arc::new(Mutex::new(WriteProgress::new(cluster_count, block_size)));
@@ -406,13 +418,20 @@ impl AppState {
 
         std::thread::spawn(move || {
             let result = (|| -> anyhow::Result<()> {
-                let client = client.lock().map_err(|_| anyhow::anyhow!("client poisoned"))?;
+                let client = client
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("client poisoned"))?;
                 let progress_inner = progress.clone();
-                client.stream_write_to_dest(&name, &tag, std::path::Path::new(&device_path), move |idx, state| {
-                    if let Ok(mut p) = progress_inner.lock() {
-                        p.record_cluster(idx, state);
-                    }
-                })?;
+                client.stream_write_to_dest(
+                    &name,
+                    &tag,
+                    std::path::Path::new(&device_path),
+                    move |idx, state| {
+                        if let Ok(mut p) = progress_inner.lock() {
+                            p.record_cluster(idx, state);
+                        }
+                    },
+                )?;
                 // Fix up the backup GPT after writing
                 let mut f = std::fs::OpenOptions::new()
                     .read(true)
@@ -443,9 +462,7 @@ impl AppState {
         let image_id = match self.selected_image.clone().ok_or("No image selected")? {
             SelectedImage::Local(id) => id,
             SelectedImage::Registry { .. } => {
-                return Err(
-                    "Verify is not supported for registry-streamed images".to_string()
-                );
+                return Err("Verify is not supported for registry-streamed images".to_string());
             }
         };
         let device_path = self
@@ -507,9 +524,7 @@ impl AppState {
         let image_id = match self.selected_image.clone().ok_or("No image selected")? {
             SelectedImage::Local(id) => id,
             SelectedImage::Registry { .. } => {
-                return Err(
-                    "Verify-only is not supported for registry images yet".to_string()
-                );
+                return Err("Verify-only is not supported for registry images yet".to_string());
             }
         };
         let device_path = self

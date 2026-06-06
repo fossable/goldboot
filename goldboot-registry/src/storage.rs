@@ -5,36 +5,13 @@
 //! filesystem path. This is the only barrier between an attacker-controlled
 //! path component and the host's filesystem.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
+use goldboot_image::validate_ref_segment as validate_component;
 use std::{
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
 };
-
-/// Maximum length of a name or tag (in bytes). Keeps the resulting path
-/// reasonable on every common filesystem.
-const MAX_COMPONENT_LEN: usize = 64;
-
-/// Allowed character set: ASCII letters, digits, dot, dash, underscore.
-fn validate_component(s: &str) -> Result<()> {
-    if s.is_empty() {
-        bail!("empty component");
-    }
-    if s.len() > MAX_COMPONENT_LEN {
-        bail!("component '{}' exceeds {} bytes", s, MAX_COMPONENT_LEN);
-    }
-    if s == "." || s == ".." {
-        bail!("reserved component: '{}'", s);
-    }
-    for (i, b) in s.bytes().enumerate() {
-        let ok = b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_');
-        if !ok {
-            bail!("invalid byte 0x{:02x} at position {} in '{}'", b, i, s);
-        }
-    }
-    Ok(())
-}
 
 #[derive(Clone)]
 pub struct Storage {
@@ -65,15 +42,21 @@ impl Storage {
     /// its on-disk length.
     pub fn open(&self, name: &str, tag: &str) -> Result<(fs::File, u64)> {
         let path = self.image_path(name, tag)?;
-        let file = fs::File::open(&path)
-            .with_context(|| format!("open image {}", path.display()))?;
+        let file =
+            fs::File::open(&path).with_context(|| format!("open image {}", path.display()))?;
         let len = file.metadata()?.len();
         Ok((file, len))
     }
 
     /// Atomically write a new image by streaming `body` into a sibling
     /// temp file, then renaming it into place.
-    pub fn put(&self, name: &str, tag: &str, mut body: impl Read, _expected_len: Option<u64>) -> Result<u64> {
+    pub fn put(
+        &self,
+        name: &str,
+        tag: &str,
+        mut body: impl Read,
+        _expected_len: Option<u64>,
+    ) -> Result<u64> {
         let final_path = self.image_path(name, tag)?;
         if let Some(parent) = final_path.parent() {
             fs::create_dir_all(parent)?;

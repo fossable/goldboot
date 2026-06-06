@@ -43,12 +43,19 @@ pub enum Commands {
         #[clap(long, num_args = 0)]
         clean: bool,
 
-        /// Context directory containing goldboot.ron
+        /// Tag for the resulting image. Defaults to a UTC timestamp like
+        /// 20260606T143022.
+        #[clap(long)]
+        tag: Option<String>,
+
+        /// Image name. Required when the config file is `goldboot.ron`;
+        /// inferred from the filename when it is `<name>.goldboot.ron`.
+        #[clap(long)]
+        name: Option<String>,
+
+        /// Context directory containing goldboot.ron or <name>.goldboot.ron
         #[clap(index = 1)]
         path: String,
-        // The image will be run as a virtual machine for testing
-        // #[clap(long, num_args = 0)]
-        // virtual: bool
     },
 
     /// Manage local images
@@ -59,7 +66,8 @@ pub enum Commands {
 
     /// Write images to storage
     Deploy {
-        /// ID of the image to write
+        /// Image reference: `<host>/<name>[:<tag>]`. Tag defaults to the
+        /// newest image with that name.
         #[clap(index = 1)]
         image: String,
 
@@ -74,7 +82,8 @@ pub enum Commands {
 
     /// Check how much a device has drifted from an image
     Drift {
-        /// ID of the image to compare against
+        /// Image reference: `<host>/<name>[:<tag>]`. Tag defaults to the
+        /// newest image with that name.
         #[clap(index = 1)]
         image: String,
 
@@ -102,12 +111,6 @@ pub enum Commands {
         mimic_hardware: bool,
     },
 
-    /// Manage image registries
-    Registry {
-        #[clap(subcommand)]
-        command: RegistryCommands,
-    },
-
     /// Install goldboot to a boot partition.
     Install {
         /// Destination path (EFI system partition mount point)
@@ -118,9 +121,13 @@ pub enum Commands {
         #[clap(long, value_enum)]
         include: Vec<String>,
 
-        /// Show what would be done without making any changes
+        /// Never make any actual changes
         #[clap(long)]
         dryrun: bool,
+
+        /// Write to EFI/BOOT/BOOTX64.EFI to take over default boot precedence
+        #[clap(long)]
+        takeover: bool,
     },
 
     /// Serve the goldboot LSP
@@ -128,7 +135,39 @@ pub enum Commands {
 }
 
 #[derive(clap::Subcommand, Debug, Clone)]
-pub enum RegistryCommands {
+pub enum ImageCommands {
+    /// List images. Defaults to the local image library; pass a registry
+    /// address to list images from a remote registry instead.
+    List {
+        /// Optional remote registry to query (e.g. registry.example.com).
+        /// When omitted, lists the local image library.
+        #[clap(index = 1)]
+        registry: Option<String>,
+
+        /// HTTP Basic Auth username (if your registry's proxy requires auth)
+        #[clap(short = 'u', long, env = "GOLDBOOT_REGISTRY_USERNAME")]
+        username: Option<String>,
+
+        /// HTTP Basic Auth password
+        #[clap(short = 'p', long, env = "GOLDBOOT_REGISTRY_PASSWORD")]
+        password: Option<String>,
+    },
+
+    /// Get detailed image info
+    Info {
+        /// Image reference: `<host>/<name>[:<tag>]`. Tag defaults to the
+        /// newest image with that name.
+        #[clap(index = 1)]
+        image: String,
+    },
+
+    /// Delete local images
+    Delete {
+        /// One or more image references: `<host>/<name>[:<tag>]`.
+        #[clap(required = true)]
+        images: Vec<String>,
+    },
+
     /// Upload a local image to a remote registry (e.g. registry.example.com/archlinux:v1)
     Push {
         /// Image reference in the form host/name[:tag]
@@ -157,20 +196,5 @@ pub enum RegistryCommands {
         /// HTTP Basic Auth password
         #[clap(short = 'p', long, env = "GOLDBOOT_REGISTRY_PASSWORD")]
         password: Option<String>,
-    },
-}
-
-#[derive(clap::Subcommand, Debug, Clone)]
-pub enum ImageCommands {
-    /// List local images
-    List {},
-
-    /// Get detailed image info
-    Info { image: Option<String> },
-
-    /// Delete local images
-    Delete {
-        #[clap(required = true)]
-        images: Vec<String>,
     },
 }

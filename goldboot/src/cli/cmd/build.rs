@@ -9,24 +9,31 @@ pub fn run(cmd: super::Commands) -> ExitCode {
         super::Commands::Build {
             read_password,
             path,
+            name,
             ..
         } => {
-            let config_path = match ConfigPath::from_dir(path) {
-                Some(p) => {
+            let config_path = match ConfigPath::from_dir(&path) {
+                Ok(Some(p)) => {
                     debug!("Loading config from {}", p);
                     p
                 }
-                _ => {
-                    error!("Failed to find config file");
+                Ok(None) => {
+                    error!(
+                        "No goldboot.ron or <name>.goldboot.ron found in {}",
+                        &path
+                    );
+                    return ExitCode::FAILURE;
+                }
+                Err(e) => {
+                    error!("Failed to locate config file: {e}");
                     return ExitCode::FAILURE;
                 }
             };
 
-            // Load config from current directory
             let elements = match config_path.load() {
-                Ok(elements) => {
-                    debug!("Loaded: {:#?}", &elements);
-                    elements
+                Ok(c) => {
+                    debug!("Loaded: {:#?}", &c);
+                    c
                 }
                 Err(error) => {
                     error!("Failed to load config: {:?}", error);
@@ -34,23 +41,36 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
             };
 
-            let mut builder = Builder::new(elements, config_path.context_dir());
+            let resolved_name = match (name, config_path.inferred_name()) {
+                (Some(cli), _) => cli,
+                (None, Some(inferred)) => inferred.to_string(),
+                (None, None) => {
+                    error!(
+                        "Image name required: pass --name, or rename `goldboot.ron` to `<name>.goldboot.ron`"
+                    );
+                    return ExitCode::FAILURE;
+                }
+            };
 
-            // Include the encryption password if provided
+            if let Err(e) = goldboot_image::validate_ref_segment(&resolved_name) {
+                error!("Invalid image name '{resolved_name}': {e}");
+                return ExitCode::FAILURE;
+            }
+
+            let mut builder = Builder::new(resolved_name, elements, config_path.context_dir());
+
             if read_password {
                 print!("Enter password: ");
                 let mut password = String::new();
                 std::io::stdin().read_line(&mut password).unwrap();
                 // config.password = Some(password);
             } else if let Ok(_password) = std::env::var("GOLDBOOT_PASSWORD") {
-                // Wipe out the value since we no longer need it
                 unsafe {
                     std::env::set_var("GOLDBOOT_PASSWORD", "");
                 }
                 // config.password = Some(password);
             }
 
-            // Fully verify config before proceeding
             match builder.validate() {
                 Err(err) => {
                     error!(error = ?err, "Failed to validate config file");
@@ -59,7 +79,6 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 _ => debug!("Validated config file"),
             };
 
-            // Run the build finally
             match builder.run(cmd) {
                 Err(err) => {
                     error!(error = ?err, "Failed to build image");

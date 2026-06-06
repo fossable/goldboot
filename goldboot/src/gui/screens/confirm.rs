@@ -122,7 +122,7 @@ pub fn render(
                                                 }
                                             }
                                             ui.label(
-                                                egui::RichText::new(h.name())
+                                                egui::RichText::new(h.name_str())
                                                     .color(theme.text_primary)
                                                     .strong()
                                                     .size(14.0),
@@ -132,7 +132,10 @@ pub fn render(
                                         let rows: &[(&str, String)] = &[
                                             ("Source", "local library".to_string()),
                                             ("Architecture", arch_label(&h.arch).to_string()),
-                                            ("Size on disk", format!("{}", image.file_size.bytes())),
+                                            (
+                                                "Size on disk",
+                                                format!("{}", image.file_size.bytes()),
+                                            ),
                                             ("Expanded size", format!("{}", h.size.bytes())),
                                             (
                                                 "Elements",

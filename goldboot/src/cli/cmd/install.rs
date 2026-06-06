@@ -1,7 +1,7 @@
 use crate::library::ImageLibrary;
 use console::Style;
 use dialoguer::{Confirm, theme::ColorfulTheme};
-use std::{path::Path, process::ExitCode};
+use std::{io::IsTerminal, path::Path, process::ExitCode};
 use tracing::{error, warn};
 
 pub fn run(cmd: super::Commands) -> ExitCode {
@@ -10,6 +10,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             dest,
             include,
             dryrun,
+            takeover,
         } => {
             let theme = ColorfulTheme {
                 values_style: Style::new().yellow().dim(),
@@ -56,78 +57,87 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 return ExitCode::FAILURE;
             }
 
-            // Find any explicitly requested images
-            for id in &include {
-                match ImageLibrary::find_by_id(id) {
+            // Find any explicitly requested images by reference.
+            for reference in &include {
+                let r = match crate::registry::ImageRef::parse(reference) {
+                    Ok(r) => r,
+                    Err(err) => {
+                        error!(reference = %reference, error = ?err, "Invalid image reference");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                match library.find_by_ref(&r) {
                     Ok(handle) => images.push(handle.path),
                     Err(err) => {
-                        error!(id = %id, error = ?err, "Failed to find image");
+                        error!(reference = %reference, error = ?err, "Failed to find image");
                         return ExitCode::FAILURE;
                     }
                 }
             }
 
             let gb_dir = Path::new(&dest).join("goldboot");
-            let efi_dest = gb_dir.join("goldboot.efi");
+            let efi_dest = if takeover {
+                #[cfg(target_arch = "aarch64")]
+                let name = "BOOTAA64.EFI";
+                #[cfg(not(target_arch = "aarch64"))]
+                let name = "BOOTX64.EFI";
+                Path::new(&dest).join("EFI/BOOT").join(name)
+            } else {
+                gb_dir.join("goldboot.efi")
+            };
 
-            if dryrun {
-                println!("Dry run — no changes will be made.\n");
-                println!("Files that would be written:");
-                println!(
+            // Build a plan description shared by --dryrun and the TTY confirmation prompt.
+            let mut plan_lines: Vec<String> = Vec::new();
+            plan_lines.push("Files that would be written:".to_owned());
+            plan_lines.push(format!(
+                "  {} -> {}  ({})",
+                efi_src.display(),
+                efi_dest.display(),
+                if efi_dest.exists() {
+                    "overwrite"
+                } else {
+                    "new"
+                }
+            ));
+            for image_path in &images {
+                let dest_path = gb_dir.join(image_path.file_name().unwrap());
+                plan_lines.push(format!(
                     "  {} -> {}  ({})",
-                    efi_src.display(),
-                    efi_dest.display(),
-                    if efi_dest.exists() {
+                    image_path.display(),
+                    dest_path.display(),
+                    if dest_path.exists() {
                         "overwrite"
                     } else {
                         "new"
                     }
-                );
-                for image_path in &images {
-                    let dest_path = gb_dir.join(image_path.file_name().unwrap());
-                    println!(
-                        "  {} -> {}  ({})",
-                        image_path.display(),
-                        dest_path.display(),
-                        if dest_path.exists() {
-                            "overwrite"
-                        } else {
-                            "new"
-                        }
-                    );
+                ));
+            }
+            if dest == "/boot" {
+                plan_lines.push(String::new());
+                plan_lines.push("EFI variables that would be changed:".to_owned());
+                match describe_next_boot("goldboot.efi") {
+                    Ok(description) => plan_lines.push(description),
+                    Err(err) => plan_lines.push(format!(
+                        "  (could not determine EFI variable changes: {err})"
+                    )),
                 }
+            }
 
-                if dest == "/boot" {
-                    println!("\nEFI variables that would be changed:");
-                    match describe_next_boot("goldboot.efi") {
-                        Ok(description) => println!("{description}"),
-                        Err(err) => {
-                            println!("  (could not determine EFI variable changes: {err})");
-                        }
-                    }
+            if dryrun {
+                println!("Dry run — no changes will be made.\n");
+                for line in &plan_lines {
+                    println!("{line}");
                 }
-
                 return ExitCode::SUCCESS;
             }
 
-            // Collect and log files that will be overwritten before prompting
-            let mut overwrites: Vec<std::path::PathBuf> = Vec::new();
-            if efi_dest.exists() {
-                overwrites.push(efi_dest.clone());
-            }
-            for p in &images {
-                let dest_path = gb_dir.join(p.file_name().unwrap());
-                if dest_path.exists() {
-                    overwrites.push(dest_path);
+            if std::io::stdout().is_terminal() {
+                for line in &plan_lines {
+                    println!("{line}");
                 }
-            }
-
-            if !overwrites.is_empty() {
-                for path in &overwrites {
-                    println!("Will overwrite: {}", path.display());
-                }
+                println!();
                 if !Confirm::with_theme(&theme)
-                    .with_prompt(format!("Do you want to overwrite files in: {}?", dest))
+                    .with_prompt("Proceed with installation?")
                     .interact()
                     .unwrap()
                 {
@@ -139,6 +149,13 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             if let Err(err) = std::fs::create_dir_all(&gb_dir) {
                 error!(error = ?err, "Failed to create goldboot directory");
                 return ExitCode::FAILURE;
+            }
+            if takeover {
+                let efi_boot_dir = Path::new(&dest).join("EFI/BOOT");
+                if let Err(err) = std::fs::create_dir_all(&efi_boot_dir) {
+                    error!(error = ?err, "Failed to create EFI/BOOT directory");
+                    return ExitCode::FAILURE;
+                }
             }
 
             // Copy goldboot.efi to the EFI boot location
@@ -156,9 +173,10 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 }
             }
 
-            // When installing to /boot, set BootNext so the firmware boots goldboot.efi on the
-            // next reboot.
-            if dest == "/boot" {
+            // When installing to /boot (non-takeover), set BootNext so the firmware boots
+            // goldboot.efi on the next reboot. Takeover mode doesn't need this because
+            // EFI/BOOT/BOOTX64.EFI is already the firmware's default fallback path.
+            if !takeover && dest == "/boot" {
                 if let Err(err) = set_next_boot(&efi_dest.to_string_lossy(), "goldboot.efi") {
                     warn!(error = ?err, "Failed to set BootNext EFI variable; boot entry must be created manually");
                 }

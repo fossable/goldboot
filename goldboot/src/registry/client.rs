@@ -13,21 +13,14 @@
 //! `~/.config/goldboot/registry-cas.pem` when present. The client never
 //! disables certificate verification.
 
+use crate::registry::protocol::{ImageListResponse, MANIFEST_CONTENT_TYPE, RegistryImageEntry};
 use anyhow::{Context, Result, bail};
 use goldboot_image::{
     DigestTable, Directory, ImageHandle, ManifestBlob, PrimaryHeader, ProtectedHeader,
     parse_manifest,
 };
-use crate::registry::protocol::{
-    ImageListResponse, MANIFEST_CONTENT_TYPE, RegistryImageEntry,
-};
 use reqwest::blocking::{Client as HttpClient, ClientBuilder, RequestBuilder, Response};
-use std::{
-    fs::File,
-    io::Write,
-    path::PathBuf,
-    time::Duration,
-};
+use std::{fs::File, io::Write, path::PathBuf, time::Duration};
 use tracing::warn;
 use url::Url;
 
@@ -83,8 +76,7 @@ impl Client {
 
         let ca = custom_ca_path();
         if ca.exists() {
-            let bytes = std::fs::read(&ca)
-                .with_context(|| format!("read {}", ca.display()))?;
+            let bytes = std::fs::read(&ca).with_context(|| format!("read {}", ca.display()))?;
             for cert in reqwest::Certificate::from_pem_bundle(&bytes)
                 .with_context(|| format!("parse PEM bundle {}", ca.display()))?
             {
@@ -137,7 +129,9 @@ impl Client {
         let bytes = resp.bytes()?;
         let blob = ManifestBlob::read_from(&mut bytes.as_ref())?;
         if blob.headers_encrypted {
-            bail!("registry served an encrypted image — pass the password via your local pull flow");
+            bail!(
+                "registry served an encrypted image — pass the password via your local pull flow"
+            );
         }
         parse_manifest(&blob, None)
     }
@@ -168,9 +162,7 @@ impl Client {
     /// and its byte length; the request body is the file's contents
     /// verbatim.
     pub fn push_image(&self, name: &str, tag: &str, file: File, len: u64) -> Result<()> {
-        let url = self
-            .base
-            .join(&format!("images/{name}/tags/{tag}"))?;
+        let url = self.base.join(&format!("images/{name}/tags/{tag}"))?;
         let body = reqwest::blocking::Body::sized(file, len);
         let resp = self
             .auth(self.http.put(url))

@@ -4,8 +4,11 @@ use crate::cli::cmd::Commands;
 use crate::library::{ImageLibrary, qcow_cache_path};
 
 use anyhow::{Result, bail};
+use chrono::Utc;
 use dialoguer::Password;
-use goldboot_image::{ElementHeader, ImageArch, ImageHandle, qcow::Qcow3};
+use goldboot_image::{
+    ElementHeader, ImageArch, ImageHandle, ImageRef, qcow::Qcow3, validate_ref_segment,
+};
 use rand::RngExt;
 use std::{path::PathBuf, time::SystemTime};
 use tracing::info;
@@ -25,6 +28,9 @@ pub mod vnc;
 /// Machinery that creates Goldboot images from image elements.
 #[derive(Validate)]
 pub struct Builder {
+    /// Image name from `goldboot.ron` (written into `PrimaryHeader.name`).
+    pub name: String,
+
     pub elements: Vec<OsConfig>,
 
     pub accel: Accel,
@@ -57,7 +63,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(elements: Vec<OsConfig>, context_dir: PathBuf) -> Self {
+    pub fn new(name: String, elements: Vec<OsConfig>, context_dir: PathBuf) -> Self {
         let qcow_path = qcow_cache_path(&context_dir).expect("failed to compute qcow cache path");
         let tmp = tempfile::tempdir().unwrap();
 
@@ -70,6 +76,7 @@ impl Builder {
             qcow_path,
             start_time: None,
             vnc_port: rand::rng().random_range(5900..5999),
+            name,
             elements,
             ovmf_path: tmp.path().join("OVMF.fd"),
             tmp,
@@ -113,6 +120,8 @@ impl Builder {
                 output,
                 path: _,
                 ovmf_path,
+                tag,
+                name: _,
             } => {
                 self.debug = debug;
                 self.record = record;
@@ -197,11 +206,21 @@ impl Builder {
                 // Re-open qcow to pick up any new snapshots written during the build
                 self.qcow = Some(Qcow3::open(&self.qcow_path)?);
 
-                // Convert into final immutable image
+                // Resolve the image tag: CLI override → timestamp default.
+                let resolved_tag = tag
+                    .clone()
+                    .unwrap_or_else(|| Utc::now().format("%Y%m%dT%H%M%S").to_string());
+                validate_ref_segment(&resolved_tag)?;
+
+                // Convert into final immutable image. When --output is given
+                // the file lands at the user-supplied path and the library
+                // is not touched; otherwise we stage to a temp path inside
+                // the library, then promote to <library>/local/<name>/<tag>.gb.
+                let library = ImageLibrary::open();
                 let path = if let Some(output) = output.as_ref() {
                     PathBuf::from(output)
                 } else {
-                    ImageLibrary::open().temporary()
+                    library.temporary()
                 };
 
                 let element_headers: Vec<ElementHeader> = self
@@ -211,6 +230,8 @@ impl Builder {
                     .collect::<Result<_>>()?;
 
                 ImageHandle::from_qcow(
+                    &self.name,
+                    &resolved_tag,
                     element_headers,
                     self.qcow.as_ref().unwrap(),
                     &path,
@@ -219,7 +240,10 @@ impl Builder {
                 )?;
 
                 if output.is_none() {
-                    ImageLibrary::open().add_move(path.clone())?;
+                    // Freshly-built images have no host — they live directly
+                    // under the library root until pushed.
+                    let built_ref = ImageRef::new(&self.name).with_tag(&resolved_tag);
+                    library.add_built(&path, &built_ref)?;
                 }
             }
             _ => panic!("Must be passed a Commands::Build"),

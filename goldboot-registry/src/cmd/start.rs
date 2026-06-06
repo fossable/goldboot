@@ -17,7 +17,7 @@ use tower_http::{
 };
 use tracing::info;
 
-const DEFAULT_MAX_UPLOAD: u64 = 32 * 1024 * 1024 * 1024;
+pub const DEFAULT_MAX_UPLOAD: u64 = 32 * 1024 * 1024 * 1024;
 
 #[derive(Args, Debug)]
 pub struct StartArgs {
@@ -73,7 +73,7 @@ pub async fn run(args: StartArgs) -> Result<()> {
 
     info!(
         addr = %bind,
-        "starting HTTP server — expects a TLS-terminating reverse proxy in front"
+        "Starting HTTP server"
     );
     let listener = tokio::net::TcpListener::bind(bind).await?;
     axum::serve(

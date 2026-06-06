@@ -3,7 +3,6 @@ use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::Aead};
 use anyhow::{Context, Result, bail};
 use binrw::{BinRead, BinReaderExt, BinWrite};
 use rand::Rng;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -60,6 +59,184 @@ impl Default for ImageArch {
             "mips64" => ImageArch::Mips64,
             "s390x" => ImageArch::S390x,
             _ => panic!("Unknown CPU architecture: {}", std::env::consts::ARCH),
+        }
+    }
+}
+
+/// Maximum length of a name or tag (in bytes). Matches the registry's
+/// on-disk component limit so the wire / file / header agree.
+pub const MAX_REF_SEGMENT_LEN: usize = 64;
+
+/// Validate a `<name>` or `<tag>` segment of an image reference.
+/// Allowed: ASCII letters, digits, `.`, `-`, `_`. Rejects empty, `.`, `..`,
+/// and anything containing path separators or NULs. 1–64 bytes.
+pub fn validate_ref_segment(s: &str) -> Result<()> {
+    if s.is_empty() {
+        bail!("empty reference segment");
+    }
+    if s.len() > MAX_REF_SEGMENT_LEN {
+        bail!("segment '{}' exceeds {} bytes", s, MAX_REF_SEGMENT_LEN);
+    }
+    if s == "." || s == ".." {
+        bail!("reserved segment: '{}'", s);
+    }
+    for (i, b) in s.bytes().enumerate() {
+        let ok = b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_');
+        if !ok {
+            bail!("invalid byte 0x{:02x} at position {} in '{}'", b, i, s);
+        }
+    }
+    Ok(())
+}
+
+/// Validate a host segment. Looser than `validate_ref_segment` — also
+/// allows `:` (so `localhost:8080` round-trips) but still rejects path
+/// separators, NULs, and reserved names.
+pub fn validate_host_segment(s: &str) -> Result<()> {
+    if s.is_empty() {
+        bail!("empty host");
+    }
+    if s.len() > 253 {
+        bail!("host '{}' too long", s);
+    }
+    if s == "." || s == ".." {
+        bail!("reserved host: '{}'", s);
+    }
+    for (i, b) in s.bytes().enumerate() {
+        let ok = b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b':');
+        if !ok {
+            bail!("invalid byte 0x{:02x} at position {} in host '{}'", b, i, s);
+        }
+    }
+    Ok(())
+}
+
+/// Strip any `http://` or `https://` prefix from a host string.
+pub fn host_without_scheme(host: &str) -> &str {
+    host.strip_prefix("https://")
+        .or_else(|| host.strip_prefix("http://"))
+        .unwrap_or(host)
+}
+
+/// A parsed image reference: `[scheme://][<host>/]<name>[:<tag>]`.
+///
+/// `name` is required; `host` and `tag` are both optional. The struct is
+/// shape-only — it does not enforce a host for any particular operation.
+/// Callers that *require* a host (push, pull) check `host.is_none()`
+/// themselves and produce an appropriate error.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImageRef {
+    /// Host, including any `http://` / `https://` scheme prefix if the
+    /// user typed one. Use [`Self::host_bare`] for the scheme-free form
+    /// and [`Self::host_or_local`] for library lookups.
+    pub host: Option<String>,
+    pub name: String,
+    pub tag: Option<String>,
+}
+
+impl ImageRef {
+    /// Build a bare-name reference (no host, no tag).
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            host: None,
+            name: name.into(),
+            tag: None,
+        }
+    }
+
+    /// Builder: attach a host.
+    pub fn with_host(mut self, host: impl Into<String>) -> Self {
+        self.host = Some(host.into());
+        self
+    }
+
+    /// Builder: attach a tag.
+    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
+        self.tag = Some(tag.into());
+        self
+    }
+
+    /// Parse a reference of the form `[scheme://][<host>/]<name>[:<tag>]`.
+    ///
+    /// Disambiguation rules:
+    /// - The last `:` introduces a tag, **unless** what follows contains
+    ///   `/` (in which case the `:` is part of a `host:port` and there's
+    ///   no tag).
+    /// - If a `/` remains after stripping the tag, everything before the
+    ///   first `/` is the host.
+    pub fn parse(reference: &str) -> Result<Self> {
+        let (scheme_prefix, rest) = if let Some(rest) = reference.strip_prefix("http://") {
+            ("http://", rest)
+        } else if let Some(rest) = reference.strip_prefix("https://") {
+            ("https://", rest)
+        } else {
+            ("", reference)
+        };
+
+        // Split off the tag (if any).
+        let (ref_no_tag, tag): (&str, Option<String>) = if let Some(pos) = rest.rfind(':') {
+            let after_colon = &rest[pos + 1..];
+            if after_colon.contains('/') {
+                (rest, None)
+            } else {
+                (&rest[..pos], Some(after_colon.to_string()))
+            }
+        } else {
+            (rest, None)
+        };
+
+        // Split off the host (if any).
+        let (host, name) = if let Some(slash) = ref_no_tag.find('/') {
+            let host_part = &ref_no_tag[..slash];
+            let name_part = &ref_no_tag[slash + 1..];
+            (Some(format!("{scheme_prefix}{host_part}")), name_part)
+        } else {
+            if !scheme_prefix.is_empty() {
+                bail!(
+                    "reference '{}' has a scheme but no host before the name",
+                    reference
+                );
+            }
+            (None, ref_no_tag)
+        };
+
+        if name.is_empty() {
+            bail!("reference '{}' is missing the image name", reference);
+        }
+
+        Ok(Self {
+            host,
+            name: name.to_string(),
+            tag,
+        })
+    }
+
+    /// Host with any `http://` / `https://` prefix removed.
+    pub fn host_bare(&self) -> Option<&str> {
+        self.host.as_deref().map(host_without_scheme)
+    }
+
+    /// Validate that `name` (and `tag`, when present) are well-formed.
+    /// `host`, when present, is checked with [`validate_host_segment`].
+    pub fn validate(&self) -> Result<()> {
+        validate_ref_segment(&self.name).context("invalid image name")?;
+        if let Some(tag) = &self.tag {
+            validate_ref_segment(tag).context("invalid image tag")?;
+        }
+        if let Some(host) = self.host_bare() {
+            validate_host_segment(host).context("invalid image host")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for ImageRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (&self.host, &self.tag) {
+            (Some(h), Some(t)) => write!(f, "{h}/{}:{t}", self.name),
+            (Some(h), None) => write!(f, "{h}/{}", self.name),
+            (None, Some(t)) => write!(f, "{}:{t}", self.name),
+            (None, None) => f.write_str(&self.name),
         }
     }
 }
@@ -207,7 +384,7 @@ impl ElementHeader {
 #[brw(magic = b"\xc0\x1d\xb0\x01", big)]
 pub struct PrimaryHeader {
     /// Format version
-    #[br(assert(version == 1))]
+    #[br(assert(version == 2))]
     pub version: u8,
 
     /// Total size of all blocks combined in bytes
@@ -228,6 +405,27 @@ pub struct PrimaryHeader {
     /// System architecture
     pub arch: ImageArch,
 
+    /// Length of the name field in bytes
+    pub name_length: u8,
+
+    /// Image name. Part of the `<host>/<name>:<tag>` reference; intrinsic
+    /// to the image's identity.
+    #[br(count = name_length)]
+    pub name: Vec<u8>,
+
+    /// Length of the tag field in bytes
+    pub tag_length: u8,
+
+    /// Image tag. Part of the `<host>/<name>:<tag>` reference; intrinsic
+    /// to the image's identity.
+    #[br(count = tag_length)]
+    pub tag: Vec<u8>,
+
+    /// SHA256 over the cluster region only (the image's data blocks).
+    /// Two images with identical payload share this value, even if their
+    /// name/tag/timestamp differ. Informational — never used as a key.
+    pub content_id: [u8; 32],
+
     /// Directory nonce
     pub directory_nonce: [u8; 12],
 
@@ -239,9 +437,35 @@ pub struct PrimaryHeader {
 }
 
 impl PrimaryHeader {
-    pub fn name(&self) -> String {
+    /// Image name from the header.
+    pub fn name_str(&self) -> String {
+        String::from_utf8_lossy(&self.name).into_owned()
+    }
+
+    /// Image tag from the header.
+    pub fn tag_str(&self) -> String {
+        String::from_utf8_lossy(&self.tag).into_owned()
+    }
+
+    /// Hex-encoded content ID (SHA256 of the cluster region).
+    pub fn content_id_hex(&self) -> String {
+        hex::encode(self.content_id)
+    }
+
+    /// Display label joining the per-element names. Not an identifier —
+    /// use `name_str()` for that.
+    pub fn elements_label(&self) -> String {
         let parts: Vec<String> = self.elements.iter().map(|element| element.name()).collect();
         parts.join(" / ")
+    }
+
+    /// Parse a `PrimaryHeader` from the start of an in-memory byte slice.
+    /// Useful for callers (e.g. the registry server) that already have the
+    /// raw upload buffer and want to inspect the header without taking a
+    /// dependency on `binrw` themselves.
+    pub fn read_from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut cursor = Cursor::new(bytes);
+        Ok(cursor.read_be()?)
     }
 }
 
@@ -499,20 +723,29 @@ pub fn parse_manifest(
     Ok((primary, protected, directory, digest, cluster_region_start))
 }
 
-/// Hash the entire image file to produce the image ID.
-pub fn compute_id(path: impl AsRef<Path>) -> Result<String> {
+/// Hash the cluster region of an image file (between the protected header
+/// and the digest table) to produce the content ID.
+pub fn compute_content_id(
+    path: impl AsRef<Path>,
+    cluster_region_start: u64,
+    cluster_region_end: u64,
+) -> Result<[u8; 32]> {
     use sha2::Digest;
     let mut file = File::open(&path)?;
+    file.seek(SeekFrom::Start(cluster_region_start))?;
+    let mut remaining = cluster_region_end - cluster_region_start;
     let mut hasher = Sha256::new();
     let mut buf = [0u8; 65536];
-    loop {
-        let n = file.read(&mut buf)?;
+    while remaining > 0 {
+        let take = remaining.min(buf.len() as u64) as usize;
+        let n = file.read(&mut buf[..take])?;
         if n == 0 {
             break;
         }
         hasher.update(&buf[..n]);
+        remaining -= n as u64;
     }
-    Ok(hex::encode(hasher.finalize()))
+    Ok(hasher.finalize().into())
 }
 
 impl ImageHandle {
@@ -598,16 +831,9 @@ impl ImageHandle {
         let primary_header: PrimaryHeader = file.read_be()?;
         debug!(primary_header = ?primary_header, "Primary header");
 
-        // Get image ID
-        let id = if let Some(stem) = path.file_stem() {
-            if Regex::new("[A-Fa-f0-9]{64}")?.is_match(stem.to_str().unwrap()) {
-                stem.to_str().unwrap().to_string()
-            } else {
-                compute_id(path).unwrap()
-            }
-        } else {
-            compute_id(path).unwrap()
-        };
+        // The image's "id" is now the content ID (cluster-region SHA256),
+        // already stored in the primary header.
+        let id = primary_header.content_id_hex();
 
         if primary_header.encryption_type == HeaderEncryptionType::None {
             // Read protected header
@@ -892,8 +1118,10 @@ impl ImageHandle {
         let mut nonce_idx_by_offset: HashMap<u64, usize> = HashMap::new();
         let mut entries_by_offset: HashMap<u64, Vec<usize>> = HashMap::new();
         for (i, entry) in digest_table.digest_table.iter().enumerate() {
-            if !nonce_idx_by_offset.contains_key(&entry.cluster_offset) {
-                nonce_idx_by_offset.insert(entry.cluster_offset, unique_offsets.len());
+            if let std::collections::hash_map::Entry::Vacant(e) =
+                nonce_idx_by_offset.entry(entry.cluster_offset)
+            {
+                e.insert(unique_offsets.len());
                 unique_offsets.push(entry.cluster_offset);
             }
             entries_by_offset
@@ -1010,9 +1238,7 @@ impl ImageHandle {
                     dest_file.seek(SeekFrom::Start(entry.block_offset))?;
 
                     // Handle a trailing partial block at end-of-disk
-                    let max_len = primary_header
-                        .size
-                        .saturating_sub(entry.block_offset) as usize;
+                    let max_len = primary_header.size.saturating_sub(entry.block_offset) as usize;
                     let to_write = if plain.len() > max_len {
                         &plain[..max_len]
                     } else {
@@ -1066,7 +1292,15 @@ impl ImageHandle {
     }
 
     /// Convert a qcow image into a goldboot image.
+    ///
+    /// `name` and `tag` are validated and written into the image's
+    /// `PrimaryHeader`. They participate in the on-disk header bytes and
+    /// therefore in any later whole-file integrity checks, but are
+    /// deliberately not part of `content_id` — that is computed over the
+    /// cluster region only.
     pub fn from_qcow<F: Fn(u64, u64)>(
+        name: &str,
+        tag: &str,
         metadata: Vec<ElementHeader>,
         source: &Qcow3,
         dest: impl AsRef<Path>,
@@ -1074,6 +1308,9 @@ impl ImageHandle {
         progress: F,
     ) -> Result<ImageHandle> {
         info!(qcow = ?source, "Converting qcow image to goldboot image");
+
+        validate_ref_segment(name).context("invalid image name")?;
+        validate_ref_segment(tag).context("invalid image tag")?;
 
         let mut dest_file = File::create(&dest)?;
         let mut source_file = File::open(&source.path)?;
@@ -1099,9 +1336,13 @@ impl ImageHandle {
             digest_table_size: 0,
         };
 
-        // Prepare primary header
+        let name_bytes = name.as_bytes().to_vec();
+        let tag_bytes = tag.as_bytes().to_vec();
+
+        // Prepare primary header (content_id starts as zeros and is patched
+        // in after the cluster region is written).
         let mut primary_header = PrimaryHeader {
-            version: 1,
+            version: 2,
             arch: ImageArch::Amd64,   // TODO
             size: source.header.size, // TODO this is aligned to the cluster size?
             directory_nonce: {
@@ -1119,6 +1360,11 @@ impl ImageHandle {
             },
             element_count: u8::try_from(metadata.len()).context("Too many elements")?,
             elements: metadata,
+            name_length: u8::try_from(name_bytes.len()).context("name too long")?,
+            name: name_bytes,
+            tag_length: u8::try_from(tag_bytes.len()).context("tag too long")?,
+            tag: tag_bytes,
+            content_id: [0u8; 32],
         };
 
         // Prepare protected header
@@ -1193,6 +1439,11 @@ impl ImageHandle {
         // Track the cluster offset in the image file
         let mut cluster_offset = dest_file.stream_position()?;
 
+        // Streaming hasher over the cluster region. The on-disk layout of
+        // each cluster is `size: u32 BE` followed by `data: [u8; size]`, so
+        // we feed exactly those bytes — which is what `Cluster::write` emits.
+        let mut content_hasher = Sha256::new();
+
         // Read from the qcow2 and write the clusters
         for l1_entry in &source.l1_table {
             if let Some(l2_table) = l1_entry.read_l2(&mut source_file, source.header.cluster_bits) {
@@ -1263,6 +1514,8 @@ impl ImageHandle {
                                 "Recording cluster",
                             );
                             cluster.write(&mut dest_file)?;
+                            content_hasher.update(cluster.size.to_be_bytes());
+                            content_hasher.update(&cluster.data);
 
                             // Advance offset
                             cluster_offset += 4; // size field (u32)
@@ -1286,6 +1539,10 @@ impl ImageHandle {
                 );
             }
         }
+
+        // Finalize the content_id now that the entire cluster region has
+        // been written.
+        primary_header.content_id = content_hasher.finalize().into();
 
         // Write the completed digest table
         {
@@ -1332,7 +1589,7 @@ impl ImageHandle {
         primary_header.write(&mut dest_file)?;
 
         Ok(ImageHandle {
-            id: compute_id(&dest)?,
+            id: primary_header.content_id_hex(),
             primary_header,
             protected_header: Some(protected_header),
             digest_table: Some(digest_table),
@@ -1437,13 +1694,18 @@ pub(crate) mod test_support {
         // Build a placeholder primary header so we can compute its serialised
         // length (the cluster region starts immediately after).
         let mut primary_header = PrimaryHeader {
-            version: 1,
+            version: 2,
             size: total_size,
             timestamp: 0,
             encryption_type: HeaderEncryptionType::Aes256,
             element_count: 1,
             elements: vec![ElementHeader::new("test", "synthetic")?],
             arch: ImageArch::Amd64,
+            name_length: 9,
+            name: b"synthetic".to_vec(),
+            tag_length: 4,
+            tag: b"test".to_vec(),
+            content_id: [0u8; 32],
             directory_nonce,
             directory_offset: 0,
             directory_size: 0,
@@ -1454,8 +1716,10 @@ pub(crate) mod test_support {
         primary_header.write(&mut dest)?;
         dest.write_all(&protected_enc)?;
 
-        // Write clusters, recording cluster_offsets per unique cluster
+        // Write clusters, recording cluster_offsets per unique cluster, and
+        // stream-hash them to populate content_id.
         let mut cluster_offsets: Vec<u64> = Vec::with_capacity(unique_cluster_count);
+        let mut content_hasher = Sha256::new();
         for (i, block_data) in unique_block_data.iter().enumerate() {
             let off = dest.stream_position()?;
             cluster_offsets.push(off);
@@ -1469,7 +1733,10 @@ pub(crate) mod test_support {
                 data: encrypted,
             };
             cluster.write(&mut dest)?;
+            content_hasher.update(cluster.size.to_be_bytes());
+            content_hasher.update(&cluster.data);
         }
+        primary_header.content_id = content_hasher.finalize().into();
 
         // Build digest_table
         let digest_table = DigestTable {
@@ -1528,8 +1795,8 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::test_support::build_synthetic_image;
+    use super::*;
     use tempfile::tempdir;
 
     /// Regression test for the nonce_table indexing bug: an encrypted image
@@ -1559,7 +1826,10 @@ mod tests {
         for b in &blocks {
             expected.extend_from_slice(b);
         }
-        assert_eq!(actual, expected, "round-tripped disk image must match input");
+        assert_eq!(
+            actual, expected,
+            "round-tripped disk image must match input"
+        );
         Ok(())
     }
 
@@ -1664,7 +1934,119 @@ mod tests {
             &dest_path,
             |_, _| {},
         );
-        assert!(result.is_err(), "stream_write must reject oversized cluster size");
+        assert!(
+            result.is_err(),
+            "stream_write must reject oversized cluster size"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn image_ref_parse_bare_name() {
+        let r = ImageRef::parse("archlinux").unwrap();
+        assert_eq!(r.host, None);
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag, None);
+        assert_eq!(r.to_string(), "archlinux");
+    }
+
+    #[test]
+    fn image_ref_parse_name_tag() {
+        let r = ImageRef::parse("archlinux:v1").unwrap();
+        assert_eq!(r.host, None);
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag.as_deref(), Some("v1"));
+        assert_eq!(r.to_string(), "archlinux:v1");
+    }
+
+    #[test]
+    fn image_ref_parse_host_name() {
+        let r = ImageRef::parse("registry.example.com/archlinux").unwrap();
+        assert_eq!(r.host.as_deref(), Some("registry.example.com"));
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag, None);
+        assert_eq!(r.to_string(), "registry.example.com/archlinux");
+    }
+
+    #[test]
+    fn image_ref_parse_host_name_tag() {
+        let r = ImageRef::parse("registry.example.com/archlinux:v1").unwrap();
+        assert_eq!(r.host.as_deref(), Some("registry.example.com"));
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag.as_deref(), Some("v1"));
+        assert_eq!(r.to_string(), "registry.example.com/archlinux:v1");
+    }
+
+    #[test]
+    fn image_ref_parse_host_port() {
+        let r = ImageRef::parse("localhost:8080/archlinux:v1").unwrap();
+        assert_eq!(r.host.as_deref(), Some("localhost:8080"));
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag.as_deref(), Some("v1"));
+        assert_eq!(r.host_bare(), Some("localhost:8080"));
+    }
+
+    #[test]
+    fn image_ref_parse_host_port_no_tag() {
+        let r = ImageRef::parse("localhost:8080/archlinux").unwrap();
+        assert_eq!(r.host.as_deref(), Some("localhost:8080"));
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag, None);
+    }
+
+    #[test]
+    fn image_ref_parse_scheme_attached_to_host() {
+        let r = ImageRef::parse("https://reg.example.com/archlinux:v1").unwrap();
+        assert_eq!(r.host.as_deref(), Some("https://reg.example.com"));
+        assert_eq!(r.host_bare(), Some("reg.example.com"));
+        assert_eq!(r.name, "archlinux");
+        assert_eq!(r.tag.as_deref(), Some("v1"));
+    }
+
+    #[test]
+    fn image_ref_parse_scheme_without_host_rejected() {
+        assert!(ImageRef::parse("https://archlinux").is_err());
+    }
+
+    #[test]
+    fn image_ref_validate_accepts_well_formed() {
+        ImageRef::parse("registry.example.com/archlinux:v1.2.3")
+            .unwrap()
+            .validate()
+            .unwrap();
+    }
+
+    #[test]
+    fn image_ref_validate_rejects_bad_name() {
+        let r = ImageRef::parse("registry.example.com/arch linux").unwrap();
+        assert!(r.validate().is_err());
+    }
+
+    /// `PrimaryHeader.content_id` (populated during build) must match the
+    /// independently-recomputed SHA256 over the cluster region bytes. This
+    /// is the invariant the registry server relies on: it can trust the
+    /// header without re-hashing every push.
+    #[test]
+    fn content_id_matches_cluster_region_hash() -> Result<()> {
+        let dir = tempdir()?;
+        let img_path = dir.path().join("image.gb");
+        let block_size: u32 = 4096;
+        let blocks = vec![
+            vec![0xEEu8; block_size as usize],
+            vec![0xFFu8; block_size as usize],
+        ];
+        build_synthetic_image(&img_path, &blocks, block_size, "pw")?;
+
+        let mut handle = ImageHandle::open(&img_path)?;
+        handle.load(Some("pw".to_string()))?;
+        let (start, end) = handle.cluster_region_bounds()?;
+
+        let recomputed = compute_content_id(&img_path, start, end)?;
+        assert_eq!(
+            recomputed, handle.primary_header.content_id,
+            "header.content_id must equal SHA256 over the cluster region"
+        );
+        assert_ne!(recomputed, [0u8; 32], "content_id must not be all zeros");
         Ok(())
     }
 
@@ -1678,7 +2060,12 @@ mod tests {
         let block_size: u32 = 4096;
         let block_a = vec![0xCCu8; block_size as usize];
         let block_b = vec![0xDDu8; block_size as usize];
-        let blocks = vec![block_a.clone(), block_a.clone(), block_b.clone(), block_a.clone()];
+        let blocks = vec![
+            block_a.clone(),
+            block_a.clone(),
+            block_b.clone(),
+            block_a.clone(),
+        ];
 
         build_synthetic_image(&img_path, &blocks, block_size, "secret")?;
 
@@ -1692,7 +2079,10 @@ mod tests {
                 all_verified.set(false);
             }
         })?;
-        assert!(all_verified.get(), "all blocks must verify after a fresh write");
+        assert!(
+            all_verified.get(),
+            "all blocks must verify after a fresh write"
+        );
         Ok(())
     }
 }

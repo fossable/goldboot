@@ -30,7 +30,9 @@ impl DisplayItem {
     fn as_selected(&self) -> SelectedImage {
         match self {
             DisplayItem::Local { id, .. } => SelectedImage::Local(id.clone()),
-            DisplayItem::Registry { host, name, tag, .. } => SelectedImage::Registry {
+            DisplayItem::Registry {
+                host, name, tag, ..
+            } => SelectedImage::Registry {
                 host: host.clone(),
                 name: name.clone(),
                 tag: tag.clone(),
@@ -42,8 +44,17 @@ impl DisplayItem {
         match (self, sel) {
             (DisplayItem::Local { id, .. }, SelectedImage::Local(s)) => id == s,
             (
-                DisplayItem::Registry { host: h, name: n, tag: t, .. },
-                SelectedImage::Registry { host: sh, name: sn, tag: st },
+                DisplayItem::Registry {
+                    host: h,
+                    name: n,
+                    tag: t,
+                    ..
+                },
+                SelectedImage::Registry {
+                    host: sh,
+                    name: sn,
+                    tag: st,
+                },
             ) => h == sh && n == sn && t == st,
             _ => false,
         }
@@ -208,7 +219,7 @@ pub fn render(
                 for img in state.images.iter() {
                     items.push(DisplayItem::Local {
                         id: img.id.clone(),
-                        name: img.primary_header.name(),
+                        name: img.primary_header.name_str(),
                         size_str: format!(
                             "{} compressed / {} expanded",
                             img.file_size.bytes(),
@@ -240,7 +251,9 @@ pub fn render(
 
                     ui.ctx().input(|inp| {
                         if inp.key_pressed(egui::Key::ArrowDown) {
-                            let next = current_idx.map(|i| (i + 1).min(items.len() - 1)).unwrap_or(0);
+                            let next = current_idx
+                                .map(|i| (i + 1).min(items.len() - 1))
+                                .unwrap_or(0);
                             state.selected_image = items.get(next).map(|d| d.as_selected());
                         }
                         if inp.key_pressed(egui::Key::ArrowUp) {
@@ -299,10 +312,7 @@ pub fn render(
                                     } else {
                                         "No images found. Press F5 to log in to a registry."
                                     };
-                                    ui.label(
-                                        egui::RichText::new(msg)
-                                            .color(theme.text_secondary),
-                                    );
+                                    ui.label(egui::RichText::new(msg).color(theme.text_secondary));
                                 } else {
                                     for item in items.iter() {
                                         let is_selected = state
@@ -311,8 +321,7 @@ pub fn render(
                                             .map(|s| item.matches(s))
                                             .unwrap_or(false);
 
-                                        let (name, size_str, arch, os, source_label) = match item
-                                        {
+                                        let (name, size_str, arch, os, source_label) = match item {
                                             DisplayItem::Local {
                                                 name,
                                                 size_str,
@@ -367,7 +376,11 @@ pub fn render(
                                                                 {
                                                                     ui.add(
                                                                         egui::Image::new(tex)
-                                                                            .max_size(egui::Vec2::splat(32.0)),
+                                                                            .max_size(
+                                                                                egui::Vec2::splat(
+                                                                                    32.0,
+                                                                                ),
+                                                                            ),
                                                                     );
                                                                     any_icon = true;
                                                                 }

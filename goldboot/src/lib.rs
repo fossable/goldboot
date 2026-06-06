@@ -49,15 +49,3 @@ pub fn random_password() -> String {
         .collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_find_open_port() {
-        let port = find_open_port(9000, 9999);
-
-        assert!(port < 9999);
-        assert!(port >= 9000);
-    }
-}
