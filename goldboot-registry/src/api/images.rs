@@ -1,14 +1,11 @@
 //! Image endpoints: list, manifest, clusters (range-supported), push.
 
-use crate::{
-    auth::{AppState, PullPermission, PushPermission},
-    storage::Storage,
-};
+use crate::{cmd::start::ServerConfig, storage::Storage};
 use anyhow::Result;
 use axum::{
     Json,
     body::Body,
-    extract::{Path, Request, State},
+    extract::{Path, Request},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
@@ -24,12 +21,9 @@ use tracing::{info, warn};
 
 /// `GET /v1/images`
 pub async fn list(
-    State(state): State<AppState>,
     storage: axum::extract::Extension<Arc<Storage>>,
-    _user: PullPermission,
 ) -> Result<Json<ImageListResponse>, StatusCode> {
     let storage = storage.0.clone();
-    let _ = state; // suppress unused warning
     let images = tokio::task::spawn_blocking(move || -> Result<Vec<RegistryImageEntry>> {
         let mut out = Vec::new();
         for (name, tag) in storage.list()? {
@@ -59,10 +53,8 @@ pub async fn list(
 
 /// `GET /v1/images/:name/tags/:tag/manifest`
 pub async fn manifest(
-    State(_state): State<AppState>,
     storage: axum::extract::Extension<Arc<Storage>>,
     Path((name, tag)): Path<(String, String)>,
-    _user: PullPermission,
 ) -> Result<Response, StatusCode> {
     let storage = storage.0.clone();
     let blob_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
@@ -93,11 +85,9 @@ pub async fn manifest(
 /// `GET /v1/images/:name/tags/:tag/clusters` — streams the cluster region.
 /// Supports `Range:` for resume.
 pub async fn clusters(
-    State(_state): State<AppState>,
     storage: axum::extract::Extension<Arc<Storage>>,
     Path((name, tag)): Path<(String, String)>,
     headers: HeaderMap,
-    _user: PullPermission,
 ) -> Result<Response, StatusCode> {
     let storage = storage.0.clone();
     let (file_path, cluster_start, cluster_end) =
@@ -185,13 +175,12 @@ fn parse_range_header(headers: &HeaderMap, total_len: u64) -> Result<(u64, u64)>
 /// `PUT /v1/images/:name/tags/:tag` — upload an image. Body size is capped
 /// by the global RequestBodyLimitLayer applied during router construction.
 pub async fn push(
-    State(state): State<AppState>,
     storage: axum::extract::Extension<Arc<Storage>>,
+    server_config: axum::extract::Extension<ServerConfig>,
     Path((name, tag)): Path<(String, String)>,
-    user: PushPermission,
     req: Request,
 ) -> Result<StatusCode, StatusCode> {
-    let cap = state.config.server.max_upload_size;
+    let cap = server_config.0.max_upload_size;
     let body = req.into_body();
     let body_stream = body.into_data_stream();
     let async_read = tokio_util::io::StreamReader::new(
@@ -220,7 +209,6 @@ pub async fn push(
         Ok(written) => {
             info!(
                 event = "push.ok",
-                user = %user.0.username,
                 image = %name,
                 tag = %tag,
                 bytes = written

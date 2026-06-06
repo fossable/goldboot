@@ -129,18 +129,19 @@ pub enum Commands {
 
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum RegistryCommands {
-    /// Authenticate with a registry
-    Login {
-        /// Registry URL (e.g. registry.example.com)
-        #[clap(index = 1)]
-        registry: String,
-    },
-
     /// Upload a local image to a remote registry (e.g. registry.example.com/archlinux:v1)
     Push {
         /// Image reference in the form host/name[:tag]
         #[clap(index = 1)]
         reference: String,
+
+        /// HTTP Basic Auth username (if your registry's proxy requires auth)
+        #[clap(short = 'u', long, env = "GOLDBOOT_REGISTRY_USERNAME")]
+        username: Option<String>,
+
+        /// HTTP Basic Auth password
+        #[clap(short = 'p', long, env = "GOLDBOOT_REGISTRY_PASSWORD")]
+        password: Option<String>,
     },
 
     /// Download an image from a remote registry (e.g. registry.example.com/archlinux:latest)
@@ -148,6 +149,14 @@ pub enum RegistryCommands {
         /// Image reference in the form host/name[:tag]
         #[clap(index = 1)]
         reference: String,
+
+        /// HTTP Basic Auth username (if your registry's proxy requires auth)
+        #[clap(short = 'u', long, env = "GOLDBOOT_REGISTRY_USERNAME")]
+        username: Option<String>,
+
+        /// HTTP Basic Auth password
+        #[clap(short = 'p', long, env = "GOLDBOOT_REGISTRY_PASSWORD")]
+        password: Option<String>,
     },
 }
 

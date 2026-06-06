@@ -1,76 +1,34 @@
-use dialoguer::{Input, Password, theme::ColorfulTheme};
 use std::process::ExitCode;
 use tracing::info;
-use zeroize::Zeroize;
 
 use super::RegistryCommands;
 use crate::{
     library::ImageLibrary,
-    registry::{Client, RegistryCredentials, RegistryEntry, parse_image_ref},
+    registry::{Client, parse_image_ref},
 };
 
-pub fn run(cmd: super::Commands) -> ExitCode {
-    let theme = ColorfulTheme::default();
+/// Combine a `--username`/`--password` pair into the `Option<(u, p)>` shape
+/// the client expects. Both must be present; either alone is an error.
+fn resolve_auth(
+    username: Option<String>,
+    password: Option<String>,
+) -> Result<Option<(String, String)>, &'static str> {
+    match (username, password) {
+        (Some(u), Some(p)) => Ok(Some((u, p))),
+        (None, None) => Ok(None),
+        (Some(_), None) => Err("--username given without --password"),
+        (None, Some(_)) => Err("--password given without --username"),
+    }
+}
 
+pub fn run(cmd: super::Commands) -> ExitCode {
     match cmd {
         super::Commands::Registry { command } => match command {
-            RegistryCommands::Login { registry } => {
-                let username: String = match Input::with_theme(&theme)
-                    .with_prompt(format!("Username for {registry}"))
-                    .interact_text()
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        eprintln!("Input cancelled: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-                let mut password: String = match Password::with_theme(&theme)
-                    .with_prompt("Password")
-                    .interact()
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("Input cancelled: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-
-                let mut client = match Client::new(&registry) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        password.zeroize();
-                        eprintln!("Bad registry address: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-                let login_result = client.login(&username, &password);
-                password.zeroize();
-                let perms = match login_result {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("Login failed: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-
-                let token = client.token().expect("token after login").to_string();
-                let mut creds = RegistryCredentials::load().unwrap_or_default();
-                creds
-                    .registries
-                    .insert(registry.clone(), RegistryEntry { token });
-                if let Err(e) = creds.save() {
-                    eprintln!("Failed to save credentials: {e}");
-                    return ExitCode::FAILURE;
-                }
-                println!(
-                    "Logged in to {registry} as {username} (pull={} push={})",
-                    perms.pull, perms.push
-                );
-                ExitCode::SUCCESS
-            }
-
-            RegistryCommands::Pull { reference } => {
+            RegistryCommands::Pull {
+                reference,
+                username,
+                password,
+            } => {
                 let (host, name, tag) = match parse_image_ref(&reference) {
                     Ok(v) => v,
                     Err(e) => {
@@ -78,30 +36,21 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         return ExitCode::FAILURE;
                     }
                 };
-
-                let creds = match RegistryCredentials::load() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        eprintln!("Failed to load credentials: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-                let token = match creds.token_for(&host) {
-                    Ok(t) => t.to_string(),
+                let auth = match resolve_auth(username, password) {
+                    Ok(a) => a,
                     Err(e) => {
                         eprintln!("{e}");
                         return ExitCode::FAILURE;
                     }
                 };
 
-                let mut client = match Client::new(&host) {
+                let client = match Client::new(&host, auth) {
                     Ok(c) => c,
                     Err(e) => {
                         eprintln!("Bad registry address: {e}");
                         return ExitCode::FAILURE;
                     }
                 };
-                client.set_token_from_storage(token);
 
                 let library = ImageLibrary::open();
                 let tmp = library.temporary();
@@ -120,7 +69,11 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 ExitCode::SUCCESS
             }
 
-            RegistryCommands::Push { reference } => {
+            RegistryCommands::Push {
+                reference,
+                username,
+                password,
+            } => {
                 let (host, name, tag) = match parse_image_ref(&reference) {
                     Ok(v) => v,
                     Err(e) => {
@@ -128,16 +81,8 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                         return ExitCode::FAILURE;
                     }
                 };
-
-                let creds = match RegistryCredentials::load() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        eprintln!("Failed to load credentials: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                };
-                let token = match creds.token_for(&host) {
-                    Ok(t) => t.to_string(),
+                let auth = match resolve_auth(username, password) {
+                    Ok(a) => a,
                     Err(e) => {
                         eprintln!("{e}");
                         return ExitCode::FAILURE;
@@ -167,14 +112,13 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 };
 
-                let mut client = match Client::new(&host) {
+                let client = match Client::new(&host, auth) {
                     Ok(c) => c,
                     Err(e) => {
                         eprintln!("Bad registry address: {e}");
                         return ExitCode::FAILURE;
                     }
                 };
-                client.set_token_from_storage(token);
 
                 info!("Pushing {} ({} bytes)", image.path.display(), file_len);
                 if let Err(e) = client.push_image(&name, &tag, file, file_len) {

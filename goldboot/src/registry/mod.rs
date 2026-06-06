@@ -5,72 +5,33 @@ pub mod protocol;
 pub use client::{Client, registry_root};
 
 use anyhow::{Result, bail};
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
 
-fn config_path() -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config/goldboot/registry.toml")
-}
-
-/// Credentials for all configured registries, keyed by registry host.
-#[derive(Serialize, Deserialize, Default)]
-pub struct RegistryCredentials {
-    #[serde(default)]
-    pub registries: HashMap<String, RegistryEntry>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct RegistryEntry {
-    pub token: String,
-}
-
-impl RegistryCredentials {
-    pub fn load() -> Result<Self> {
-        let path = config_path();
-        if path.exists() {
-            Ok(toml::from_str(&std::fs::read_to_string(path)?)?)
-        } else {
-            Ok(Self::default())
-        }
-    }
-
-    pub fn save(&self) -> Result<()> {
-        let path = config_path();
-        std::fs::create_dir_all(path.parent().unwrap())?;
-        std::fs::write(path, toml::to_string(self)?)?;
-        Ok(())
-    }
-
-    /// Look up the token for a given registry host.
-    pub fn token_for(&self, host: &str) -> Result<&str> {
-        self.registries
-            .get(host)
-            .map(|e| e.token.as_str())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Not logged in to registry '{}'. Run: goldboot registry login {}",
-                    host,
-                    host
-                )
-            })
-    }
-}
-
-/// Parse a docker-style image reference: `host/name[:tag]`.
-/// Returns `(host, name, tag)`.
+/// Parse a docker-style image reference: `[scheme://]host/name[:tag]`.
+/// Returns `(host, name, tag)`. The scheme, if present, stays attached to
+/// the host so the client picks it up via `registry_root`.
 pub fn parse_image_ref(reference: &str) -> Result<(String, String, String)> {
+    // Detect and split off an optional scheme so the rest of the parser can
+    // operate on a plain `host/name[:tag]` slice.
+    let (scheme_prefix, rest) = if let Some(rest) = reference.strip_prefix("http://") {
+        ("http://", rest)
+    } else if let Some(rest) = reference.strip_prefix("https://") {
+        ("https://", rest)
+    } else {
+        ("", reference)
+    };
+
     // Split off the tag first
-    let (ref_no_tag, tag) = if let Some(pos) = reference.rfind(':') {
+    let (ref_no_tag, tag) = if let Some(pos) = rest.rfind(':') {
         // Make sure the colon isn't part of a host:port before a slash
-        let after_colon = &reference[pos + 1..];
+        let after_colon = &rest[pos + 1..];
         if after_colon.contains('/') {
             // colon was in host:port, no tag
-            (reference, "latest")
+            (rest, "latest")
         } else {
-            (&reference[..pos], after_colon)
+            (&rest[..pos], after_colon)
         }
     } else {
-        (reference, "latest")
+        (rest, "latest")
     };
 
     // Split host from name at the first slash (host must contain a dot or colon to distinguish)
@@ -80,24 +41,23 @@ pub fn parse_image_ref(reference: &str) -> Result<(String, String, String)> {
             (potential_host, &ref_no_tag[slash + 1..])
         } else {
             bail!(
-                "No registry host found in reference '{}'. Use host/name[:tag]",
+                "No registry host found in reference '{}'. Use [scheme://]host/name[:tag]",
                 reference
             );
         }
     } else {
         bail!(
-            "No registry host found in reference '{}'. Use host/name[:tag]",
+            "No registry host found in reference '{}'. Use [scheme://]host/name[:tag]",
             reference
         );
     };
 
-    Ok((host.to_string(), name.to_string(), tag.to_string()))
+    Ok((format!("{scheme_prefix}{host}"), name.to_string(), tag.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     // ── parse_image_ref ──────────────────────────────────────────────────────
 
@@ -153,83 +113,5 @@ mod tests {
     fn test_parse_ref_no_dot_no_colon_host_rejected() {
         // "local" has no dot or colon → not a registry host
         assert!(parse_image_ref("local/archlinux:latest").is_err());
-    }
-
-    // ── RegistryCredentials ──────────────────────────────────────────────────
-
-    #[test]
-    fn test_credentials_round_trip() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("registry.toml");
-
-        // Build credentials
-        let mut creds = RegistryCredentials::default();
-        creds.registries.insert(
-            "registry.example.com".to_string(),
-            RegistryEntry {
-                token: "tok123".to_string(),
-            },
-        );
-
-        // Serialise
-        std::fs::write(&path, toml::to_string(&creds).unwrap()).unwrap();
-
-        // Deserialise
-        let loaded: RegistryCredentials =
-            toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-
-        assert_eq!(loaded.registries["registry.example.com"].token, "tok123");
-    }
-
-    #[test]
-    fn test_credentials_empty_file_gives_default() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("registry.toml");
-        std::fs::write(&path, "").unwrap();
-
-        let loaded: RegistryCredentials =
-            toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(loaded.registries.is_empty());
-    }
-
-    #[test]
-    fn test_token_for_missing_host_errors() {
-        let creds = RegistryCredentials {
-            registries: HashMap::new(),
-        };
-        assert!(creds.token_for("registry.example.com").is_err());
-    }
-
-    #[test]
-    fn test_token_for_present_host_returns_token() {
-        let mut creds = RegistryCredentials::default();
-        creds.registries.insert(
-            "registry.example.com".to_string(),
-            RegistryEntry {
-                token: "secret".to_string(),
-            },
-        );
-        assert_eq!(creds.token_for("registry.example.com").unwrap(), "secret");
-    }
-
-    #[test]
-    fn test_multiple_registries_independent() {
-        let mut creds = RegistryCredentials::default();
-        creds.registries.insert(
-            "a.example.com".to_string(),
-            RegistryEntry {
-                token: "token_a".to_string(),
-            },
-        );
-        creds.registries.insert(
-            "b.example.com".to_string(),
-            RegistryEntry {
-                token: "token_b".to_string(),
-            },
-        );
-
-        assert_eq!(creds.token_for("a.example.com").unwrap(), "token_a");
-        assert_eq!(creds.token_for("b.example.com").unwrap(), "token_b");
-        assert!(creds.token_for("c.example.com").is_err());
     }
 }

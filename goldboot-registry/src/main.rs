@@ -1,9 +1,7 @@
 use clap::Parser;
 
 mod api;
-mod auth;
 mod cmd;
-mod config;
 mod storage;
 
 #[derive(Parser, Debug)]
@@ -24,12 +22,9 @@ fn main() -> anyhow::Result<()> {
     let cli = CommandLine::parse();
 
     match cli.command {
-        cmd::Commands::Start { config } => {
+        cmd::Commands::Start(args) => {
             let rt = tokio::runtime::Runtime::new()?;
-            rt.block_on(cmd::start::run(&config))?;
-        }
-        cmd::Commands::User { command } => {
-            cmd::user::run(command)?;
+            rt.block_on(cmd::start::run(args))?;
         }
     }
     Ok(())
