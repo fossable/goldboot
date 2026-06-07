@@ -1,8 +1,14 @@
+#[cfg(all(feature = "cli", feature = "uki"))]
+compile_error!("features \"cli\" and \"uki\" are mutually exclusive");
+
 #[cfg(feature = "cli")]
 use clap::Parser;
 #[cfg(feature = "cli")]
 use goldboot::cli::cmd::Commands;
+use std::os::unix::process::CommandExt;
+use std::process::Command;
 use std::process::ExitCode;
+use tracing::debug;
 
 #[cfg(feature = "cli")]
 #[derive(Parser, Debug)]
@@ -29,6 +35,10 @@ pub fn build_headless_debug() -> bool {
 }
 
 pub fn main() -> ExitCode {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .ok();
+
     // UKI mode: Run fullscreen GUI with automatic environment checks and reboot
     #[cfg(feature = "uki")]
     return uki_main();
@@ -117,65 +127,15 @@ fn uki_main() -> ExitCode {
 
     // Initialize logging for UKI mode
     tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    info!("Starting goldboot in UKI mode");
+    info!("Initializing UKI boot mode");
 
-    // Check environment
-    if let Err(e) = check_uki_environment() {
-        eprintln!("Environment check failed: {}", e);
-        return ExitCode::FAILURE;
-    }
+    goldboot::gui::run_gui(true);
 
-    // Run GUI in fullscreen mode
-    let result = goldboot::gui::run_gui(true);
+    debug!("Rebooting on GUI exit");
 
-    // After GUI exits, reboot the system
-    info!("GUI exited, initiating system reboot");
-    if let Err(e) = reboot_system() {
-        eprintln!("Failed to reboot system: {}", e);
-        return ExitCode::FAILURE;
-    }
-
-    result
-}
-
-#[cfg(feature = "uki")]
-fn check_uki_environment() -> Result<(), String> {
-    // Verify we have access to block devices
-    if !std::path::Path::new("/sys/class/block").exists() {
-        return Err("Block device sysfs not available".to_string());
-    }
-
-    // Verify the image library directory exists
-    let lib_path = std::path::Path::new("/var/lib/goldboot/images");
-    if !lib_path.exists() {
-        std::fs::create_dir_all(lib_path)
-            .map_err(|e| format!("Failed to create library directory: {}", e))?;
-    }
-
-    Ok(())
-}
-
-#[cfg(feature = "uki")]
-fn reboot_system() -> Result<(), String> {
-    use std::process::Command;
-
-    // Try systemctl first (if systemd is available)
-    let result = Command::new("systemctl").arg("reboot").status();
-
-    if result.is_ok() {
-        return Ok(());
-    }
-
-    // Fallback to direct reboot command
-    Command::new("reboot")
-        .status()
-        .map_err(|e| format!("Failed to execute reboot: {}", e))?;
-
-    Ok(())
+    let err = Command::new("reboot").exec();
+    panic!("Failed to execute reboot: {}", err);
 }

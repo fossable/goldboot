@@ -33,7 +33,7 @@ pub fn render(
                 // Warning prompt
                 ui.vertical_centered(|ui| {
                     ui.label(
-                        egui::RichText::new("Select a device below to OVERWRITE")
+                        egui::RichText::new("Now choose a device below to OVERWRITE")
                             .color(theme.text_secondary)
                             .strong()
                             .size(16.0),

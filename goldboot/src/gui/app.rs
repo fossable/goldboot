@@ -1,9 +1,13 @@
+use tracing::trace;
+
 use super::{
     resources::TextureCache,
-    screens::{Screen, registry_login},
+    screens::{Screen, registry_login, sudo_confirm},
     state::AppState,
     theme::Theme,
 };
+#[cfg(feature = "uki")]
+use super::widgets;
 
 pub struct GuiApp {
     pub screen: Screen,
@@ -13,17 +17,16 @@ pub struct GuiApp {
 }
 
 impl GuiApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, needs_sudo: bool) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, try_sudo: bool) -> Self {
         let theme = Theme::default();
         theme.apply_to_context(&cc.egui_ctx);
 
+        let mut state = AppState::new();
+        state.show_sudo_dialog = try_sudo;
+
         Self {
-            screen: if needs_sudo {
-                Screen::SudoConfirm
-            } else {
-                Screen::SelectImage
-            },
-            state: AppState::new(),
+            screen: Screen::SelectImage,
+            state,
             theme,
             textures: TextureCache::new(&cc.egui_ctx),
         }
@@ -76,6 +79,13 @@ impl eframe::App for GuiApp {
 
         // Render registry login dialog if open
         registry_login::render(&ctx, &mut self.state, &self.theme);
+
+        // Render sudo re-invoke dialog if needed
+        sudo_confirm::render(&ctx, &mut self.state, &self.theme);
+
+        // Display local IP addresses in the bottom-right corner (UKI only)
+        #[cfg(feature = "uki")]
+        widgets::ip_address::render(&ctx, &self.state, &self.theme);
     }
 }
 
@@ -90,6 +100,7 @@ impl GuiApp {
 
             if i.key_pressed(egui::Key::Escape)
                 && !self.state.show_registry_dialog
+                && !self.state.show_sudo_dialog
                 && !debug_shell_active
                 && self.state.error_message.is_none()
                 && self.screen == Screen::SelectImage
@@ -107,7 +118,10 @@ impl GuiApp {
             }
 
             // F5 - Open registry login dialog
-            if i.key_pressed(egui::Key::F5) && self.screen == Screen::SelectImage {
+            if i.key_pressed(egui::Key::F5)
+                && self.screen == Screen::SelectImage
+                && !self.state.show_sudo_dialog
+            {
                 self.state.show_registry_dialog = true;
             }
         });

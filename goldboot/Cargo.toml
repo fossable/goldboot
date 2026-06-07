@@ -55,6 +55,8 @@ reqwest = { workspace = true, features = [
   "json",
   "rustls",
 ] }
+rustls-pemfile = "2"
+webpki-roots = "0.26"
 ron = { version = "0.12", optional = true }
 rustls = { version = "0.23.23" }
 roniker = { workspace = true, features = ["lsp"], optional = true }

@@ -39,7 +39,10 @@ impl Theme {
 
     pub fn render_background(&self, ctx: &egui::Context) {
         let painter = ctx.layer_painter(egui::LayerId::background());
-        let rect = ctx.input(|i| i.viewport().inner_rect.unwrap_or(egui::Rect::EVERYTHING));
+        let rect = ctx.screen_rect();
+        if !rect.is_finite() || rect.width() <= 0.0 || rect.height() <= 0.0 {
+            return;
+        }
 
         // Fill with primary background color
         painter.rect_filled(rect, 0.0, self.bg_primary);

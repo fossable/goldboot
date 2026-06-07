@@ -172,16 +172,28 @@ pub fn render(
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
         .show_inside(ui, |ui| {
+            let esc_label = if state.show_registry_dialog {
+                "Back"
+            } else {
+                #[cfg(feature = "uki")]
+                {
+                    "Reboot"
+                }
+                #[cfg(not(feature = "uki"))]
+                {
+                    "Quit"
+                }
+            };
             #[cfg(feature = "uki")]
             let hotkeys = vec![
-                ("Esc", "Reboot"),
+                ("Esc", esc_label),
                 ("F5", "Registry Login"),
                 ("Enter", "Select Image"),
-                ("T", "Debug Shell"),
+                ("F9", "Debug Shell"),
             ];
             #[cfg(not(feature = "uki"))]
             let hotkeys = vec![
-                ("Esc", "Quit"),
+                ("Esc", esc_label),
                 ("F5", "Registry Login"),
                 ("Enter", "Select Image"),
             ];
@@ -198,7 +210,7 @@ pub fn render(
                 // Prompt
                 ui.vertical_centered(|ui| {
                     ui.label(
-                        egui::RichText::new("Select an available image below")
+                        egui::RichText::new("First, choose an available image below")
                             .color(theme.text_secondary)
                             .strong()
                             .size(16.0),
@@ -266,9 +278,9 @@ pub fn render(
                     });
                 }
 
-                // T key opens debug shell (UKI mode only)
+                // Opens debug shell (UKI mode only)
                 #[cfg(feature = "uki")]
-                if ui.ctx().input(|inp| inp.key_pressed(egui::Key::T))
+                if ui.ctx().input(|inp| inp.key_pressed(egui::Key::F9))
                     && state.debug_shell.is_none()
                 {
                     match spawn_debug_shell(ui.ctx()) {
@@ -308,9 +320,9 @@ pub fn render(
                             .show(ui, |ui| {
                                 if items.is_empty() {
                                     let msg = if state.registry_list_loading {
-                                        "Loading registry…"
+                                        "Loading…"
                                     } else {
-                                        "No images found. Press F5 to log in to a registry."
+                                        "No images found"
                                     };
                                     ui.label(egui::RichText::new(msg).color(theme.text_secondary));
                                 } else {

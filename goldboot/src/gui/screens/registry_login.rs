@@ -3,6 +3,35 @@ use crate::registry::Client;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+enum AddressValidity {
+    Empty,
+    Valid { secure: bool },
+    BadScheme,
+    MissingHost,
+    ParseError,
+}
+
+fn validate_address(addr: &str) -> AddressValidity {
+    if addr.is_empty() {
+        return AddressValidity::Empty;
+    }
+    let Ok(url) = url::Url::parse(addr) else {
+        return AddressValidity::ParseError;
+    };
+    match url.scheme() {
+        "https" | "http" => {
+            if url.host_str().map(|h| h.is_empty()).unwrap_or(true) {
+                AddressValidity::MissingHost
+            } else {
+                AddressValidity::Valid {
+                    secure: url.scheme() == "https",
+                }
+            }
+        }
+        _ => AddressValidity::BadScheme,
+    }
+}
+
 pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
     if !state.show_registry_dialog {
         return;
@@ -13,21 +42,48 @@ pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .show(ctx, |ui| {
-            ui.label("Registry Address:");
+            ui.label("Address:");
             ui.text_edit_singleline(&mut state.registry_address);
 
-            if state.registry_address.starts_with("http://")
-                && (!state.registry_username.is_empty() || !state.registry_password.is_empty())
-            {
-                ui.add_space(6.0);
-                ui.colored_label(
-                    egui::Color32::from_rgb(0xff, 0x4d, 0x4d),
-                    "⚠ HTTP (no TLS): Basic Auth credentials will travel in plaintext",
-                );
+            match validate_address(&state.registry_address) {
+                AddressValidity::Empty => {}
+                AddressValidity::Valid { secure: true } => {
+                    ui.colored_label(egui::Color32::from_rgb(0x4c, 0xaf, 0x50), "✓ Valid");
+                }
+                AddressValidity::Valid { secure: false } => {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(0xff, 0xa5, 0x00),
+                        "⚠ HTTP — connection is unencrypted",
+                    );
+                    if !state.registry_username.is_empty() || !state.registry_password.is_empty() {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(0xff, 0x4d, 0x4d),
+                            "  Basic Auth credentials will travel in plaintext",
+                        );
+                    }
+                }
+                AddressValidity::BadScheme => {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(0xff, 0x4d, 0x4d),
+                        "✗ Must start with https:// or http://",
+                    );
+                }
+                AddressValidity::MissingHost => {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(0xff, 0x4d, 0x4d),
+                        "✗ Missing host (e.g. https://registry.example.com)",
+                    );
+                }
+                AddressValidity::ParseError => {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(0xff, 0x4d, 0x4d),
+                        "✗ Invalid URL",
+                    );
+                }
             }
 
-            ui.add_space(10.0);
-            ui.label("Username (optional — required if your registry uses HTTP Basic Auth):");
+            ui.add_space(8.0);
+            ui.label("Username (optional):");
             ui.text_edit_singleline(&mut state.registry_username);
 
             ui.add_space(10.0);
@@ -45,9 +101,10 @@ pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
             ui.add_space(20.0);
 
             ui.horizontal(|ui| {
+                let address_ok = matches!(validate_address(&state.registry_address), AddressValidity::Valid { .. });
                 let connect_clicked = ui
                     .add_enabled(
-                        !state.registry_login_in_progress,
+                        address_ok && !state.registry_login_in_progress,
                         egui::Button::new(if state.registry_login_in_progress {
                             "Connecting…"
                         } else {
@@ -58,12 +115,6 @@ pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
 
                 if connect_clicked && !state.registry_login_in_progress {
                     spawn_connect(state, ctx.clone());
-                }
-
-                if ui.button("Cancel").clicked() {
-                    state.registry_login_error = None;
-                    state.registry_password.clear();
-                    state.show_registry_dialog = false;
                 }
             });
         });
@@ -114,7 +165,7 @@ fn spawn_connect(state: &mut AppState, ctx: egui::Context) {
         let client = match Client::new(&address, auth) {
             Ok(c) => c,
             Err(e) => {
-                send(ConnectEvent::Err(format!("bad address: {e}")));
+                send(ConnectEvent::Err(format!("{e:#}")));
                 return;
             }
         };
@@ -122,7 +173,7 @@ fn spawn_connect(state: &mut AppState, ctx: egui::Context) {
         // any HTTP Basic Auth credentials the user typed.
         match client.list_images() {
             Ok(_) => send(ConnectEvent::Ok(Arc::new(Mutex::new(client)))),
-            Err(e) => send(ConnectEvent::Err(format!("connect failed: {e}"))),
+            Err(e) => send(ConnectEvent::Err(format!("{e:#}"))),
         }
     });
 }

@@ -2,7 +2,10 @@ use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 use validator::Validate;
 
 use crate::{
@@ -47,11 +50,12 @@ pub struct Nix {
 
 impl BuildImage for Nix {
     fn build(&self, worker: &Builder) -> Result<()> {
+        // TODO enable serial instead of VNC
         let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
             .drive_files(HashMap::from([(
                 "configuration.nix".to_string(),
-                self.configuration.load()?,
+                self.configuration.load(&worker.context_dir)?,
             )]))?
             .start()?;
 
@@ -85,12 +89,17 @@ impl BuildImage for Nix {
 pub struct ConfigurationPath(PathBuf);
 
 impl ConfigurationPath {
-    fn load(&self) -> Result<Vec<u8>> {
+    fn load(&self, context_dir: &Path) -> Result<Vec<u8>> {
         if self.0.starts_with("http") {
             todo!()
         }
 
-        let bytes = std::fs::read(&self.0)?;
+        let path = if self.0.is_absolute() {
+            self.0.clone()
+        } else {
+            context_dir.join(&self.0)
+        };
+        let bytes = std::fs::read(&path)?;
         Ok(bytes)
     }
 }

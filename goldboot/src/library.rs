@@ -52,6 +52,8 @@ impl ImageLibrary {
             panic!("Unsupported platform");
         };
 
+        debug!(path =%directory.display(), "Opening image library");
+
         std::fs::create_dir_all(&directory).expect("failed to create image library");
         ImageLibrary { directory }
     }
@@ -97,27 +99,6 @@ impl ImageLibrary {
         info!(path = %dest.display(), "Moving image into library");
         std::fs::rename(staged_path.as_ref(), &dest)?;
         Ok(dest)
-    }
-
-    /// Relocate an image already in the library from `from` to `to`. The
-    /// `name`/`tag` of both refs must match — only the host changes.
-    /// Used by push to record that an image now lives at a remote registry.
-    pub fn move_ref(&self, from: &ImageRef, to: &ImageRef) -> Result<PathBuf> {
-        if from.name != to.name || from.tag != to.tag {
-            bail!("move_ref: name/tag must match");
-        }
-        let from_path = self.image_path(from)?;
-        let to_path = self.image_path(to)?;
-        if from_path == to_path {
-            return Ok(to_path);
-        }
-        if let Some(parent) = to_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::rename(&from_path, &to_path)?;
-        prune_empty_parents(&self.directory, &from_path);
-        debug!(from = %from_path.display(), to = %to_path.display(), "Moved image");
-        Ok(to_path)
     }
 
     /// Delete an image. Tag must be concrete.

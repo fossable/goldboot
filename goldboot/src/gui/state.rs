@@ -1,8 +1,10 @@
+use crate::library::ImageLibrary;
 use crate::registry::protocol::RegistryImageEntry;
 use crate::{can_preload, gpt::fixup_backup_gpt, registry::Client};
 use goldboot_image::ImageHandle;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use tracing::{debug, warn};
 
 /// What the user picked on the SelectImage screen.
 #[derive(Debug, Clone)]
@@ -234,6 +236,9 @@ pub struct AppState {
     pub confirm_progress: f32, // 0.0 to 1.0
     pub confirm_char: char,    // Random ASCII char to press 100 times
 
+    // Sudo re-invoke dialog
+    pub show_sudo_dialog: bool,
+
     // Registry login
     pub registry_address: String,
     pub registry_username: String,
@@ -256,6 +261,10 @@ pub struct AppState {
     #[cfg(feature = "uki")]
     pub debug_shell: Option<DebugShell>,
     pub error_message: Option<String>,
+
+    /// Non-loopback IP addresses gathered once at startup, shown in the GUI corner.
+    #[cfg(feature = "uki")]
+    pub ip_addresses: Vec<String>,
 }
 
 impl Default for AppState {
@@ -264,32 +273,85 @@ impl Default for AppState {
     }
 }
 
+#[cfg(feature = "uki")]
+fn collect_ip_addresses() -> Vec<String> {
+    use std::net::IpAddr;
+
+    let networks = sysinfo::Networks::new_with_refreshed_list();
+    let mut entries: Vec<(String, IpAddr)> = Vec::new();
+    for (iface, net) in &networks {
+        for ipnet in net.ip_networks() {
+            if ipnet.addr.is_loopback() {
+                continue;
+            }
+            if let IpAddr::V6(v6) = ipnet.addr {
+                // Skip IPv6 link-local (fe80::/10)
+                if v6.segments()[0] & 0xffc0 == 0xfe80 {
+                    continue;
+                }
+            }
+            entries.push((iface.clone(), ipnet.addr));
+        }
+    }
+    // IPv4 first, then alphabetically by interface name for stable output.
+    entries.sort_by(|a, b| {
+        let a_is_v4 = matches!(a.1, IpAddr::V4(_));
+        let b_is_v4 = matches!(b.1, IpAddr::V4(_));
+        b_is_v4.cmp(&a_is_v4).then_with(|| a.0.cmp(&b.0))
+    });
+    entries
+        .into_iter()
+        .map(|(iface, addr)| format!("{iface}: {addr}"))
+        .collect()
+}
+
+fn scan_block_devices() -> Vec<block_utils::Device> {
+    let block_devices = match block_utils::get_block_devices() {
+        Ok(devs) => devs,
+        Err(e) => {
+            warn!(error = ?e, "Failed to enumerate block devices");
+            return Vec::new();
+        }
+    };
+    debug!(count = block_devices.len(), "Found block devices");
+
+    let devices = match block_utils::get_all_device_info(block_devices) {
+        Ok(devs) => devs,
+        Err(e) => {
+            warn!(error = ?e, "Failed to query block device info");
+            return Vec::new();
+        }
+    };
+
+    let filtered: Vec<_> = devices
+        .into_iter()
+        .filter(|d| d.media_type != block_utils::MediaType::Loopback)
+        .collect();
+    debug!(
+        count = filtered.len(),
+        "Block devices after filtering loopbacks"
+    );
+    filtered
+}
+
 impl AppState {
     pub fn new() -> Self {
         Self {
-            images: {
-                let lib = crate::library::ImageLibrary::open();
-                lib.find_all()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|(_host, h)| h)
-                    .collect()
-            },
+            images: ImageLibrary::open()
+                .find_all()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(_host, h)| h)
+                .collect(),
             selected_image: None,
-            devices: {
-                let block_devices = block_utils::get_block_devices().unwrap_or_default();
-                let devices = block_utils::get_all_device_info(block_devices).unwrap_or_default();
-                devices
-                    .into_iter()
-                    .filter(|d| d.media_type != block_utils::MediaType::Loopback)
-                    .collect()
-            },
+            devices: scan_block_devices(),
             selected_device: None,
             confirm_progress: 0.0,
             confirm_char: {
                 use rand::RngExt;
                 rand::rng().sample(rand::distr::Uniform::new(b'a', b'z' + 1).unwrap()) as char
             },
+            show_sudo_dialog: false,
             registry_address: String::new(),
             registry_username: String::new(),
             registry_password: String::new(),
@@ -304,6 +366,8 @@ impl AppState {
             #[cfg(feature = "uki")]
             debug_shell: None,
             error_message: None,
+            #[cfg(feature = "uki")]
+            ip_addresses: collect_ip_addresses(),
         }
     }
 

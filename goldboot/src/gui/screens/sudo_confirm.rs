@@ -1,55 +1,39 @@
-use super::super::{resources::TextureCache, state::AppState, theme::Theme, widgets};
-use super::Screen;
+use super::super::{state::AppState, theme::Theme};
 
-pub fn render(
-    ui: &mut egui::Ui,
-    _state: &mut AppState,
-    textures: &TextureCache,
-    theme: &Theme,
-    _screen: &mut Screen,
-) {
-    egui::Panel::bottom("sudo_confirm_hotkeys")
-        .frame(egui::Frame::NONE)
-        .show_separator_line(false)
-        .show_inside(ui, |ui| {
-            let hotkeys = vec![("Esc", "Quit"), ("Y", "Re-invoke")];
-            widgets::hotkeys::render(ui, &hotkeys, theme);
-        });
+pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
+    if !state.show_sudo_dialog {
+        return;
+    }
 
-    egui::CentralPanel::default()
-        .frame(egui::Frame::new())
-        .show_inside(ui, |ui| {
-            ui.vertical(|ui| {
-                widgets::header::render(ui, textures, theme);
+    egui::Window::new("Elevated Permissions Required")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .show(ctx, |ui| {
+            ui.label("Elevated permissions are required to write images.");
+            ui.add_space(8.0);
+            ui.label("Re-invoke with sudo?");
+            ui.add_space(16.0);
 
-                ui.vertical_centered(|ui| {
-                    ui.add_space(40.0);
+            let reinvoke = ui.input(|i| {
+                i.events
+                    .iter()
+                    .any(|e| matches!(e, egui::Event::Text(t) if t.eq_ignore_ascii_case("y")))
+            });
 
-                    ui.label(
-                        egui::RichText::new("Elevated permissions are required to write images.")
-                            .color(theme.text_primary)
-                            .strong()
-                            .size(18.0),
-                    );
-
-                    ui.add_space(12.0);
-
-                    ui.label(
-                        egui::RichText::new("Re-invoke with sudo?")
-                            .color(theme.text_secondary)
-                            .size(14.0),
-                    );
-                });
-
-                if ui.input(|i| {
-                    i.events
-                        .iter()
-                        .any(|e| matches!(e, egui::Event::Text(t) if t.eq_ignore_ascii_case("y")))
-                }) {
+            ui.horizontal(|ui| {
+                if ui.button("Yes (sudo)").clicked() || reinvoke {
                     let args: Vec<String> = std::env::args().collect();
                     let _ = std::process::Command::new("sudo").args(&args).status();
                     std::process::exit(0);
                 }
+                if ui.button("No").clicked() {
+                    state.show_sudo_dialog = false;
+                }
             });
         });
+
+    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        state.show_sudo_dialog = false;
+    }
 }

@@ -144,8 +144,11 @@
           # Graphics
           modprobe drm
           modprobe drm_kms_helper
-          # Networking
-          modprobe r8169 || true
+          # Networking - core socket families and ethernet drivers
+          modprobe af_packet || true
+          for mod in virtio_net e1000 e1000e igb igc tg3 bnxt_en r8169 r8152 8139cp; do
+            modprobe "$mod" || true
+          done
 
           # Set up udev directories
           mkdir -p /run/udev
@@ -177,13 +180,26 @@
 
           # Set up networking
           ip link set lo up
-          # Find the first ethernet interface (not lo)
+
+          # Bring up all non-loopback interfaces
           for iface in /sys/class/net/*; do
             iface=$(basename "$iface")
             [ "$iface" = "lo" ] && continue
             ip link set "$iface" up
-            udhcpc -i "$iface" -n -q || true
-            break
+          done
+
+          # Give links a moment to negotiate carrier
+          sleep 2
+
+          # Try DHCP on the first interface that has carrier
+          for iface in /sys/class/net/*; do
+            iface=$(basename "$iface")
+            [ "$iface" = "lo" ] && continue
+            carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || echo 0)
+            [ "$carrier" = "1" ] || continue
+            if udhcpc -i "$iface" -n -q -s /etc/udhcpc.script; then
+              break
+            fi
           done
 
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
@@ -218,6 +234,43 @@
           export MESA_LOADER_DRIVER_OVERRIDE=swrast
           export EGL_PLATFORM=wayland
           exec /sbin/goldboot
+        '';
+
+        # udhcpc default script — applies the DHCP lease to the interface.
+        # Without -s <script>, busybox udhcpc obtains a lease but does not
+        # configure IP, routes, or DNS.
+        udhcpcScript = pkgs.writeScript "udhcpc.script" ''
+          #!/bin/busybox sh
+          [ -n "$1" ] || exit 1
+
+          RESOLV_CONF="/etc/resolv.conf"
+
+          case "$1" in
+            deconfig)
+              ifconfig "$interface" 0.0.0.0
+              ;;
+            renew|bound)
+              NETMASK=""
+              [ -n "$subnet" ] && NETMASK="netmask $subnet"
+              BROADCAST="broadcast +"
+              [ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+              ifconfig "$interface" "$ip" $NETMASK $BROADCAST
+
+              if [ -n "$router" ]; then
+                while route del default gw 0.0.0.0 dev "$interface" 2>/dev/null; do :; done
+                for r in $router; do
+                  route add default gw "$r" dev "$interface"
+                done
+              fi
+
+              : > "$RESOLV_CONF"
+              [ -n "$domain" ] && echo "search $domain" >> "$RESOLV_CONF"
+              for ns in $dns; do
+                echo "nameserver $ns" >> "$RESOLV_CONF"
+              done
+              ;;
+          esac
+          exit 0
         '';
 
         # Combined udev rules with paths fixed for initramfs
@@ -255,7 +308,19 @@
             "i2c_hid"
             "i2c_hid_acpi"
             "hid"
+            # Packet socket (required by udhcpc raw socket)
+            "af_packet"
+            # Ethernet drivers
+            "virtio_net"
             "r8169"
+            "r8152"
+            "8139cp"
+            "e1000"
+            "e1000e"
+            "igb"
+            "igc"
+            "tg3"
+            "bnxt_en"
             "virtio_blk"
             "vfat"
             "ext4"
@@ -307,6 +372,11 @@
               {
                 object = goldbootLaunch;
                 symlink = "/sbin/goldboot-launch";
+                mode = "0755";
+              }
+              {
+                object = udhcpcScript;
+                symlink = "/etc/udhcpc.script";
                 mode = "0755";
               }
               {
@@ -516,7 +586,7 @@
             -device virtio-blk-pci,drive=images \
             -drive format=raw,file=$target_device,id=target,if=none \
             -device virtio-blk-pci,drive=target \
-            -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
+            -netdev user,id=user.0 -device virtio-net-pci,netdev=user.0 \
             -serial stdio \
             -device virtio-gpu-pci \
             -device usb-ehci \
@@ -538,7 +608,7 @@
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd,readonly=on \
             -drive if=pflash,format=raw,file=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd,readonly=on \
             -drive format=raw,file=fat:rw:$ESP_DIR \
-            -netdev user,id=user.0 -device rtl8139,netdev=user.0 \
+            -netdev user,id=user.0 -device virtio-net-pci,netdev=user.0 \
             -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x04 -vga std
 
           rm -rf $ESP_DIR

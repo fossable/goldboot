@@ -76,7 +76,7 @@ pub fn pull(reference: String, username: Option<String>, password: Option<String
 /// `<dest_host>/<name>[:<tag>]`. When `:<tag>` is omitted, the image's
 /// in-header tag is used. The image is sourced from the local library —
 /// first under `local/<name>/<tag>`, then under `<dest_host>/<name>/<tag>`
-/// in case the image has already been promoted.
+/// in case it was previously pulled from the destination.
 pub fn push(reference: String, username: Option<String>, password: Option<String>) -> ExitCode {
     let dest = match ImageRef::parse(&reference) {
         Ok(r) => r,
@@ -104,17 +104,17 @@ pub fn push(reference: String, username: Option<String>, password: Option<String
     let library = ImageLibrary::open();
 
     // Find the source image. Prefer the hostless (locally-built) copy;
-    // fall back to the destination host in case the image was already
-    // promoted by an earlier push.
+    // fall back to the destination host in case the image was previously
+    // pulled from there.
     let local_lookup = ImageRef {
         host: None,
         name: dest.name.clone(),
         tag: dest.tag.clone(),
     };
-    let (current_host, image) = match library.find_by_ref(&local_lookup) {
-        Ok(h) => (None, h),
+    let image = match library.find_by_ref(&local_lookup) {
+        Ok(h) => h,
         Err(_) => match library.find_by_ref(&dest) {
-            Ok(h) => (Some(dest_host_bare.clone()), h),
+            Ok(h) => h,
             Err(e) => {
                 eprintln!("No local image matching {reference}: {e}");
                 return ExitCode::FAILURE;
@@ -153,24 +153,6 @@ pub fn push(reference: String, username: Option<String>, password: Option<String
     if let Err(e) = client.push_image(&dest.name, &resolved_tag, file, file_len) {
         eprintln!("Push failed: {e}");
         return ExitCode::FAILURE;
-    }
-
-    // Reflect the push in the local library by moving the file under the
-    // destination host's bucket (if it wasn't already there).
-    if current_host.as_deref() != Some(&dest_host_bare) {
-        let from = ImageRef {
-            host: current_host,
-            name: dest.name.clone(),
-            tag: Some(resolved_tag.clone()),
-        };
-        let to = ImageRef {
-            host: Some(dest_host_bare.clone()),
-            name: dest.name.clone(),
-            tag: Some(resolved_tag.clone()),
-        };
-        if let Err(e) = library.move_ref(&from, &to) {
-            eprintln!("Warning: pushed successfully but failed to relocate local copy: {e}");
-        }
     }
 
     let printed = ImageRef::new(&dest.name)

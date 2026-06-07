@@ -59,7 +59,7 @@ pub fn render(
         .show_separator_line(false)
         .show_inside(ui, |ui| {
             let confirm_key_label = format!("'{}'", state.confirm_char);
-            let hotkeys = vec![("Esc", "Quit"), (&*confirm_key_label, "Confirm (x100)")];
+            let hotkeys = vec![("Esc", "Back"), (&*confirm_key_label, "Confirm (x100)")];
             widgets::hotkeys::render(ui, &hotkeys, theme);
         });
 

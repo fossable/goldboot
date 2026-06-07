@@ -20,7 +20,8 @@ use goldboot_image::{
     parse_manifest,
 };
 use reqwest::blocking::{Client as HttpClient, ClientBuilder, RequestBuilder, Response};
-use std::{fs::File, io::Write, path::PathBuf, time::Duration};
+use rustls::{ClientConfig, RootCertStore};
+use std::{fs::File, io::BufReader, io::Write, path::PathBuf, time::Duration};
 use tracing::warn;
 use url::Url;
 
@@ -59,6 +60,28 @@ fn custom_ca_path() -> PathBuf {
         .join(".config/goldboot/registry-cas.pem")
 }
 
+/// Build a `rustls::ClientConfig` with bundled Mozilla roots plus any custom
+/// CA the user has placed at `custom_ca_path()`. This avoids the platform
+/// cert-store verifier (which can fail in minimal environments like UKI mode).
+fn build_tls_config() -> Result<ClientConfig> {
+    let mut roots = RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+    let ca = custom_ca_path();
+    if ca.exists() {
+        let bytes = std::fs::read(&ca).with_context(|| format!("read {}", ca.display()))?;
+        let mut reader = BufReader::new(bytes.as_slice());
+        for cert in rustls_pemfile::certs(&mut reader) {
+            let cert = cert.with_context(|| format!("parse PEM cert from {}", ca.display()))?;
+            roots.add(cert).with_context(|| "add custom CA cert to root store")?;
+        }
+    }
+
+    Ok(ClientConfig::builder()
+        .with_root_certificates(roots)
+        .with_no_client_auth())
+}
+
 impl Client {
     pub fn new(address: &str, auth: Option<(String, String)>) -> Result<Self> {
         let base = registry_root(address)?;
@@ -69,22 +92,16 @@ impl Client {
             );
         }
 
-        let mut builder = ClientBuilder::new()
+        let tls = build_tls_config().context("failed to build TLS config")?;
+
+        let http = ClientBuilder::new()
             .user_agent(USER_AGENT)
             .timeout(Duration::from_secs(60))
-            .pool_idle_timeout(Some(Duration::from_secs(30)));
+            .pool_idle_timeout(Some(Duration::from_secs(30)))
+            .use_preconfigured_tls(tls)
+            .build()
+            .context("failed to initialize HTTP client")?;
 
-        let ca = custom_ca_path();
-        if ca.exists() {
-            let bytes = std::fs::read(&ca).with_context(|| format!("read {}", ca.display()))?;
-            for cert in reqwest::Certificate::from_pem_bundle(&bytes)
-                .with_context(|| format!("parse PEM bundle {}", ca.display()))?
-            {
-                builder = builder.add_root_certificate(cert);
-            }
-        }
-
-        let http = builder.build()?;
         Ok(Self { base, http, auth })
     }
 
