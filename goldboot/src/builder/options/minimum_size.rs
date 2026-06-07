@@ -4,17 +4,17 @@ use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-/// Absolute size of an image element.
+/// Minimum on-disk size of an image element. Images may expand beyond this at deployment time.
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Size(String);
+pub struct MinimumSize(String);
 
-impl Default for Size {
+impl Default for MinimumSize {
     fn default() -> Self {
         Self("16G".to_string())
     }
 }
 
-impl Prompt for Size {
+impl Prompt for MinimumSize {
     fn prompt(&mut self, _builder: &Builder) -> Result<()> {
         use dialoguer::Input;
         use validator::Validate;
@@ -22,11 +22,11 @@ impl Prompt for Size {
 
         loop {
             let input: String = Input::with_theme(&theme)
-                .with_prompt("Disk size (e.g. 16G, 512M)")
+                .with_prompt("Minimum disk size (e.g. 16G, 512M)")
                 .default(self.0.clone())
                 .interact_text()?;
 
-            let candidate = Size(input);
+            let candidate = MinimumSize(input);
             match candidate.validate() {
                 Ok(_) => {
                     *self = candidate;
@@ -38,7 +38,7 @@ impl Prompt for Size {
     }
 }
 
-impl Validate for Size {
+impl Validate for MinimumSize {
     fn validate(&self) -> std::result::Result<(), validator::ValidationErrors> {
         // Try to parse the size string using byte-unit
         match self.0.parse::<Byte>() {
@@ -66,12 +66,12 @@ impl Validate for Size {
     }
 }
 
-impl From<Size> for u64 {
-    fn from(val: Size) -> Self {
-        // Assume Size was validated previously
+impl From<MinimumSize> for u64 {
+    fn from(val: MinimumSize) -> Self {
+        // Assume MinimumSize was validated previously
         val.0
             .parse::<Byte>()
-            .expect("Size was not validated")
+            .expect("MinimumSize was not validated")
             .as_u64()
     }
 }
@@ -89,7 +89,7 @@ mod tests {
         ];
 
         for size_str in sizes {
-            let size = Size(size_str.to_string());
+            let size = MinimumSize(size_str.to_string());
             assert!(
                 size.validate().is_ok(),
                 "Expected '{}' to be valid",
@@ -110,7 +110,7 @@ mod tests {
         ];
 
         for size_str in invalid_sizes {
-            let size = Size(size_str.to_string());
+            let size = MinimumSize(size_str.to_string());
             assert!(
                 size.validate().is_err(),
                 "Expected '{}' to be invalid",
@@ -122,10 +122,10 @@ mod tests {
     #[test]
     fn test_zero_size() {
         // Test that zero size is rejected
-        let size = Size("0".to_string());
+        let size = MinimumSize("0".to_string());
         assert!(size.validate().is_err(), "Expected zero size to be invalid");
 
-        let size = Size("0GB".to_string());
+        let size = MinimumSize("0GB".to_string());
         assert!(size.validate().is_err(), "Expected zero size to be invalid");
     }
 }

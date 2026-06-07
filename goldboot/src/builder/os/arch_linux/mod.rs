@@ -7,7 +7,7 @@ use crate::builder::options::locale::Locale;
 use crate::builder::options::ntp::Ntp;
 use crate::builder::options::packages::Packages;
 use crate::builder::options::partition_layout::PartitionLayout;
-use crate::builder::options::size::Size;
+use crate::builder::options::minimum_size::MinimumSize;
 use crate::builder::options::timezone::Timezone;
 use crate::builder::options::unix_account::RootPassword;
 use crate::builder::options::unix_users::UnixUsers;
@@ -66,7 +66,7 @@ pub struct ArchLinux {
     #[default(Arch(ImageArch::Amd64))]
     #[serde(default = "default_arch")]
     pub arch: Arch,
-    pub size: Size,
+    pub minimum_size: MinimumSize,
     #[serde(default)]
     pub hostname: Hostname,
     pub mirrorlist: Option<ArchLinuxMirrorlist>,

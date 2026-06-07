@@ -9,8 +9,9 @@ use crate::{
     builder::{
         Builder,
         options::{
-            hostname::Hostname, iso::Iso, locale::Locale, ntp::Ntp, packages::Packages, size::Size,
-            timezone::Timezone, unix_account::RootPassword, unix_users::UnixUsers,
+            hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize, ntp::Ntp,
+            packages::Packages, timezone::Timezone, unix_account::RootPassword,
+            unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
@@ -24,7 +25,7 @@ use super::BuildImage;
 #[goldboot_macros::Os(architectures(Amd64, Arm64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct AlpineLinux {
-    pub size: Size,
+    pub minimum_size: MinimumSize,
     pub edition: AlpineEdition,
     #[serde(default)]
     pub hostname: Hostname,

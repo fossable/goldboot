@@ -6,7 +6,7 @@ pub mod luks;
 pub mod ntp;
 pub mod packages;
 pub mod partition_layout;
-pub mod size;
+pub mod minimum_size;
 pub mod timezone;
 pub mod unix_account;
 pub mod unix_users;

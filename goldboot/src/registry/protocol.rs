@@ -12,6 +12,8 @@ pub struct RegistryImageEntry {
     pub tag: String,
     /// Total decompressed size of the image, in bytes.
     pub size: u64,
+    /// Size of the stored image file on the registry's disk, in bytes.
+    pub file_size: u64,
     pub arch: ImageArch,
     /// Image creation time (Unix seconds).
     pub timestamp: u64,

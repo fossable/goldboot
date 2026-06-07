@@ -57,18 +57,19 @@ fn list(registry: Option<String>, username: Option<String>, password: Option<Str
             };
 
             println!(
-                "{:50} {:12} {:31} {:12}",
-                "Image", "Image Size", "Build Date", "Content ID"
+                "{:50} {:12} {:12} {:31} {:12}",
+                "Image", "Minimum Size", "Disk Size", "Build Date", "Content ID"
             );
             for (host, image) in images {
                 println!(
-                    "{:50} {:12} {:31} {}",
+                    "{:50} {:12} {:12} {:31} {}",
                     render_ref(
                         host.as_deref(),
                         &image.primary_header.name_str(),
                         &image.primary_header.tag_str(),
                     ),
                     image.primary_header.size.bytes().to_string(),
+                    image.file_size.bytes().to_string(),
                     chrono::DateTime::from_timestamp(image.primary_header.timestamp as i64, 0)
                         .unwrap_or_default()
                         .to_rfc2822(),
@@ -103,14 +104,15 @@ fn list(registry: Option<String>, username: Option<String>, password: Option<Str
             let host_display = host_without_scheme(&address);
 
             println!(
-                "{:50} {:12} {:31} {:12}",
-                "Image", "Image Size", "Build Date", "Content ID"
+                "{:50} {:12} {:12} {:31} {:12}",
+                "Image", "Minimum Size", "Disk Size", "Build Date", "Content ID"
             );
             for entry in images {
                 println!(
-                    "{:50} {:12} {:31} {}",
+                    "{:50} {:12} {:12} {:31} {}",
                     render_ref(Some(host_display), &entry.name, &entry.tag),
                     entry.size.bytes().to_string(),
+                    entry.file_size.bytes().to_string(),
                     chrono::DateTime::from_timestamp(entry.timestamp as i64, 0)
                         .unwrap_or_default()
                         .to_rfc2822(),

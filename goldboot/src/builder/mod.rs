@@ -104,10 +104,10 @@ impl Builder {
     pub fn run(&mut self, cli: Commands) -> Result<()> {
         self.start_time = Some(SystemTime::now());
 
-        let qcow_size: u64 = self
+        let minimum_qcow_size: u64 = self
             .elements
             .iter()
-            .map(|element| element.0.os_size())
+            .map(|element| element.0.os_minimum_size())
             .sum();
 
         match cli {
@@ -188,8 +188,11 @@ impl Builder {
                 self.qcow = Some(if self.qcow_path.exists() {
                     Qcow3::open(&self.qcow_path)?
                 } else {
-                    // Truncate the image size to a power of two for the qcow storage
-                    Qcow3::create(&self.qcow_path, qcow_size - (qcow_size % 2))?
+                    // Truncate the minimum size to a power of two for the qcow storage
+                    Qcow3::create(
+                        &self.qcow_path,
+                        minimum_qcow_size - (minimum_qcow_size % 2),
+                    )?
                 });
 
                 // Revert to the last snapshot if one exists

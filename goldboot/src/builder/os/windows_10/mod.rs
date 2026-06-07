@@ -12,7 +12,7 @@ use crate::{
     builder::{
         Builder,
         options::{
-            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, size::Size,
+            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize,
             timezone::Timezone, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
@@ -32,7 +32,7 @@ use super::BuildImage;
 pub struct Windows10 {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
-    pub size: Size,
+    pub minimum_size: MinimumSize,
     #[serde(default)]
     pub hostname: Hostname,
 

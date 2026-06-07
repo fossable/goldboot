@@ -9,7 +9,7 @@ use crate::{
     builder::{
         Builder,
         options::{
-            hostname::Hostname, iso::Iso, packages::Packages, size::Size,
+            hostname::Hostname, iso::Iso, minimum_size::MinimumSize, packages::Packages,
             unix_account::RootPassword, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
@@ -27,7 +27,7 @@ use super::BuildImage;
 #[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct TinyCore {
-    pub size: Size,
+    pub minimum_size: MinimumSize,
     pub edition: TinyCoreEdition,
     pub release: TinyCoreRelease,
     #[serde(default)]

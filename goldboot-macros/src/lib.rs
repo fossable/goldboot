@@ -11,14 +11,6 @@ pub fn prompt(input: TokenStream) -> TokenStream {
     impl_prompt(&ast)
 }
 
-/// Automatically implement the "size()" method from BuildImage trait.
-/// This assumes the struct has a field named "size" of type Size.
-#[proc_macro_derive(BuildImageSize)]
-pub fn build_image_size(input: TokenStream) -> TokenStream {
-    let ast = syn::parse(input).unwrap();
-    impl_build_image_size(&ast)
-}
-
 fn impl_prompt(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
 
@@ -87,35 +79,6 @@ fn is_option_type(ty: &syn::Type) -> bool {
     false
 }
 
-fn impl_build_image_size(ast: &syn::DeriveInput) -> TokenStream {
-    let name = &ast.ident;
-
-    // Verify that the struct has a field named "size"
-    let has_size_field = match &ast.data {
-        syn::Data::Struct(data) => match &data.fields {
-            syn::Fields::Named(fields) => fields
-                .named
-                .iter()
-                .any(|f| f.ident.as_ref().map(|i| i == "size").unwrap_or(false)),
-            _ => false,
-        },
-        _ => false,
-    };
-
-    if !has_size_field {
-        panic!("BuildImageSize derive requires a field named 'size'");
-    }
-
-    let syntax = quote! {
-        impl BuildImage for #name {
-            fn size(&self) -> &crate::builder::options::size::Size {
-                &self.size
-            }
-        }
-    };
-    syntax.into()
-}
-
 /// A newtype wrapper around Vec<syn::Path> so darling can parse the list.
 #[derive(Debug)]
 struct ArchList(Vec<syn::Path>);
@@ -175,13 +138,13 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
         _ => false,
     };
 
-    // Check if struct has a `size` field
-    let has_size_field = match &input.data {
+    // Check if struct has a `minimum_size` field
+    let has_minimum_size_field = match &input.data {
         syn::Data::Struct(data) => match &data.fields {
             syn::Fields::Named(fields) => fields
                 .named
                 .iter()
-                .any(|f| f.ident.as_ref().map(|i| i == "size").unwrap_or(false)),
+                .any(|f| f.ident.as_ref().map(|i| i == "minimum_size").unwrap_or(false)),
             _ => false,
         },
         _ => false,
@@ -212,15 +175,15 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
 
-    let os_size_impl = if has_size_field {
+    let os_minimum_size_impl = if has_minimum_size_field {
         quote! {
-            fn os_size(&self) -> u64 {
-                self.size.clone().into()
+            fn os_minimum_size(&self) -> u64 {
+                self.minimum_size.clone().into()
             }
         }
     } else {
         quote! {
-            fn os_size(&self) -> u64 {
+            fn os_minimum_size(&self) -> u64 {
                 0
             }
         }
@@ -240,7 +203,7 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
 
             #os_arch_impl
 
-            #os_size_impl
+            #os_minimum_size_impl
 
             fn serialize_ron(&self, config: &ron::ser::PrettyConfig) -> anyhow::Result<String> {
                 Ok(ron::ser::to_string_pretty(self, config.clone())?)

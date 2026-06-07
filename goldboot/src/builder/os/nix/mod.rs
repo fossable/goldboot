@@ -11,7 +11,9 @@ use validator::Validate;
 use crate::{
     builder::{
         Builder,
-        options::{arch::Arch, iso::Iso, partition_layout::PartitionLayout, size::Size},
+        options::{
+            arch::Arch, iso::Iso, minimum_size::MinimumSize, partition_layout::PartitionLayout,
+        },
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
@@ -32,7 +34,7 @@ use super::BuildImage;
 pub struct Nix {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
-    pub size: Size,
+    pub minimum_size: MinimumSize,
 
     /// Path to configuration.nix to install
     #[default(ConfigurationPath("configuration.nix".parse().unwrap()))]

@@ -11,8 +11,9 @@ use crate::{
         Builder,
         http::HttpServer,
         options::{
-            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, ntp::Ntp, packages::Packages,
-            size::Size, timezone::Timezone, unix_account::RootPassword, unix_users::UnixUsers,
+            arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize,
+            ntp::Ntp, packages::Packages, timezone::Timezone, unix_account::RootPassword,
+            unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
@@ -32,7 +33,7 @@ use super::BuildImage;
 pub struct Ubuntu {
     #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
-    pub size: Size,
+    pub minimum_size: MinimumSize,
     pub release: UbuntuRelease,
     #[serde(default)]
     pub hostname: Hostname,

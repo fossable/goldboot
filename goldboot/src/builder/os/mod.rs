@@ -29,7 +29,7 @@ pub trait OsTrait: BuildImage + Prompt + Send + Sync {
     fn os_alloy(&self) -> bool {
         false
     }
-    fn os_size(&self) -> u64;
+    fn os_minimum_size(&self) -> u64;
     fn os_arch(&self) -> ImageArch;
     fn serialize_ron(&self, config: &ron::ser::PrettyConfig) -> anyhow::Result<String>;
 }

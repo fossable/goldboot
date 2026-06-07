@@ -31,6 +31,7 @@ pub async fn list(
                     name,
                     tag,
                     size: h.primary_header.size,
+                    file_size: h.file_size,
                     arch: h.primary_header.arch,
                     timestamp: h.primary_header.timestamp,
                     // `h.id` is the content_id hex string (cluster-region SHA256).
