@@ -1,10 +1,14 @@
+use crate::boot::{DEFAULT_EFI_PATH, EspInfo, register_boot_entry};
+use crate::fs::resize_partition_fs;
+use crate::gpt::{extend_last_partition, find_esp, fixup_backup_gpt};
 use crate::library::ImageLibrary;
 use crate::registry::protocol::RegistryImageEntry;
-use crate::{can_preload, gpt::fixup_backup_gpt, registry::Client};
+use crate::{can_preload, registry::Client};
 use goldboot_image::ImageHandle;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 /// What the user picked on the SelectImage screen.
 #[derive(Debug, Clone)]
@@ -64,6 +68,9 @@ pub struct WriteProgress {
     pub verifying: bool,
     /// True if this is a verify-only operation (no write)
     pub verify_only: bool,
+    /// Post-write filesystem extension is in progress (indeterminate-duration
+    /// step that runs after the per-block write loop completes).
+    pub expanding_fs: bool,
     /// Dialog state after operation completes
     pub post_write_dialog: Option<PostWriteDialog>,
     /// Set if write or verify failed
@@ -95,6 +102,7 @@ impl WriteProgress {
             done: false,
             verifying: false,
             verify_only: false,
+            expanding_fs: false,
             post_write_dialog: None,
             error: None,
             start_time: now,
@@ -273,6 +281,63 @@ impl Default for AppState {
     }
 }
 
+/// Post-write steps shared by the local and stream write paths: extend the
+/// trailing partition to fill the device, fix up the backup GPT, resize the
+/// filesystem inside, and register an EFI boot entry pointing at the new
+/// disk's ESP. GUI/UKI always runs all three — the CLI has flags but the GUI
+/// is purpose-built for "deploy and reboot this machine."
+///
+/// `progress` is used to signal indeterminate-duration steps to the UI
+/// (currently just `expanding_fs` around the `resize2fs` call).
+fn post_write_hooks(
+    device_path: &Path,
+    device_size: u64,
+    progress: &Arc<Mutex<WriteProgress>>,
+) -> anyhow::Result<()> {
+    let mut f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(device_path)?;
+    let extended = extend_last_partition(&mut f, device_size)?;
+    fixup_backup_gpt(&mut f, device_size)?;
+    // Force the GPT writes to physical media before asking the kernel to
+    // re-read the partition table; otherwise partprobe can read a stale GPT
+    // and leave the per-partition size cache pointing at the pre-extend size.
+    f.sync_all()?;
+    drop(f);
+
+    if let Some(ext) = &extended {
+        if let Ok(mut p) = progress.lock() {
+            p.expanding_fs = true;
+        }
+        let resize_result = resize_partition_fs(device_path, ext);
+        if let Ok(mut p) = progress.lock() {
+            p.expanding_fs = false;
+        }
+        if let Err(err) = resize_result {
+            warn!(error = ?err, "Failed to resize filesystem after partition extension");
+        }
+    }
+
+    match find_esp(device_path) {
+        Ok(Some(esp)) => {
+            let esp_info = EspInfo {
+                partition_number: esp.index,
+                partition_start_lba: esp.first_lba,
+                partition_size_lba: esp.last_lba - esp.first_lba + 1,
+                partition_guid: esp.unique_guid,
+            };
+            if let Err(err) = register_boot_entry(&esp_info, "goldboot", DEFAULT_EFI_PATH) {
+                warn!(error = ?err, "Failed to register EFI boot entry");
+            }
+        }
+        Ok(None) => info!("Skipping boot entry: no ESP found in GPT"),
+        Err(err) => warn!(error = ?err, "Failed to read GPT for ESP discovery"),
+    }
+
+    Ok(())
+}
+
 #[cfg(feature = "uki")]
 fn collect_ip_addresses() -> Vec<String> {
     use std::net::IpAddr;
@@ -426,19 +491,17 @@ impl AppState {
         let progress = Arc::new(Mutex::new(WriteProgress::new(cluster_count, block_size)));
         self.write_progress = Some(progress.clone());
 
+        let progress_for_hooks = progress.clone();
         std::thread::spawn(move || {
-            let result = image
+            let result: anyhow::Result<()> = image
                 .write(&device_path, can_preload(image.file_size), |idx, state| {
                     if let Ok(mut p) = progress.lock() {
                         p.record_cluster(idx, state);
                     }
                 })
+                .map_err(Into::into)
                 .and_then(|_| {
-                    let mut f = std::fs::OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .open(&device_path)?;
-                    fixup_backup_gpt(&mut f, device_size)
+                    post_write_hooks(Path::new(&device_path), device_size, &progress_for_hooks)
                 });
 
             if let Ok(mut p) = progress.lock() {
@@ -496,13 +559,7 @@ impl AppState {
                         }
                     },
                 )?;
-                // Fix up the backup GPT after writing
-                let mut f = std::fs::OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(&device_path)?;
-                fixup_backup_gpt(&mut f, device_size)?;
-                Ok(())
+                post_write_hooks(Path::new(&device_path), device_size, &progress)
             })();
 
             if let Ok(mut p) = progress.lock() {

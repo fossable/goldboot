@@ -188,18 +188,22 @@
             ip link set "$iface" up
           done
 
-          # Give links a moment to negotiate carrier
-          sleep 2
-
-          # Try DHCP on the first interface that has carrier
-          for iface in /sys/class/net/*; do
-            iface=$(basename "$iface")
-            [ "$iface" = "lo" ] && continue
-            carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || echo 0)
-            [ "$carrier" = "1" ] || continue
-            if udhcpc -i "$iface" -n -q -s /etc/udhcpc.script; then
-              break
-            fi
+          # Poll for carrier on any interface (some PHYs take several seconds
+          # to negotiate) and DHCP on the first one that comes up.
+          got_lease=0
+          for attempt in $(seq 1 6); do
+            for iface in /sys/class/net/*; do
+              iface=$(basename "$iface")
+              [ "$iface" = "lo" ] && continue
+              carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || echo 0)
+              [ "$carrier" = "1" ] || continue
+              if udhcpc -i "$iface" -n -q -s /etc/udhcpc.script; then
+                got_lease=1
+                break
+              fi
+            done
+            [ "$got_lease" = "1" ] && break
+            sleep 1
           done
 
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime

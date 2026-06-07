@@ -78,6 +78,17 @@ pub enum Commands {
         /// Do not prompt for confirmation (be extremely careful with this)
         #[clap(long, num_args = 0)]
         confirm: bool,
+
+        /// After writing, grow the trailing partition's filesystem to fill
+        /// the device (ext4 only). No-op when output is a regular file.
+        #[clap(long, num_args = 0)]
+        extend_fs: bool,
+
+        /// After writing, register an EFI boot entry pointing at the new
+        /// disk's ESP and set BootNext. Only meaningful when deploying to
+        /// the disk this machine boots from.
+        #[clap(long, num_args = 0)]
+        boot_entry: bool,
     },
 
     /// Check how much a device has drifted from an image

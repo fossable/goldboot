@@ -105,11 +105,21 @@ pub fn render(
                 state.debug_shell = None;
             } else {
                 // Render semi-transparent background overlay
+                let screen = ui.ctx().screen_rect();
                 ui.painter().rect_filled(
                     ui.ctx().content_rect(),
                     0.0,
                     egui::Color32::from_black_alpha(180),
                 );
+
+                // Leave a small margin so the dialog never butts against
+                // the screen edges (and accounts for the frame stroke /
+                // inner margin / drop shadow).
+                let screen_margin = 20.0;
+                let max_w = (screen.width() - screen_margin * 2.0).max(0.0);
+                let max_h = (screen.height() - screen_margin * 2.0).max(0.0);
+                let pref_max = egui::vec2(max_w.min(900.0), max_h.min(600.0));
+                let pref_min = egui::vec2(700.0_f32.min(pref_max.x), 450.0_f32.min(pref_max.y));
 
                 // Render terminal in a centered frame
                 egui::Area::new(egui::Id::new("debug_shell_area"))
@@ -123,8 +133,8 @@ pub fn render(
                             .inner_margin(10.0)
                             .corner_radius(8.0)
                             .show(ui, |ui| {
-                                ui.set_min_size(egui::vec2(700.0, 450.0));
-                                ui.set_max_size(egui::vec2(900.0, 600.0));
+                                ui.set_min_size(pref_min);
+                                ui.set_max_size(pref_max);
 
                                 ui.vertical(|ui| {
                                     ui.horizontal(|ui| {

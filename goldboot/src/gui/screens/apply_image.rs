@@ -94,6 +94,21 @@ pub fn render(
         }
     }
 
+    // Indeterminate "expanding filesystem" overlay — shown between the write
+    // loop finishing and the post-write dialog appearing.
+    let expanding_fs = state
+        .write_progress
+        .as_ref()
+        .and_then(|p| p.lock().ok())
+        .map(|p| p.expanding_fs)
+        .unwrap_or(false);
+
+    if expanding_fs {
+        render_expanding_fs_overlay(ui, theme);
+        ui.ctx().request_repaint();
+        return;
+    }
+
     // Post-write/verify dialog (overlays everything)
     let (show_dialog, verified) = state
         .write_progress
@@ -458,6 +473,55 @@ pub fn render(
     {
         ui.ctx().request_repaint();
     }
+}
+
+/// Centered indeterminate spinner shown while `resize2fs` is running. No
+/// progress percentage is available — resize2fs doesn't report incremental
+/// state — so this is purely a "still working" indicator.
+fn render_expanding_fs_overlay(ui: &mut egui::Ui, theme: &Theme) {
+    ui.centered_and_justified(|ui| {
+        let box_width = 420.0;
+        let box_height = 180.0;
+        let box_rect = egui::Rect::from_center_size(
+            ui.available_rect_before_wrap().center(),
+            egui::vec2(box_width, box_height),
+        );
+
+        let painter = ui.painter();
+        painter.rect_filled(
+            box_rect,
+            8.0,
+            egui::Color32::from_rgba_unmultiplied(0x22, 0x22, 0x22, 245),
+        );
+        painter.rect_stroke(
+            box_rect,
+            8.0,
+            egui::Stroke::new(2.0, theme.accent_gold),
+            egui::StrokeKind::Outside,
+        );
+
+        ui.scope_builder(
+            egui::UiBuilder::new().max_rect(box_rect.shrink(24.0)),
+            |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.label(
+                        egui::RichText::new("Expanding Filesystem")
+                            .color(theme.accent_gold)
+                            .strong()
+                            .size(20.0),
+                    );
+                    ui.add_space(16.0);
+                    ui.add(egui::Spinner::new().size(40.0).color(theme.accent_gold));
+                    ui.add_space(16.0);
+                    ui.label(
+                        egui::RichText::new("Growing the root partition to fill the device...")
+                            .color(theme.text_secondary)
+                            .size(13.0),
+                    );
+                });
+            },
+        );
+    });
 }
 
 fn render_block_grid(

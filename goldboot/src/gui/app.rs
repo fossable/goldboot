@@ -83,9 +83,11 @@ impl eframe::App for GuiApp {
         // Render sudo re-invoke dialog if needed
         sudo_confirm::render(&ctx, &mut self.state, &self.theme);
 
-        // Display local IP addresses in the bottom-right corner (UKI only)
+        // Display local IP addresses in the bottom-right corner (UKI only, SelectImage screen only)
         #[cfg(feature = "uki")]
-        widgets::ip_address::render(&ctx, &self.state, &self.theme);
+        if self.screen == Screen::SelectImage {
+            widgets::ip_address::render(&ctx, &self.state, &self.theme);
+        }
     }
 }
 

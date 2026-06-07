@@ -3,10 +3,15 @@ use console::Style;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use goldboot_image::ImageHandle;
 use std::{fs::OpenOptions, io::IsTerminal, path::Path, process::ExitCode};
-use tracing::error;
+use tracing::{error, info, warn};
 
 use crate::{
-    can_preload, cli::progress::ProgressBar, gpt::fixup_backup_gpt, library::ImageLibrary,
+    boot::{DEFAULT_EFI_PATH, EspInfo, register_boot_entry},
+    can_preload,
+    cli::progress::ProgressBar,
+    fs::resize_partition_fs,
+    gpt::{extend_last_partition, find_esp, fixup_backup_gpt},
+    library::ImageLibrary,
     registry::ImageRef,
 };
 
@@ -16,6 +21,8 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             image,
             output,
             confirm,
+            extend_fs,
+            boot_entry,
         } => {
             let theme = ColorfulTheme {
                 values_style: Style::new().yellow().dim(),
@@ -215,9 +222,67 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     }
                 }
             };
+            let extended = if extend_fs {
+                match extend_last_partition(&mut dest_file, dest_size) {
+                    Ok(ext) => ext,
+                    Err(err) => {
+                        error!(error = ?err, "Failed to extend trailing partition");
+                        return ExitCode::FAILURE;
+                    }
+                }
+            } else {
+                None
+            };
+
             if let Err(err) = fixup_backup_gpt(&mut dest_file, dest_size) {
                 error!(error = ?err, "Failed to fixup backup GPT");
                 return ExitCode::FAILURE;
+            }
+            if let Err(err) = dest_file.sync_all() {
+                error!(error = ?err, "Failed to sync output to disk");
+                return ExitCode::FAILURE;
+            }
+            drop(dest_file);
+
+            if let Some(ext) = extended {
+                if let Err(err) = resize_partition_fs(output_path, &ext) {
+                    error!(error = ?err, "Failed to resize filesystem");
+                    return ExitCode::FAILURE;
+                }
+            }
+
+            if boot_entry {
+                let is_block_device = std::fs::metadata(output_path)
+                    .map(|m| {
+                        use std::os::unix::fs::FileTypeExt;
+                        m.file_type().is_block_device()
+                    })
+                    .unwrap_or(false);
+                if !is_block_device {
+                    info!("Skipping boot entry: output is not a block device");
+                } else {
+                    match find_esp(output_path) {
+                        Ok(Some(esp)) => {
+                            let esp_info = EspInfo {
+                                partition_number: esp.index,
+                                partition_start_lba: esp.first_lba,
+                                partition_size_lba: esp.last_lba - esp.first_lba + 1,
+                                partition_guid: esp.unique_guid,
+                            };
+                            if let Err(err) =
+                                register_boot_entry(&esp_info, "goldboot", DEFAULT_EFI_PATH)
+                            {
+                                warn!(error = ?err, "Failed to register EFI boot entry");
+                            }
+                        }
+                        Ok(None) => {
+                            info!("Skipping boot entry: no ESP found in GPT");
+                        }
+                        Err(err) => {
+                            warn!(error = ?err, "Failed to read GPT for ESP discovery");
+                        }
+                    }
+                }
             }
 
             ExitCode::SUCCESS

@@ -1,4 +1,7 @@
-use crate::library::ImageLibrary;
+use crate::{
+    boot::{EspInfo, describe_boot_entry, register_boot_entry},
+    library::ImageLibrary,
+};
 use console::Style;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use std::{io::IsTerminal, path::Path, process::ExitCode};
@@ -115,12 +118,18 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             if dest == "/boot" {
                 plan_lines.push(String::new());
                 plan_lines.push("EFI variables that would be changed:".to_owned());
-                match describe_next_boot("goldboot.efi") {
-                    Ok(description) => plan_lines.push(description),
-                    Err(err) => plan_lines.push(format!(
-                        "  (could not determine EFI variable changes: {err})"
-                    )),
-                }
+                let description = match esp_from_boot_mount() {
+                    Ok(esp) => {
+                        describe_boot_entry(&esp, "goldboot", "\\EFI\\Boot\\goldboot.efi")
+                            .unwrap_or_else(|err| {
+                                format!("  (could not determine EFI variable changes: {err})")
+                            })
+                    }
+                    Err(err) => {
+                        format!("  (could not determine EFI variable changes: {err})")
+                    }
+                };
+                plan_lines.push(description);
             }
 
             if dryrun {
@@ -177,8 +186,17 @@ pub fn run(cmd: super::Commands) -> ExitCode {
             // goldboot.efi on the next reboot. Takeover mode doesn't need this because
             // EFI/BOOT/BOOTX64.EFI is already the firmware's default fallback path.
             if !takeover && dest == "/boot" {
-                if let Err(err) = set_next_boot(&efi_dest.to_string_lossy(), "goldboot.efi") {
-                    warn!(error = ?err, "Failed to set BootNext EFI variable; boot entry must be created manually");
+                match esp_from_boot_mount() {
+                    Ok(esp) => {
+                        if let Err(err) =
+                            register_boot_entry(&esp, "goldboot", "\\EFI\\Boot\\goldboot.efi")
+                        {
+                            warn!(error = ?err, "Failed to set BootNext EFI variable; boot entry must be created manually");
+                        }
+                    }
+                    Err(err) => {
+                        warn!(error = ?err, "Failed to discover ESP from /boot mount; BootNext not set");
+                    }
                 }
             }
 
@@ -188,13 +206,10 @@ pub fn run(cmd: super::Commands) -> ExitCode {
     }
 }
 
-/// Describe what EFI variable changes `set_next_boot` would make, without writing anything.
-fn describe_next_boot(efi_filename: &str) -> anyhow::Result<String> {
-    use efivar::{
-        boot::{EFIHardDrive, EFIHardDriveType, FilePath, FilePathList},
-        efi::Variable,
-    };
-
+/// Build an [`EspInfo`] for the partition currently mounted at `/boot`. Used
+/// by the `install` command, which writes goldboot.efi onto the running
+/// system's ESP rather than a freshly-deployed disk.
+fn esp_from_boot_mount() -> anyhow::Result<EspInfo> {
     let source = {
         let out = std::process::Command::new("findmnt")
             .args(["--noheadings", "--output", "SOURCE", "/boot"])
@@ -206,178 +221,27 @@ fn describe_next_boot(efi_filename: &str) -> anyhow::Result<String> {
         s
     };
 
-    let (partuuid_str, part_start, part_size) = parse_lsblk(&source)?;
-    let partition_sig = partuuid_str.parse::<uuid::Uuid>()?;
+    let (partuuid_str, part_start_lba, part_size_bytes) = parse_lsblk(&source)?;
+    let partition_guid = partuuid_str.parse::<uuid::Uuid>()?;
     let partition_number: u32 = source
         .trim_start_matches(|c: char| !c.is_ascii_digit())
         .parse()
         .unwrap_or(1);
 
-    let hard_drive = EFIHardDrive {
+    Ok(EspInfo {
         partition_number,
-        partition_start: part_start,
-        partition_size: part_size,
-        partition_sig,
-        format: 0x02,
-        sig_type: EFIHardDriveType::Gpt,
-    };
-    let file_path = FilePath {
-        path: format!("\\EFI\\Boot\\{efi_filename}"),
-    };
-    let file_path_list = FilePathList {
-        file_path,
-        hard_drive,
-    };
-
-    let manager = efivar::system();
-
-    // Determine the boot entry ID that would be used
-    let existing_id = manager.get_boot_order().ok().and_then(|order| {
-        order.into_iter().find(|&id| {
-            let var = Variable::new(&format!("Boot{:04X}", id));
-            manager
-                .read(&var)
-                .ok()
-                .and_then(|(data, _)| efivar::boot::BootEntry::parse(data).ok())
-                .map(|e| e.description == "goldboot")
-                .unwrap_or(false)
-        })
-    });
-
-    let boot_id = if let Some(id) = existing_id {
-        id
-    } else {
-        let used: std::collections::HashSet<u16> = manager
-            .get_boot_order()
-            .unwrap_or_default()
-            .into_iter()
-            .collect();
-        (0x0100u16..=0xFFFF)
-            .find(|id| !used.contains(id))
-            .ok_or_else(|| anyhow::anyhow!("No free boot entry slots"))?
-    };
-
-    let action = if existing_id.is_some() {
-        "overwrite existing"
-    } else {
-        "create new"
-    };
-
-    Ok(format!(
-        "  Boot{:04X}  ({action})  goldboot  {file_path_list}\n  BootNext = Boot{:04X}",
-        boot_id, boot_id,
-    ))
+        partition_start_lba: part_start_lba,
+        // lsblk SIZE is in bytes (because --bytes); EFI HARD_DRIVE wants LBAs.
+        partition_size_lba: part_size_bytes / 512,
+        partition_guid,
+    })
 }
 
-/// Find or create a boot entry for goldboot.efi and set `BootNext` to it.
+/// Run `lsblk --pairs` on `device` and return `(partuuid, start_lba, size_bytes)`.
 ///
-/// `efi_dest` is the full path to the installed EFI binary (used only for logging).
-/// `efi_filename` is the short filename used in the EFI path (e.g. "BootX64.efi").
-fn set_next_boot(efi_dest: &str, efi_filename: &str) -> anyhow::Result<()> {
-    use efivar::{
-        boot::{
-            BootEntry, BootEntryAttributes, EFIHardDrive, EFIHardDriveType, FilePath, FilePathList,
-        },
-        efi::{Variable, VariableFlags},
-    };
-
-    let source = {
-        let out = std::process::Command::new("findmnt")
-            .args(["--noheadings", "--output", "SOURCE", "/boot"])
-            .output()?;
-        let s = String::from_utf8(out.stdout)?.trim().to_owned();
-        if s.is_empty() {
-            anyhow::bail!("/boot does not appear to be a separate mount point");
-        }
-        s
-    };
-
-    let (partuuid_str, part_start, part_size) = parse_lsblk(&source)?;
-    let partition_sig = partuuid_str.parse::<uuid::Uuid>()?;
-    let partition_number: u32 = source
-        .trim_start_matches(|c: char| !c.is_ascii_digit())
-        .parse()
-        .unwrap_or(1);
-
-    let hard_drive = EFIHardDrive {
-        partition_number,
-        partition_start: part_start,
-        partition_size: part_size,
-        partition_sig,
-        format: 0x02, // GPT
-        sig_type: EFIHardDriveType::Gpt,
-    };
-
-    let file_path = FilePath {
-        path: format!("\\EFI\\Boot\\{efi_filename}"),
-    };
-    let file_path_list = FilePathList {
-        file_path,
-        hard_drive,
-    };
-
-    let entry = BootEntry {
-        attributes: BootEntryAttributes::LOAD_OPTION_ACTIVE,
-        description: "goldboot".to_owned(),
-        file_path_list: Some(file_path_list),
-        optional_data: vec![],
-    };
-
-    let mut manager = efivar::system();
-
-    // Look for an existing goldboot boot entry to reuse its ID
-    let boot_id = if let Ok(order) = manager.get_boot_order() {
-        order.into_iter().find(|&id| {
-            let var = Variable::new(&format!("Boot{:04X}", id));
-            manager
-                .read(&var)
-                .ok()
-                .and_then(|(data, _)| efivar::boot::BootEntry::parse(data).ok())
-                .map(|e| e.description == "goldboot")
-                .unwrap_or(false)
-        })
-    } else {
-        None
-    };
-
-    let boot_id = if let Some(id) = boot_id {
-        // Overwrite the existing entry
-        manager.add_boot_entry(id, entry)?;
-        id
-    } else {
-        // Find a free boot entry slot (start at 0x0100 to avoid conflicts)
-        let used: std::collections::HashSet<u16> = manager
-            .get_boot_order()
-            .unwrap_or_default()
-            .into_iter()
-            .collect();
-        let new_id = (0x0100u16..=0xFFFF)
-            .find(|id| !used.contains(id))
-            .ok_or_else(|| anyhow::anyhow!("No free boot entry slots"))?;
-        manager.add_boot_entry(new_id, entry)?;
-        new_id
-    };
-
-    // Write BootNext as a little-endian u16
-    let boot_next_bytes = boot_id.to_le_bytes();
-    manager.write(
-        &Variable::new("BootNext"),
-        VariableFlags::NON_VOLATILE
-            | VariableFlags::BOOTSERVICE_ACCESS
-            | VariableFlags::RUNTIME_ACCESS,
-        &boot_next_bytes,
-    )?;
-
-    tracing::info!(
-        boot_id = format!("Boot{:04X}", boot_id),
-        path = efi_dest,
-        "Set BootNext to goldboot.efi"
-    );
-
-    Ok(())
-}
-
-/// Run `lsblk --pairs` on `device` and return `(partuuid, start_bytes, size_bytes)`.
+/// `lsblk START` is always reported in 512-byte sectors; `SIZE` is in bytes
+/// because we pass `--bytes`. Callers must convert size to LBAs themselves if
+/// they need consistent units.
 fn parse_lsblk(device: &str) -> anyhow::Result<(String, u64, u64)> {
     let out = std::process::Command::new("lsblk")
         .args([

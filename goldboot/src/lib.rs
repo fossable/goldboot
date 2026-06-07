@@ -6,6 +6,8 @@ use std::net::TcpListener;
 pub mod builder;
 #[cfg(feature = "cli")]
 pub mod cli;
+pub mod boot;
+pub mod fs;
 pub mod gpt;
 #[cfg(feature = "gui")]
 pub mod gui;

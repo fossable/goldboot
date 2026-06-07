@@ -5,7 +5,9 @@ compile_error!("features \"cli\" and \"uki\" are mutually exclusive");
 use clap::Parser;
 #[cfg(feature = "cli")]
 use goldboot::cli::cmd::Commands;
+#[cfg(feature = "cli")]
 use std::os::unix::process::CommandExt;
+#[cfg(feature = "cli")]
 use std::process::Command;
 use std::process::ExitCode;
 use tracing::debug;
@@ -136,6 +138,8 @@ fn uki_main() -> ExitCode {
 
     debug!("Rebooting on GUI exit");
 
-    let err = Command::new("reboot").exec();
-    panic!("Failed to execute reboot: {}", err);
+    unsafe {
+        libc::reboot(libc::RB_AUTOBOOT);
+    }
+    ExitCode::SUCCESS
 }
