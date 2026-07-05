@@ -5,12 +5,7 @@ compile_error!("features \"cli\" and \"uki\" are mutually exclusive");
 use clap::Parser;
 #[cfg(feature = "cli")]
 use goldboot::cli::cmd::Commands;
-#[cfg(feature = "cli")]
-use std::os::unix::process::CommandExt;
-#[cfg(feature = "cli")]
-use std::process::Command;
 use std::process::ExitCode;
-use tracing::debug;
 
 #[cfg(feature = "cli")]
 #[derive(Parser, Debug)]

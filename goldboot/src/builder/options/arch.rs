@@ -2,12 +2,14 @@ use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Arch(pub ImageArch);
+/// The CPU architecture the image is built for.
+#[derive(Clone, Serialize, Deserialize, Debug, SmartDefault)]
+pub struct Arch(#[default(ImageArch::Amd64)] pub ImageArch);
 
 impl Prompt for Arch {
-    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         use dialoguer::Select;
         let theme = crate::cli::cmd::init::theme();
 

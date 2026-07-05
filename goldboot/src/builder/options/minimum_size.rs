@@ -2,22 +2,16 @@ use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 use validator::Validate;
 
 /// Minimum on-disk size of an image element. Images may expand beyond this at deployment time.
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct MinimumSize(String);
-
-impl Default for MinimumSize {
-    fn default() -> Self {
-        Self("16G".to_string())
-    }
-}
+#[derive(Clone, Serialize, Deserialize, Debug, SmartDefault)]
+pub struct MinimumSize(#[default("16G".to_string())] String);
 
 impl Prompt for MinimumSize {
-    fn prompt(&mut self, _builder: &Builder) -> Result<()> {
+    fn prompt(&mut self, _: &Builder) -> Result<()> {
         use dialoguer::Input;
-        use validator::Validate;
         let theme = crate::cli::cmd::init::theme();
 
         loop {

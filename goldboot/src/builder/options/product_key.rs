@@ -3,19 +3,19 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 
-/// Whether to enable NTP time synchronization.
+/// A product key used to activate the OS (e.g. a Windows product key).
 #[derive(Clone, Serialize, Deserialize, Debug, SmartDefault)]
-pub struct Ntp(#[default(true)] pub bool);
+pub struct ProductKey(pub String);
 
-impl Prompt for Ntp {
+impl Prompt for ProductKey {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
-        use dialoguer::Confirm;
+        use dialoguer::Input;
         let theme = crate::cli::cmd::init::theme();
 
-        self.0 = Confirm::with_theme(&theme)
-            .with_prompt("Enable NTP time synchronization?")
-            .default(self.0)
-            .interact()?;
+        self.0 = Input::with_theme(&theme)
+            .with_prompt("Product key")
+            .allow_empty(true)
+            .interact_text()?;
 
         Ok(())
     }

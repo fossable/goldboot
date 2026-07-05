@@ -57,10 +57,7 @@ fn blkgetsize64(path: &Path) -> Result<u64> {
     let mut size: u64 = 0;
     let ret = unsafe { libc::ioctl(f.as_raw_fd(), BLKGETSIZE64, &mut size as *mut u64) };
     if ret != 0 {
-        return Err(anyhow!(
-            "BLKGETSIZE64 ioctl failed on {}",
-            path.display()
-        ));
+        return Err(anyhow!("BLKGETSIZE64 ioctl failed on {}", path.display()));
     }
     Ok(size)
 }
@@ -156,7 +153,7 @@ pub fn resize_partition_fs(parent: &Path, extended: &ExtendedPartition) -> Resul
         .arg(&partition_path)
         .status()?;
     let fsck_code = fsck.code().unwrap_or(-1);
-    if !matches!(fsck_code, 0 | 1 | 2) {
+    if !matches!(fsck_code, 0..=2) {
         return Err(anyhow!(
             "e2fsck {} exited with status {}; refusing to resize",
             partition_path.display(),

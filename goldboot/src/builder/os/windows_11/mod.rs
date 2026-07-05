@@ -1,5 +1,4 @@
 use anyhow::Result;
-use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_win_unattend::*;
 use smart_default::SmartDefault;
@@ -12,7 +11,7 @@ use crate::{
         Builder,
         options::{
             arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize,
-            timezone::Timezone, unix_users::UnixUsers,
+            product_key, timezone::Timezone, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
@@ -20,7 +19,6 @@ use crate::{
 };
 
 use super::BuildImage;
-use super::windows_10::WindowsProductKey;
 
 /// Windows 11 is a major release of Microsoft's Windows NT operating system.
 ///
@@ -29,7 +27,6 @@ use super::windows_10::WindowsProductKey;
 #[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Windows11 {
-    #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub minimum_size: MinimumSize,
     #[serde(default)]
@@ -47,7 +44,7 @@ pub struct Windows11 {
     pub users: Option<UnixUsers>,
 
     /// Windows product key (leave unset to use a generic/evaluation key)
-    pub product_key: Option<WindowsProductKey>,
+    pub product_key: Option<product_key::ProductKey>,
 
     #[default(Iso {
         url: "http://example.com".parse().unwrap(),
@@ -214,7 +211,7 @@ impl Windows11 {
                     pass: "specialize".into(),
                     component: vec![Component {
                         name: "Microsoft-Windows-Shell-Setup".into(),
-                        ComputerName: Some(self.hostname.hostname.clone()),
+                        ComputerName: Some(self.hostname.0.clone()),
                         ..Default::default()
                     }],
                 },

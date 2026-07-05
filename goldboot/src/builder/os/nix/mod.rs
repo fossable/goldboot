@@ -1,5 +1,4 @@
 use anyhow::Result;
-use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use std::{
@@ -33,7 +32,6 @@ use super::BuildImage;
 #[goldboot_macros::Os(architectures(Amd64, Arm64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Nix {
-    #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub minimum_size: MinimumSize,
 

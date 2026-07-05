@@ -1,13 +1,11 @@
-use tracing::trace;
-
+#[cfg(feature = "uki")]
+use super::widgets;
 use super::{
     resources::TextureCache,
     screens::{Screen, registry_login, sudo_confirm},
     state::AppState,
     theme::Theme,
 };
-#[cfg(feature = "uki")]
-use super::widgets;
 
 pub struct GuiApp {
     pub screen: Screen,

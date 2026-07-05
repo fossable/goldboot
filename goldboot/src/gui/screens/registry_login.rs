@@ -75,10 +75,7 @@ pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
                     );
                 }
                 AddressValidity::ParseError => {
-                    ui.colored_label(
-                        egui::Color32::from_rgb(0xff, 0x4d, 0x4d),
-                        "✗ Invalid URL",
-                    );
+                    ui.colored_label(egui::Color32::from_rgb(0xff, 0x4d, 0x4d), "✗ Invalid URL");
                 }
             }
 
@@ -101,7 +98,10 @@ pub fn render(ctx: &egui::Context, state: &mut AppState, _theme: &Theme) {
             ui.add_space(20.0);
 
             ui.horizontal(|ui| {
-                let address_ok = matches!(validate_address(&state.registry_address), AddressValidity::Valid { .. });
+                let address_ok = matches!(
+                    validate_address(&state.registry_address),
+                    AddressValidity::Valid { .. }
+                );
                 let connect_clicked = ui
                     .add_enabled(
                         address_ok && !state.registry_login_in_progress,

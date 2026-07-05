@@ -71,7 +71,8 @@ fn playbook_command(
                 ssh.private_key.display().to_string().into(),
             );
             vars.insert("ansible_connection".into(), "ssh".into());
-            cmd.arg("-e").arg(serde_json::Value::Object(vars).to_string());
+            cmd.arg("-e")
+                .arg(serde_json::Value::Object(vars).to_string());
         }
     }
 

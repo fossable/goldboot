@@ -141,10 +141,12 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
     // Check if struct has a `minimum_size` field
     let has_minimum_size_field = match &input.data {
         syn::Data::Struct(data) => match &data.fields {
-            syn::Fields::Named(fields) => fields
-                .named
-                .iter()
-                .any(|f| f.ident.as_ref().map(|i| i == "minimum_size").unwrap_or(false)),
+            syn::Fields::Named(fields) => fields.named.iter().any(|f| {
+                f.ident
+                    .as_ref()
+                    .map(|i| i == "minimum_size")
+                    .unwrap_or(false)
+            }),
             _ => false,
         },
         _ => false,

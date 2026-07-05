@@ -51,4 +51,3 @@
 - Figure out how to package goldboot.efi so it's available to `goldboot install`
 - Finish remaining builders
 - Finish multiboot builds
-- Rename "options" to "config"?

@@ -12,7 +12,7 @@ use crate::{
         http::HttpServer,
         options::{
             arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize,
-            ntp::Ntp, packages::Packages, timezone::Timezone, unix_account::RootPassword,
+            ntp::Ntp, packages::Packages, root_password::RootPassword, timezone::Timezone,
             unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
@@ -31,7 +31,6 @@ use super::BuildImage;
 #[goldboot_macros::Os(architectures(Amd64, Arm64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Ubuntu {
-    #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub minimum_size: MinimumSize,
     pub release: UbuntuRelease,
@@ -151,7 +150,7 @@ autoinstall:
             language = self.locale.language,
             encoding = self.locale.encoding,
             keyboard = self.locale.keyboard,
-            hostname = self.hostname.hostname,
+            hostname = self.hostname.0,
             root_password = root_password,
             ntp = self.ntp.0,
             timezone = self.timezone.0,

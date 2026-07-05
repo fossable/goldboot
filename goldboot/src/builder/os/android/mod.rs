@@ -1,7 +1,7 @@
 use super::{CastImage, DefaultSource};
 use crate::builder::Foundry;
 use crate::builder::options::hostname::Hostname;
-use crate::builder::options::unix_account::RootPassword;
+use crate::builder::options::root_password::RootPassword;
 use crate::builder::qemu::QemuBuilder;
 use crate::cli::prompt::Prompt;
 use crate::wait;

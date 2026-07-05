@@ -16,9 +16,22 @@ pub struct Iso {
 
 impl Prompt for Iso {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
-        self.url = dialoguer::Input::with_theme(&crate::cli::cmd::init::theme())
+        use dialoguer::Input;
+        let theme = crate::cli::cmd::init::theme();
+
+        self.url = Input::with_theme(&theme)
             .with_prompt("Enter the ISO URL")
             .interact()?;
+
+        let checksum: String = Input::with_theme(&theme)
+            .with_prompt("Enter the ISO checksum (e.g. sha256:..., leave blank to skip)")
+            .allow_empty(true)
+            .interact_text()?;
+        self.checksum = if checksum.is_empty() {
+            None
+        } else {
+            Some(checksum)
+        };
 
         self.validate()?;
         Ok(())

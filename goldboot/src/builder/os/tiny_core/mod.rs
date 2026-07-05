@@ -10,7 +10,7 @@ use crate::{
         Builder,
         options::{
             hostname::Hostname, iso::Iso, minimum_size::MinimumSize, packages::Packages,
-            unix_account::RootPassword, unix_users::UnixUsers,
+            root_password::RootPassword, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
@@ -88,7 +88,7 @@ impl BuildImage for TinyCore {
         // Set hostname
         ssh.exec(&format!(
             "echo '{}' | sudo tee /etc/hostname",
-            self.hostname.hostname
+            self.hostname.0
         ))?;
 
         // Install tce extensions

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use serde_win_unattend::*;
 use smart_default::SmartDefault;
@@ -13,11 +12,10 @@ use crate::{
         Builder,
         options::{
             arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize,
-            timezone::Timezone, unix_users::UnixUsers,
+            product_key, timezone::Timezone, unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
     },
-    cli::prompt::Prompt,
     enter, wait,
 };
 
@@ -30,7 +28,6 @@ use super::BuildImage;
 #[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct Windows10 {
-    #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub minimum_size: MinimumSize,
     #[serde(default)]
@@ -48,7 +45,7 @@ pub struct Windows10 {
     pub users: Option<UnixUsers>,
 
     /// Windows product key (leave unset to use a generic/evaluation key)
-    pub product_key: Option<WindowsProductKey>,
+    pub product_key: Option<product_key::ProductKey>,
 
     #[default(Iso {
         url: "http://example.com".parse().unwrap(),
@@ -198,7 +195,7 @@ impl Windows10 {
                     pass: "specialize".into(),
                     component: vec![Component {
                         name: "Microsoft-Windows-Shell-Setup".into(),
-                        ComputerName: Some(self.hostname.hostname.clone()),
+                        ComputerName: Some(self.hostname.0.clone()),
                         ..Default::default()
                     }],
                 },
@@ -249,16 +246,6 @@ impl BuildImage for Windows10 {
         // Shutdown
         // ssh.shutdown("shutdown /s /t 0 /f /d p:4:1")?;
         qemu.shutdown_wait()?;
-        Ok(())
-    }
-}
-
-/// Windows product key.
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct WindowsProductKey(pub String);
-
-impl Prompt for WindowsProductKey {
-    fn prompt(&mut self, _: &Builder) -> Result<()> {
         Ok(())
     }
 }

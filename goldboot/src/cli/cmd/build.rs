@@ -18,10 +18,7 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                     p
                 }
                 Ok(None) => {
-                    error!(
-                        "No goldboot.ron or <name>.goldboot.ron found in {}",
-                        &path
-                    );
+                    error!("No goldboot.ron or <name>.goldboot.ron found in {}", &path);
                     return ExitCode::FAILURE;
                 }
                 Err(e) => {

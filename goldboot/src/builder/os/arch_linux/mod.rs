@@ -4,12 +4,12 @@ use crate::builder::options::arch::Arch;
 use crate::builder::options::hostname::Hostname;
 use crate::builder::options::iso::Iso;
 use crate::builder::options::locale::Locale;
+use crate::builder::options::minimum_size::MinimumSize;
 use crate::builder::options::ntp::Ntp;
 use crate::builder::options::packages::Packages;
 use crate::builder::options::partition_layout::PartitionLayout;
-use crate::builder::options::minimum_size::MinimumSize;
+use crate::builder::options::root_password::RootPassword;
 use crate::builder::options::timezone::Timezone;
-use crate::builder::options::unix_account::RootPassword;
 use crate::builder::options::unix_users::UnixUsers;
 use crate::builder::os::arch_linux::archinstall::ArchinstallConfig;
 use crate::builder::os::arch_linux::archinstall::ArchinstallCredentials;
@@ -19,7 +19,6 @@ use crate::wait;
 use crate::{builder::Builder, wait_text};
 use anyhow::Result;
 use anyhow::bail;
-use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use std::io::{BufRead, BufReader};
@@ -41,10 +40,6 @@ fn json_merge(base: &mut serde_json::Value, overlay: serde_json::Value) {
     }
 }
 
-fn default_arch() -> Arch {
-    Arch(ImageArch::Amd64)
-}
-
 fn default_iso() -> Iso {
     Iso {
         url: "http://mirrors.edge.kernel.org/archlinux/iso/latest/archlinux-2026.03.01-x86_64.iso"
@@ -63,8 +58,7 @@ fn default_iso() -> Iso {
 #[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct ArchLinux {
-    #[default(Arch(ImageArch::Amd64))]
-    #[serde(default = "default_arch")]
+    #[serde(default)]
     pub arch: Arch,
     pub minimum_size: MinimumSize,
     #[serde(default)]

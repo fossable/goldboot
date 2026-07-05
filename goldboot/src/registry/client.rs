@@ -73,7 +73,9 @@ fn build_tls_config() -> Result<ClientConfig> {
         let mut reader = BufReader::new(bytes.as_slice());
         for cert in rustls_pemfile::certs(&mut reader) {
             let cert = cert.with_context(|| format!("parse PEM cert from {}", ca.display()))?;
-            roots.add(cert).with_context(|| "add custom CA cert to root store")?;
+            roots
+                .add(cert)
+                .with_context(|| "add custom CA cert to root store")?;
         }
     }
 

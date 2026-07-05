@@ -499,7 +499,6 @@ impl AppState {
                         p.record_cluster(idx, state);
                     }
                 })
-                .map_err(Into::into)
                 .and_then(|_| {
                     post_write_hooks(Path::new(&device_path), device_size, &progress_for_hooks)
                 });

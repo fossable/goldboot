@@ -108,11 +108,7 @@ pub fn register_boot_entry(esp: &EspInfo, description: &str, efi_path: &str) -> 
 }
 
 /// Describe what [`register_boot_entry`] would do, without writing anything.
-pub fn describe_boot_entry(
-    esp: &EspInfo,
-    description: &str,
-    efi_path: &str,
-) -> Result<String> {
+pub fn describe_boot_entry(esp: &EspInfo, description: &str, efi_path: &str) -> Result<String> {
     let file_path_list = build_file_path_list(esp, efi_path);
     let manager = efivar::system();
     let (boot_id, existing) = pick_boot_id(&*manager, description)?;

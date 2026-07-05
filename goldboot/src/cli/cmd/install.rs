@@ -119,12 +119,10 @@ pub fn run(cmd: super::Commands) -> ExitCode {
                 plan_lines.push(String::new());
                 plan_lines.push("EFI variables that would be changed:".to_owned());
                 let description = match esp_from_boot_mount() {
-                    Ok(esp) => {
-                        describe_boot_entry(&esp, "goldboot", "\\EFI\\Boot\\goldboot.efi")
-                            .unwrap_or_else(|err| {
-                                format!("  (could not determine EFI variable changes: {err})")
-                            })
-                    }
+                    Ok(esp) => describe_boot_entry(&esp, "goldboot", "\\EFI\\Boot\\goldboot.efi")
+                        .unwrap_or_else(|err| {
+                            format!("  (could not determine EFI variable changes: {err})")
+                        }),
                     Err(err) => {
                         format!("  (could not determine EFI variable changes: {err})")
                     }

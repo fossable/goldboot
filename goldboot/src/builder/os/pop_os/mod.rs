@@ -1,5 +1,4 @@
 use anyhow::Result;
-use goldboot_image::ImageArch;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use strum::{Display, EnumIter, IntoEnumIterator};
@@ -10,7 +9,7 @@ use crate::{
         Builder,
         options::{
             arch::Arch, hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize,
-            ntp::Ntp, packages::Packages, timezone::Timezone, unix_account::RootPassword,
+            ntp::Ntp, packages::Packages, root_password::RootPassword, timezone::Timezone,
             unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
@@ -28,7 +27,6 @@ use super::BuildImage;
 #[goldboot_macros::Os(architectures(Amd64))]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
 pub struct PopOs {
-    #[default(Arch(ImageArch::Amd64))]
     pub arch: Arch,
     pub minimum_size: MinimumSize,
     pub release: PopOsRelease,
@@ -123,7 +121,7 @@ impl BuildImage for PopOs {
             enter!(root_password),
             enter!(root_password),
             // Set hostname
-            enter!(format!("hostnamectl set-hostname {}", self.hostname.hostname)),
+            enter!(format!("hostnamectl set-hostname {}", self.hostname.0)),
             // Set timezone
             enter!(format!("timedatectl set-timezone {}", self.timezone.0)),
             // Enable/disable NTP

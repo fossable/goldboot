@@ -198,10 +198,7 @@ impl Builder {
                     Qcow3::open(&self.qcow_path)?
                 } else {
                     // Truncate the minimum size to a power of two for the qcow storage
-                    Qcow3::create(
-                        &self.qcow_path,
-                        minimum_qcow_size - (minimum_qcow_size % 2),
-                    )?
+                    Qcow3::create(&self.qcow_path, minimum_qcow_size - (minimum_qcow_size % 2))?
                 });
 
                 // Revert to the last snapshot if one exists

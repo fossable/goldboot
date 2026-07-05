@@ -157,7 +157,12 @@ pub fn read_gpt(dest: &mut File) -> Result<Option<Gpt>> {
     dest.read_exact(&mut entries_raw)?;
 
     let entries: Vec<PartitionEntry> = (0..num_entries as usize)
-        .map(|i| parse_entry((i + 1) as u32, &entries_raw[i * entry_size..(i + 1) * entry_size]))
+        .map(|i| {
+            parse_entry(
+                (i + 1) as u32,
+                &entries_raw[i * entry_size..(i + 1) * entry_size],
+            )
+        })
         .filter(|e| e.is_used())
         .collect();
 
@@ -295,10 +300,7 @@ pub struct ExtendedPartition {
 /// Returns `Ok(None)` when there is no GPT, no used partitions, or the
 /// trailing partition is already within 1 MiB of `last_usable_lba` (no
 /// meaningful growth available).
-pub fn extend_last_partition(
-    dest: &mut File,
-    dest_size: u64,
-) -> Result<Option<ExtendedPartition>> {
+pub fn extend_last_partition(dest: &mut File, dest_size: u64) -> Result<Option<ExtendedPartition>> {
     let gpt = match read_gpt(dest)? {
         Some(g) => g,
         None => return Ok(None),

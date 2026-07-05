@@ -2,11 +2,11 @@ use rand::RngExt;
 
 use std::net::TcpListener;
 
+pub mod boot;
 #[cfg(feature = "build")]
 pub mod builder;
 #[cfg(feature = "cli")]
 pub mod cli;
-pub mod boot;
 pub mod fs;
 pub mod gpt;
 #[cfg(feature = "gui")]
@@ -50,4 +50,3 @@ pub fn random_password() -> String {
         .map(char::from)
         .collect()
 }
-

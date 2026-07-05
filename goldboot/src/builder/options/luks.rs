@@ -1,11 +1,12 @@
 use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
-use dialoguer::{Confirm, Password};
+use dialoguer::Password;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 use validator::Validate;
 
-/// Configures a LUKS encrypted root filesystem
-#[derive(Clone, Serialize, Deserialize, Validate, Debug)]
+/// Configures a LUKS encrypted root filesystem.
+#[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault)]
 pub struct Luks {
     /// The LUKS passphrase
     pub passphrase: String,
@@ -16,14 +17,11 @@ pub struct Luks {
 
 impl Prompt for Luks {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
-        if Confirm::with_theme(&crate::cli::cmd::init::theme())
-            .with_prompt("Do you want to encrypt the root partition with LUKS?")
-            .interact()?
-        {
-            self.passphrase = Password::with_theme(&crate::cli::cmd::init::theme())
-                .with_prompt("LUKS passphrase")
-                .interact()?;
-        }
+        let theme = crate::cli::cmd::init::theme();
+
+        self.passphrase = Password::with_theme(&theme)
+            .with_prompt("LUKS passphrase")
+            .interact()?;
 
         self.validate()?;
         Ok(())

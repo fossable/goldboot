@@ -9,8 +9,8 @@ use crate::{
     builder::{
         Builder,
         options::{
-            hostname::Hostname, iso::Iso, locale::Locale, minimum_size::MinimumSize, ntp::Ntp,
-            packages::Packages, timezone::Timezone, unix_account::RootPassword,
+            hostname::Hostname, iso::Iso, locale::Locale, luks::Luks, minimum_size::MinimumSize,
+            ntp::Ntp, packages::Packages, root_password::RootPassword, timezone::Timezone,
             unix_users::UnixUsers,
         },
         qemu::{OsCategory, QemuBuilder},
@@ -51,8 +51,8 @@ pub struct AlpineLinux {
     #[serde(default)]
     pub ntp: Ntp,
 
-    /// Disk encryption passphrase (LUKS)
-    pub encryption_password: Option<AlpineEncryptionPassword>,
+    /// LUKS disk encryption
+    pub luks: Option<Luks>,
 
     #[default(Iso {
         url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-standard-3.23.3-x86_64.iso".parse().unwrap(),
@@ -69,7 +69,7 @@ impl BuildImage for AlpineLinux {
             .start()?;
 
         let ntp_opts = if self.ntp.0 { "-c openntpd" } else { "-c none" };
-        let disk_opts = if self.encryption_password.is_some() {
+        let disk_opts = if self.luks.is_some() {
             "-m sys -e /dev/vda"
         } else {
             "-m sys /dev/vda"
@@ -84,7 +84,7 @@ impl BuildImage for AlpineLinux {
 			enter!("root"),
 			// Configure install
 			enter!(format!("export KEYMAPOPTS='{} {}'", self.locale.keyboard, self.locale.keyboard)),
-			enter!(format!("export HOSTNAMEOPTS='-n {}'", self.hostname.hostname)),
+			enter!(format!("export HOSTNAMEOPTS='-n {}'", self.hostname.0)),
 			enter!("export INTERFACESOPTS='
 auto lo
 iface lo inet loopback
@@ -136,16 +136,6 @@ iface eth0 inet dhcp
         // Shutdown
         ssh.shutdown("poweroff")?;
         qemu.shutdown_wait()?;
-        Ok(())
-    }
-}
-
-/// Disk encryption passphrase (LUKS).
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct AlpineEncryptionPassword(pub String);
-
-impl Prompt for AlpineEncryptionPassword {
-    fn prompt(&mut self, _: &Builder) -> Result<()> {
         Ok(())
     }
 }

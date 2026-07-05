@@ -1,16 +1,11 @@
 use crate::{builder::Builder, cli::prompt::Prompt};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use smart_default::SmartDefault;
 
 /// System timezone in tz database format (e.g. "UTC", "America/New_York").
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Timezone(pub String);
-
-impl Default for Timezone {
-    fn default() -> Self {
-        Self("UTC".to_string())
-    }
-}
+#[derive(Clone, Serialize, Deserialize, Debug, SmartDefault)]
+pub struct Timezone(#[default("UTC".to_string())] pub String);
 
 impl Prompt for Timezone {
     fn prompt(&mut self, _: &Builder) -> Result<()> {

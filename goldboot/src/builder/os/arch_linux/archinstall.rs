@@ -4,7 +4,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::builder::options::partition_layout::PartitionLayout;
-use crate::builder::options::unix_account::RootPassword;
+use crate::builder::options::root_password::RootPassword;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArchinstallCredentials {
@@ -364,7 +364,7 @@ impl From<&super::ArchLinux> for ArchinstallConfig {
             debug: true,
             disk_encryption,
             disk_config,
-            hostname: value.hostname.hostname.clone(),
+            hostname: value.hostname.0.clone(),
             kernels: value.kernels.0.clone(),
             locale_config: LocaleConfig {
                 kb_layout: value.locale.keyboard.clone(),

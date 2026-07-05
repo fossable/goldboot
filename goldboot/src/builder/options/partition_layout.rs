@@ -63,6 +63,36 @@ impl PartitionLayout {
 
 impl Prompt for PartitionLayout {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
+        use dialoguer::{Input, Password, Select};
+        let theme = crate::cli::cmd::init::theme();
+
+        let labels = [
+            "UEFI (EFI + ext4 root)",
+            "UEFI with swap (EFI + swap + ext4 root)",
+            "UEFI with LUKS (EFI + encrypted ext4 root)",
+        ];
+
+        let selection = Select::with_theme(&theme)
+            .with_prompt("Partition layout")
+            .items(labels)
+            .default(0)
+            .interact()?;
+
+        *self = match selection {
+            0 => PartitionLayout::Uefi,
+            1 => PartitionLayout::UefiWithSwap {
+                swap_size_mib: Input::with_theme(&theme)
+                    .with_prompt("Swap partition size (MiB)")
+                    .default(4096)
+                    .interact_text()?,
+            },
+            _ => PartitionLayout::UefiLuks {
+                passphrase: Password::with_theme(&theme)
+                    .with_prompt("LUKS passphrase")
+                    .interact()?,
+            },
+        };
+
         Ok(())
     }
 }
