@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
+use std::collections::HashMap;
 use std::fmt::Display;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use validator::Validate;
@@ -16,14 +17,15 @@ use crate::{
         qemu::{OsCategory, QemuBuilder},
     },
     cli::prompt::Prompt,
-    enter, wait, wait_screen_rect,
+    enter, wait, wait_text_serial,
 };
 
 use super::BuildImage;
 
 /// Produces [Alpine Linux](https://www.alpinelinux.org) images.
-#[goldboot_macros::Os(architectures(Amd64, Arm64))]
+#[goldboot_macros::Os(architectures(Amd64, Arm64), alloy)]
 #[derive(Clone, Serialize, Deserialize, Validate, Debug, SmartDefault, goldboot_macros::Prompt)]
+#[serde(default)]
 pub struct AlpineLinux {
     pub minimum_size: MinimumSize,
     pub edition: AlpineEdition,
@@ -63,9 +65,17 @@ pub struct AlpineLinux {
 
 impl BuildImage for AlpineLinux {
     fn build(&self, worker: &Builder) -> Result<()> {
-        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
+        let qemu_builder = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
-            .prepare_ssh()?
+            // Forward the host SSH port to the installed system's sshd so
+            // the post-install configuration can connect after the reboot.
+            .forward_ssh(22);
+        let public_key = qemu_builder.ssh_public_key()?;
+
+        // The config drive (/dev/vdb) carries the goldboot public key used
+        // to reach the installed system over SSH.
+        let mut qemu = qemu_builder
+            .drive_files(HashMap::from([("public_key".to_string(), public_key)]))?
             .start()?;
 
         let ntp_opts = if self.ntp.0 { "-c openntpd" } else { "-c none" };
@@ -73,6 +83,12 @@ impl BuildImage for AlpineLinux {
             "-m sys -e /dev/vda"
         } else {
             "-m sys /dev/vda"
+        };
+        let root_password = match &self.root_password {
+            RootPassword::Plaintext(p) => p.clone(),
+            RootPassword::PlaintextEnv(name) => {
+                std::env::var(name).expect("environment variable not found")
+            }
         };
 
         // Send boot command
@@ -100,11 +116,17 @@ iface eth0 inet dhcp
 			enter!("export SSHDOPTS='-c openssh'"),
 			enter!(format!("export NTPOPTS='{ntp_opts}'")),
 			enter!(format!("export DISKOPTS='{disk_opts}'")),
-			// Start install
-			enter!(format!("echo -e 'root\n{}\ny' | setup-alpine", self.root_password)),
-			wait_screen_rect!("6d7b9fc9229c4f4ae8bc84f0925d8479ccd3e7d2", 668, 0, 1024, 100),
-			// Remount root partition
+			// Start install (password, password confirmation, no user account,
+			// erase-disk confirmation). Mirror the installer output to the
+			// serial port so we can wait for it without OCR.
+			enter!(format!("echo -e '{root_password}\n{root_password}\nno\ny' | setup-alpine 2>&1 | tee /dev/ttyS0")),
+			wait_text_serial!("Installation is complete"),
+			// Authorize the goldboot key on the installed system
 			enter!("mount -t ext4 /dev/vda3 /mnt"),
+			enter!("mkdir /goldboot && mount /dev/vdb /goldboot"),
+			enter!("mkdir -p /mnt/root/.ssh && cp /goldboot/public_key /mnt/root/.ssh/authorized_keys"),
+			enter!("chmod 700 /mnt/root/.ssh && chmod 600 /mnt/root/.ssh/authorized_keys"),
+			enter!("umount /goldboot"),
 			// Reboot into installation
 			enter!("apk add efibootmgr; efibootmgr -n 0003; reboot"),
 		])?;

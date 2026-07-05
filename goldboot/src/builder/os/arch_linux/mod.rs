@@ -16,7 +16,7 @@ use crate::builder::os::arch_linux::archinstall::ArchinstallCredentials;
 use crate::builder::qemu::{OsCategory, QemuBuilder};
 use crate::cli::prompt::Prompt;
 use crate::wait;
-use crate::{builder::Builder, wait_text};
+use crate::{builder::Builder, wait_text_ocr};
 use anyhow::Result;
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
@@ -154,7 +154,7 @@ impl BuildImage for ArchLinux {
     			// Initial wait
     			wait!(30),
     			// Wait for login
-    			wait_text!("root.archiso"),
+    			wait_text_ocr!("root.archiso"),
     		])?;
 
             qemu.install_ssh()?;

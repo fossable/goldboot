@@ -1,7 +1,7 @@
 use self::qemu::{Accel, detect_accel};
 use crate::builder::os::OsConfig;
 use crate::cli::cmd::Commands;
-use crate::library::{ImageLibrary, qcow_cache_path};
+use crate::library::{ImageLibrary, alloy_qcow_cache_path, element_qcow_cache_path, qcow_cache_path};
 
 use anyhow::{Result, bail};
 use chrono::Utc;
@@ -17,12 +17,14 @@ use std::{
 use tracing::info;
 use validator::Validate;
 
+pub mod alloy;
 pub mod config;
 pub mod http;
 pub mod options;
 pub mod os;
 pub mod ovmf;
 pub mod qemu;
+pub mod serial;
 pub mod sources;
 pub mod ssh;
 pub mod steps;
@@ -113,11 +115,10 @@ impl Builder {
     pub fn run(&mut self, cli: Commands) -> Result<()> {
         self.start_time = Some(SystemTime::now());
 
-        let minimum_qcow_size: u64 = self
-            .elements
-            .iter()
-            .map(|element| element.0.os_minimum_size())
-            .sum();
+        let arch = self.arch()?;
+        if self.elements.iter().any(|e| e.0.os_arch() != arch) {
+            bail!("All elements of a multiboot image must share the same architecture");
+        }
 
         match cli {
             Commands::Build {
@@ -182,29 +183,18 @@ impl Builder {
                     bail!("No OVMF firmware found");
                 }
 
-                if clean && self.qcow_path.exists() {
-                    std::fs::remove_file(&self.qcow_path)?;
-                }
+                // Each element builds into its own working qcow2, which its VM
+                // attaches as the primary drive.
+                let qcow_paths: Vec<PathBuf> = (0..self.elements.len())
+                    .map(|i| element_qcow_cache_path(&self.context_dir, i))
+                    .collect::<Result<_>>()?;
+                let alloy_path = alloy_qcow_cache_path(&self.context_dir)?;
 
-                if self.qcow_path.exists() {
-                    if let Ok(qcow) = Qcow3::open(&self.qcow_path) {
-                        if qcow.snapshots.is_empty() {
-                            std::fs::remove_file(&self.qcow_path)?;
+                if clean {
+                    for path in qcow_paths.iter().chain([&alloy_path]) {
+                        if path.exists() {
+                            std::fs::remove_file(path)?;
                         }
-                    }
-                }
-
-                self.qcow = Some(if self.qcow_path.exists() {
-                    Qcow3::open(&self.qcow_path)?
-                } else {
-                    // Truncate the minimum size to a power of two for the qcow storage
-                    Qcow3::create(&self.qcow_path, minimum_qcow_size - (minimum_qcow_size % 2))?
-                });
-
-                // Revert to the last snapshot if one exists
-                if let Some(qcow) = &self.qcow {
-                    if let Some(last) = qcow.snapshots.last() {
-                        qcow.revert(&last.name)?;
                     }
                 }
 
@@ -227,8 +217,43 @@ impl Builder {
                     }
                 }
 
-                for element in self.elements.iter() {
-                    element.0.build(self)?;
+                for (i, path) in qcow_paths.iter().enumerate() {
+                    // Discard a snapshotless qcow left behind by a failed run
+                    if path.exists() {
+                        if let Ok(qcow) = Qcow3::open(path) {
+                            if qcow.snapshots.is_empty() {
+                                std::fs::remove_file(path)?;
+                            }
+                        }
+                    }
+
+                    self.qcow_path = path.clone();
+                    self.qcow = Some(if path.exists() {
+                        Qcow3::open(path)?
+                    } else {
+                        let minimum_size = self.elements[i].0.os_minimum_size();
+                        // Truncate the minimum size to a power of two for the qcow storage
+                        Qcow3::create(path, minimum_size - (minimum_size % 2))?
+                    });
+
+                    // Revert to the last snapshot if one exists
+                    if let Some(qcow) = &self.qcow {
+                        if let Some(last) = qcow.snapshots.last() {
+                            qcow.revert(&last.name)?;
+                        }
+                    }
+
+                    self.elements[i].0.build(self)?;
+                }
+
+                // Combine per-element disks into a single multiboot disk
+                if self.elements.len() > 1 {
+                    let sources = qcow_paths
+                        .iter()
+                        .map(Qcow3::open)
+                        .collect::<Result<Vec<_>>>()?;
+                    alloy::merge_qcows(&sources, &alloy_path)?;
+                    self.qcow_path = alloy_path;
                 }
 
                 // Re-open qcow to pick up any new snapshots written during the build

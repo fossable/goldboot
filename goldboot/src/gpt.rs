@@ -123,7 +123,7 @@ fn parse_entry(index: u32, raw: &[u8]) -> PartitionEntry {
 
 /// Read and parse the primary GPT from `dest`. Returns `Ok(None)` if the GPT
 /// signature is missing or the header fails basic sanity checks.
-pub fn read_gpt(dest: &mut File) -> Result<Option<Gpt>> {
+pub fn read_gpt<D: Read + Seek>(dest: &mut D) -> Result<Option<Gpt>> {
     dest.seek(SeekFrom::Start(512))?;
     let mut hdr = [0u8; 512];
     dest.read_exact(&mut hdr)?;
@@ -189,8 +189,8 @@ pub fn read_gpt(dest: &mut File) -> Result<Option<Gpt>> {
 /// at `header_lba` so its PartitionEntriesCRC32 and HeaderCRC32 fields reflect
 /// `entries_raw`. Other header fields are left as-is in `hdr_sector` and the
 /// caller is responsible for setting them before calling this.
-fn write_gpt_table(
-    dest: &mut File,
+fn write_gpt_table<D: Write + Seek>(
+    dest: &mut D,
     header_lba: u64,
     entries_lba: u64,
     hdr_sector: &mut [u8; 512],
@@ -208,6 +208,111 @@ fn write_gpt_table(
     dest.write_all(entries_raw)?;
     dest.seek(SeekFrom::Start(header_lba * 512))?;
     dest.write_all(hdr_sector)?;
+    Ok(())
+}
+
+/// Serialize a partition entry into its on-disk form (inverse of `parse_entry`).
+/// The name is truncated to 36 UTF-16 code units.
+fn entry_to_disk(entry: &PartitionEntry, entry_size: usize) -> Vec<u8> {
+    let mut raw = vec![0u8; entry_size];
+    raw[0..16].copy_from_slice(&guid_to_disk(&entry.type_guid));
+    raw[16..32].copy_from_slice(&guid_to_disk(&entry.unique_guid));
+    raw[32..40].copy_from_slice(&entry.first_lba.to_le_bytes());
+    raw[40..48].copy_from_slice(&entry.last_lba.to_le_bytes());
+    raw[48..56].copy_from_slice(&entry.attributes.to_le_bytes());
+    for (i, c) in entry.name.encode_utf16().take(36).enumerate() {
+        raw[56 + i * 2..58 + i * 2].copy_from_slice(&c.to_le_bytes());
+    }
+    raw
+}
+
+/// Write a complete GPT onto a blank disk of `disk_size` bytes: protective MBR
+/// at LBA 0, primary header + entries at LBA 1-33, and backup entries + header
+/// at the end of the disk. A random disk GUID is generated.
+///
+/// `entries` occupy consecutive slots starting at partition 1; their `index`
+/// fields are ignored.
+pub fn write_gpt<D: Write + Seek>(
+    dest: &mut D,
+    disk_size: u64,
+    entries: &[PartitionEntry],
+) -> Result<()> {
+    const NUM_ENTRIES: u32 = 128;
+    const ENTRY_SIZE: usize = 128;
+    const HEADER_SIZE: usize = 92;
+
+    let disk_last_lba = disk_size / 512 - 1;
+    let entry_sectors = NUM_ENTRIES as u64 * ENTRY_SIZE as u64 / 512;
+    let first_usable_lba = 2 + entry_sectors;
+    let last_usable_lba = disk_last_lba - 1 - entry_sectors;
+    let backup_entries_lba = disk_last_lba - entry_sectors;
+
+    if entries.len() > NUM_ENTRIES as usize {
+        anyhow::bail!("Too many partitions: {}", entries.len());
+    }
+    for entry in entries {
+        if entry.first_lba < first_usable_lba || entry.last_lba > last_usable_lba {
+            anyhow::bail!(
+                "Partition '{}' ({}-{}) outside usable range {}-{}",
+                entry.name,
+                entry.first_lba,
+                entry.last_lba,
+                first_usable_lba,
+                last_usable_lba
+            );
+        }
+    }
+
+    let mut entries_raw = vec![0u8; NUM_ENTRIES as usize * ENTRY_SIZE];
+    for (i, entry) in entries.iter().enumerate() {
+        entries_raw[i * ENTRY_SIZE..(i + 1) * ENTRY_SIZE]
+            .copy_from_slice(&entry_to_disk(entry, ENTRY_SIZE));
+    }
+
+    // Protective MBR: one 0xEE entry covering LBA 1 to the end of the disk.
+    let mut mbr = [0u8; 512];
+    mbr[446 + 1..446 + 4].copy_from_slice(&[0x00, 0x02, 0x00]);
+    mbr[446 + 4] = 0xEE;
+    mbr[446 + 5..446 + 8].copy_from_slice(&[0xFF, 0xFF, 0xFF]);
+    mbr[446 + 8..446 + 12].copy_from_slice(&1u32.to_le_bytes());
+    mbr[446 + 12..446 + 16]
+        .copy_from_slice(&(disk_last_lba.min(0xFFFF_FFFF) as u32).to_le_bytes());
+    mbr[510] = 0x55;
+    mbr[511] = 0xAA;
+    dest.seek(SeekFrom::Start(0))?;
+    dest.write_all(&mbr)?;
+
+    // Header template shared by primary and backup.
+    let mut hdr = [0u8; 512];
+    hdr[0..8].copy_from_slice(b"EFI PART");
+    hdr[8..12].copy_from_slice(&[0x00, 0x00, 0x01, 0x00]);
+    hdr[12..16].copy_from_slice(&(HEADER_SIZE as u32).to_le_bytes());
+    hdr[40..48].copy_from_slice(&first_usable_lba.to_le_bytes());
+    hdr[48..56].copy_from_slice(&last_usable_lba.to_le_bytes());
+    hdr[56..72].copy_from_slice(&guid_to_disk(&Uuid::new_v4()));
+    hdr[80..84].copy_from_slice(&NUM_ENTRIES.to_le_bytes());
+    hdr[84..88].copy_from_slice(&(ENTRY_SIZE as u32).to_le_bytes());
+
+    let mut primary = hdr;
+    primary[24..32].copy_from_slice(&1u64.to_le_bytes());
+    primary[32..40].copy_from_slice(&disk_last_lba.to_le_bytes());
+    primary[72..80].copy_from_slice(&2u64.to_le_bytes());
+    write_gpt_table(dest, 1, 2, &mut primary, HEADER_SIZE, &entries_raw)?;
+
+    let mut backup = hdr;
+    backup[24..32].copy_from_slice(&disk_last_lba.to_le_bytes());
+    backup[32..40].copy_from_slice(&1u64.to_le_bytes());
+    backup[72..80].copy_from_slice(&backup_entries_lba.to_le_bytes());
+    write_gpt_table(
+        dest,
+        disk_last_lba,
+        backup_entries_lba,
+        &mut backup,
+        HEADER_SIZE,
+        &entries_raw,
+    )?;
+
+    debug!(disk_size, partitions = entries.len(), "Wrote fresh GPT");
     Ok(())
 }
 
@@ -388,4 +493,89 @@ pub fn find_esp(path: &Path) -> Result<Option<PartitionEntry>> {
         .entries
         .into_iter()
         .find(|e| e.type_guid == ESP_TYPE_GUID))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn test_entries() -> Vec<PartitionEntry> {
+        vec![
+            PartitionEntry {
+                index: 1,
+                type_guid: ESP_TYPE_GUID,
+                unique_guid: Uuid::new_v4(),
+                first_lba: 2048,
+                last_lba: 4095,
+                attributes: 0,
+                name: "EFI system partition".into(),
+            },
+            PartitionEntry {
+                index: 2,
+                type_guid: Uuid::from_u128(0x0FC63DAF_8483_4772_8E79_3D69D8477DE4),
+                unique_guid: Uuid::new_v4(),
+                first_lba: 4096,
+                last_lba: 8191,
+                attributes: 1 << 62,
+                name: "root".into(),
+            },
+        ]
+    }
+
+    #[test]
+    fn write_gpt_read_gpt_round_trip() -> Result<()> {
+        let disk_size: u64 = 16 * 1024 * 1024;
+        let mut disk = Cursor::new(vec![0u8; disk_size as usize]);
+        let entries = test_entries();
+        write_gpt(&mut disk, disk_size, &entries)?;
+
+        let gpt = read_gpt(&mut disk)?.expect("GPT not found after write");
+        assert_eq!(gpt.entries.len(), entries.len());
+        for (parsed, original) in gpt.entries.iter().zip(entries.iter()) {
+            assert_eq!(parsed.type_guid, original.type_guid);
+            assert_eq!(parsed.unique_guid, original.unique_guid);
+            assert_eq!(parsed.first_lba, original.first_lba);
+            assert_eq!(parsed.last_lba, original.last_lba);
+            assert_eq!(parsed.attributes, original.attributes);
+            assert_eq!(parsed.name, original.name);
+        }
+
+        let disk_last_lba = disk_size / 512 - 1;
+        assert_eq!(gpt.header.my_lba, 1);
+        assert_eq!(gpt.header.alternate_lba, disk_last_lba);
+        assert_eq!(gpt.header.first_usable_lba, 34);
+        assert_eq!(gpt.header.last_usable_lba, disk_last_lba - 33);
+        Ok(())
+    }
+
+    #[test]
+    fn write_gpt_backup_matches_primary_entries() -> Result<()> {
+        let disk_size: u64 = 16 * 1024 * 1024;
+        let mut disk = Cursor::new(vec![0u8; disk_size as usize]);
+        write_gpt(&mut disk, disk_size, &test_entries())?;
+
+        let disk_last_lba = disk_size / 512 - 1;
+        let buf = disk.into_inner();
+        let primary_entries = &buf[2 * 512..(2 + 32) * 512];
+        let backup_entries =
+            &buf[(disk_last_lba - 32) as usize * 512..disk_last_lba as usize * 512];
+        assert_eq!(primary_entries, backup_entries);
+
+        // Backup header signature present at the last LBA
+        assert_eq!(
+            &buf[disk_last_lba as usize * 512..disk_last_lba as usize * 512 + 8],
+            b"EFI PART"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn write_gpt_rejects_out_of_range_partition() {
+        let disk_size: u64 = 16 * 1024 * 1024;
+        let mut disk = Cursor::new(vec![0u8; disk_size as usize]);
+        let mut entries = test_entries();
+        entries[1].last_lba = disk_size / 512; // beyond the disk
+        assert!(write_gpt(&mut disk, disk_size, &entries).is_err());
+    }
 }

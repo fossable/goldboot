@@ -17,7 +17,7 @@ use crate::{
         steps::{PostStep, PreStep},
     },
     cli::prompt::Prompt,
-    enter, wait, wait_text,
+    enter, wait, wait_text_ocr,
 };
 
 use super::BuildImage;
@@ -86,7 +86,7 @@ impl BuildImage for Nix {
 
         let mut cmds = vec![
             wait!(15),
-            wait_text!("nixos login: nixos .automatic login."),
+            wait_text_ocr!("nixos login: nixos .automatic login."),
             enter!("sudo su -"),
             enter!("mkdir /goldboot && mount /dev/vdb /goldboot"),
         ];

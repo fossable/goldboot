@@ -233,3 +233,38 @@ fn find_token_start(bytes: &[u8], i: usize) -> usize {
     }
     j
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_multiboot_config() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        std::fs::write(
+            dir.path().join("alpine-alloy.goldboot.ron"),
+            r#"[
+    AlpineLinux(
+        minimum_size: MinimumSize("8G"),
+        hostname: Hostname("alpine-one"),
+    ),
+    AlpineLinux(
+        minimum_size: MinimumSize("8G"),
+        hostname: Hostname("alpine-two"),
+    ),
+]"#,
+        )?;
+
+        let config = ConfigPath::from_dir(dir.path())?.expect("config not found");
+        assert_eq!(config.inferred_name(), Some("alpine-alloy"));
+
+        let elements = config.load()?;
+        assert_eq!(elements.len(), 2);
+        for element in &elements {
+            assert_eq!(element.0.os_name(), "AlpineLinux");
+            assert!(element.0.os_alloy());
+            assert_eq!(element.0.os_minimum_size(), 8_000_000_000);
+        }
+        Ok(())
+    }
+}

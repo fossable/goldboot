@@ -96,10 +96,13 @@ impl darling::FromMeta for ArchList {
     }
 }
 
-/// Arguments parsed from `#[Os(architectures(Amd64, Arm64))]`
+/// Arguments parsed from `#[Os(architectures(Amd64, Arm64), alloy)]`
 #[derive(Debug, FromMeta)]
 struct OsArgs {
     architectures: ArchList,
+    /// Whether this OS can participate in multiboot ("alloy") images.
+    #[darling(default)]
+    alloy: bool,
 }
 
 /// OS registration attribute macro.
@@ -225,6 +228,16 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let os_alloy_impl = if os_args.alloy {
+        quote! {
+            fn os_alloy(&self) -> bool {
+                true
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let expanded = quote! {
         #input
 
@@ -244,6 +257,8 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
             #pre_steps_impl
 
             #post_steps_impl
+
+            #os_alloy_impl
 
             fn serialize_ron(&self, config: &ron::ser::PrettyConfig) -> anyhow::Result<String> {
                 Ok(ron::ser::to_string_pretty(self, config.clone())?)

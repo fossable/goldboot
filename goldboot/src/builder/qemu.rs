@@ -1,5 +1,5 @@
 use crate::{
-    builder::{Builder, ssh::SshConnection, vnc::VncConnection},
+    builder::{Builder, serial::SerialConnection, ssh::SshConnection, vnc::VncConnection},
     enter,
 };
 use anyhow::{Result, bail};
@@ -207,6 +207,7 @@ pub struct QemuArgs {
     pub mon: Vec<String>,
     pub name: String,
     pub netdev: Vec<String>,
+    pub serial: Vec<String>,
     pub smbios: Option<String>,
     pub smp: String,
     pub tpmdev: Vec<String>,
@@ -281,6 +282,11 @@ impl From<QemuArgs> for Vec<String> {
             cmdline.push(chardev.to_string());
         }
 
+        for serial in &val.serial {
+            cmdline.push(String::from("-serial"));
+            cmdline.push(serial.to_string());
+        }
+
         for mon in &val.mon {
             cmdline.push(String::from("-mon"));
             cmdline.push(mon.to_string());
@@ -316,6 +322,7 @@ pub struct QemuBuilder {
     temp: PathBuf,
     os_category: OsCategory,
     qmp_socket: PathBuf,
+    serial_socket: PathBuf,
 }
 
 impl QemuBuilder {
@@ -325,6 +332,7 @@ impl QemuBuilder {
         let ssh_private_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();
         let ssh_host_key = crate::builder::ssh::generate_key(worker.tmp.path()).unwrap();
         let qmp_socket = worker.tmp.path().join("qmp.sock");
+        let serial_socket = worker.tmp.path().join("serial.sock");
 
         Self {
             args: QemuArgs {
@@ -367,6 +375,10 @@ impl QemuBuilder {
                 memory: String::from("4G"),
                 name: String::from("goldboot"),
                 netdev: vec!["user,id=user.0".into()],
+                serial: vec![format!(
+                    "unix:{},server=on,wait=off",
+                    serial_socket.display()
+                )],
                 smbios: None,
                 smp: String::from("4,sockets=1,cores=4,threads=1"),
                 usbdevice: vec![],
@@ -383,6 +395,7 @@ impl QemuBuilder {
             temp: worker.tmp.path().to_path_buf(),
             vnc_port: worker.vnc_port,
             qmp_socket,
+            serial_socket,
         }
     }
 
@@ -652,7 +665,7 @@ impl QemuBuilder {
         }
 
         // Connect to VNC repeatedly because the VM could reboot during the build
-        let vnc = loop {
+        let mut vnc = loop {
             match VncConnection::new("localhost", self.vnc_port, self.record, self.debug) {
                 Ok(vnc) => break Ok(vnc),
                 Err(e) => {
@@ -689,6 +702,12 @@ impl QemuBuilder {
                 }
             }
         }?;
+
+        // The VM is up at this point, so the serial socket is ready. Unlike
+        // VNC, this connection survives guest reboots because QEMU itself is
+        // the socket server.
+        vnc.serial = Some(SerialConnection::connect(&self.serial_socket)?);
+
         Ok(QemuProcess {
             arch: self.arch,
             process,

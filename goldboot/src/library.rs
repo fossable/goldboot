@@ -26,6 +26,25 @@ pub fn qcow_cache_path(context_dir: &Path) -> Result<PathBuf> {
     Ok(cache_dir().join(format!("{hash}.qcow2")))
 }
 
+/// Return the persistent qcow2 path for the element at `index` of a build.
+///
+/// Element 0 keeps the historical single-element path so existing caches
+/// remain valid; later elements get an index suffix.
+pub fn element_qcow_cache_path(context_dir: &Path, index: usize) -> Result<PathBuf> {
+    let base = qcow_cache_path(context_dir)?;
+    Ok(if index == 0 {
+        base
+    } else {
+        base.with_extension(format!("{index}.qcow2"))
+    })
+}
+
+/// Return the path of the merged multiboot ("alloy") qcow2 for a context
+/// directory.
+pub fn alloy_qcow_cache_path(context_dir: &Path) -> Result<PathBuf> {
+    Ok(qcow_cache_path(context_dir)?.with_extension("alloy.qcow2"))
+}
+
 /// Local image library.
 ///
 /// On-disk layout (Linux/macOS):

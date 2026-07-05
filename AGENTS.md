@@ -15,8 +15,11 @@
 3. Use shared option types from `builder::options` where applicable (hostname,
    locale, timezone, ntp, packages, unix_users, root_password, iso, size, arch).
 4. Implement `BuildImage` with a `build()` method. We need to manipulate the VM
-   until we get to a shell so we can finish the install via SSH. Use
-   `wait_text!` to wait for the given text to be displayed on the screen.
+   until we get to a shell so we can finish the install via SSH. To wait for
+   given text, prefer `wait_text_serial!` when the guest can direct output to
+   the serial console (e.g. by piping installer output through
+   `tee /dev/ttyS0`); fall back to `wait_text_ocr!`, which OCRs the screen and
+   is much more compute intensive.
 5. Register the module in `goldboot/src/builder/os/mod.rs`.
 
 ## Updating for a new upstream OS release
