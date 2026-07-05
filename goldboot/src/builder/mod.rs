@@ -10,12 +10,14 @@ use goldboot_image::{
     ElementHeader, ImageArch, ImageHandle, ImageRef, qcow::Qcow3, validate_ref_segment,
 };
 use rand::RngExt;
-use std::{path::PathBuf, time::SystemTime};
+use std::{
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 use tracing::info;
 use validator::Validate;
 
 pub mod config;
-pub mod fabricators;
 pub mod http;
 pub mod options;
 pub mod os;
@@ -23,6 +25,7 @@ pub mod ovmf;
 pub mod qemu;
 pub mod sources;
 pub mod ssh;
+pub mod steps;
 pub mod vnc;
 
 /// Machinery that creates Goldboot images from image elements.
@@ -41,6 +44,11 @@ pub struct Builder {
 
     /// Context directory containing goldboot.ron
     pub context_dir: PathBuf,
+
+    /// Directory the build reads config files from. Normally `context_dir`,
+    /// but when pre-steps are present this is an ephemeral copy of it that
+    /// the steps are free to modify.
+    pub effective_context_dir: PathBuf,
 
     /// Ephemeral directory for per-run files (SSH keys, FAT images, TPM sockets)
     pub tmp: tempfile::TempDir,
@@ -80,6 +88,7 @@ impl Builder {
             elements,
             ovmf_path: tmp.path().join("OVMF.fd"),
             tmp,
+            effective_context_dir: context_dir.clone(),
             context_dir,
         }
     }
@@ -202,6 +211,25 @@ impl Builder {
                     }
                 }
 
+                // Pre-steps may modify the context directory, so give them an
+                // ephemeral copy and read config files from it for the rest
+                // of the build.
+                if self
+                    .elements
+                    .iter()
+                    .any(|element| !element.0.pre_steps().is_empty())
+                {
+                    let copy = self.tmp.path().join("context");
+                    copy_dir_all(&self.context_dir, &copy)?;
+                    self.effective_context_dir = copy;
+
+                    for element in self.elements.iter() {
+                        for pre_step in element.0.pre_steps() {
+                            pre_step.run(&self.effective_context_dir)?;
+                        }
+                    }
+                }
+
                 for element in self.elements.iter() {
                     element.0.build(self)?;
                 }
@@ -258,6 +286,56 @@ impl Builder {
             "Build completed",
         );
 
+        Ok(())
+    }
+}
+
+/// Recursively copy a directory, skipping `.git`.
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        if entry.file_name() == ".git" {
+            continue;
+        }
+        let dst_path = dst.join(entry.file_name());
+        // `is_dir` follows symlinks, so a symlinked directory is deep-copied
+        if entry.path().is_dir() {
+            copy_dir_all(&entry.path(), &dst_path)?;
+        } else {
+            std::fs::copy(entry.path(), &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copy_dir_all_copies_recursively_and_skips_git() -> Result<()> {
+        let src = tempfile::tempdir()?;
+        std::fs::write(src.path().join("goldboot.ron"), "config")?;
+        std::fs::create_dir_all(src.path().join("nested"))?;
+        std::fs::write(src.path().join("nested/file"), "nested")?;
+        std::fs::create_dir_all(src.path().join(".git"))?;
+        std::fs::write(src.path().join(".git/HEAD"), "ref")?;
+
+        let dst = tempfile::tempdir()?;
+        let dst = dst.path().join("context");
+        copy_dir_all(src.path(), &dst)?;
+
+        assert_eq!(std::fs::read_to_string(dst.join("goldboot.ron"))?, "config");
+        assert_eq!(std::fs::read_to_string(dst.join("nested/file"))?, "nested");
+        assert!(!dst.join(".git").exists());
+
+        // The original is untouched by modifications to the copy
+        std::fs::write(dst.join("goldboot.ron"), "modified")?;
+        assert_eq!(
+            std::fs::read_to_string(src.path().join("goldboot.ron"))?,
+            "config"
+        );
         Ok(())
     }
 }

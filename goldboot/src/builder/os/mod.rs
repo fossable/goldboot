@@ -1,4 +1,5 @@
 use crate::builder::Builder;
+use crate::builder::steps::{PostStep, PreStep};
 use crate::cli::prompt::Prompt;
 use anyhow::Result;
 use goldboot_image::ImageArch;
@@ -31,6 +32,16 @@ pub trait OsTrait: BuildImage + Prompt + Send + Sync {
     }
     fn os_minimum_size(&self) -> u64;
     fn os_arch(&self) -> ImageArch;
+    /// Pre-steps declared on this OS element. These run on the host before the
+    /// VM boots (e.g. rendering templated config files).
+    fn pre_steps(&self) -> &[PreStep] {
+        &[]
+    }
+    /// Post-steps declared on this OS element. These run over SSH against the
+    /// installed system after the build completes.
+    fn post_steps(&self) -> &[PostStep] {
+        &[]
+    }
     fn serialize_ron(&self, config: &ron::ser::PrettyConfig) -> anyhow::Result<String>;
 }
 

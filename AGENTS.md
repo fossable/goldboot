@@ -30,58 +30,25 @@
    the `iso` field.
 5. Run `cargo check` to confirm everything compiles.
 
-### Pop!\_OS (`goldboot/src/builder/os/pop_os/mod.rs`)
+# Roadmap to 1.0
 
-Release page: https://pop.system76.com ISO index:
-`https://iso.pop-os.org/<YY.MM>/amd64/<generic|nvidia>/<revision>/` API:
-`https://api.pop-os.org/builds/<YY.MM>/stable?arch=amd64`
+> This project has been in development for a long time and we need to rapidly
+> move toward a MVP and then a stable 1.0 release afterwards. This roadmap
+> outlines our overall requirements in no particular order.
 
-**Release enum** — `PopOsRelease` lists LTS releases only, newest-first.
-Pop!\_OS follows Ubuntu's LTS cadence.
-
-Pop!\_OS uses a **custom graphical installer** (not Ubuntu autoinstall).
-Installation is driven by VNC automation in `build()`. Because of this, the
-primary user account must be configured via `user: PopOsUser` — the installer
-requires it. Post-install config (extra users, packages, hostname, timezone) is
-applied over SSH.
-
-### Ubuntu (`goldboot/src/builder/os/ubuntu/mod.rs`)
-
-Release page: https://ubuntu.com/about/release-cycle ISO index:
-https://releases.ubuntu.com/<codename>/SHA256SUMS
-
-**Release enum** — `UbuntuRelease` lists only currently-supported releases. LTS
-releases are preferred; interim releases are included but not the default.
-
-Ubuntu uses **autoinstall** (cloud-init YAML) for unattended installation —
-generated at build time in `Ubuntu::generate_autoinstall()`. There is no static
-config file.
-
-### Debian (`goldboot/src/builder/os/debian/mod.rs`)
-
-Release page: https://www.debian.org/releases/ ISO index:
-https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/
-
-**Release enum** — `DebianEdition` lists releases stable-first (Trixie,
-Bookworm, Bullseye, Forky, Sid). Stable and oldstable always have real ISOs;
-testing/unstable are opt-in.
-
-The preseed is generated at build time in `Debian::generate_preseed()` — no
-static file to update.
-
-### Alpine Linux (`goldboot/src/builder/os/alpine_linux/mod.rs`)
-
-Release page: https://alpinelinux.org/releases/ CDN root:
-https://dl-cdn.alpinelinux.org/alpine/
-
-**Release enum** — `AlpineRelease` lists supported branches newest-first, with
-`Edge` last. Only include branches that appear on the releases page as actively
-supported.
-
-## TODO list
-
-- Finish registry implementation
-- Create nixpkgs branch for configuring server
-- Figure out how to package goldboot.efi
+- [x] Rename "Provisioners" to "PostSteps" (split into `PreStep`/`PostStep` in
+  `builder/steps/`)
+- [x] Get ansible PostStep working again
+  - PostSteps run over SSH after the initial build has completed (see the
+    `nix` builder for the reference wiring)
+- [x] Create "PreStep" facility that allows the context directory to be
+  customized before build (pre-steps run against an ephemeral copy of the
+  context directory — the "effective context dir" — so they're free to make
+  changes; the `AnsibleLocal` PreStep renders config templates there)
+  - TODO: replace the context-dir copy with an overlayfs mount (behind the
+    same `effective_context_dir` abstraction) to avoid copying large contexts
+  - TODO: convert ISO (install media) download to a "built in" PreStep?
+- Figure out how to package goldboot.efi so it's available to `goldboot install`
 - Finish remaining builders
 - Finish multiboot builds
+- Rename "options" to "config"?

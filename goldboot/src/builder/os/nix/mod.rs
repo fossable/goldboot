@@ -15,6 +15,7 @@ use crate::{
             arch::Arch, iso::Iso, minimum_size::MinimumSize, partition_layout::PartitionLayout,
         },
         qemu::{OsCategory, QemuBuilder},
+        steps::{PostStep, PreStep},
     },
     cli::prompt::Prompt,
     enter, wait, wait_text,
@@ -48,17 +49,41 @@ pub struct Nix {
 
     #[default(PartitionLayout::Uefi)]
     pub partition_layout: PartitionLayout,
+
+    /// Steps that run on the host before the VM boots (e.g. rendering the
+    /// configuration from a template).
+    #[serde(default)]
+    pub pre_steps: Vec<PreStep>,
+
+    /// Steps that run over SSH against the installed system after the build
+    /// completes. Requires the installed system to run sshd (the example's
+    /// `configuration.nix` enables `services.openssh`).
+    #[serde(default)]
+    pub post_steps: Vec<PostStep>,
 }
 
 impl BuildImage for Nix {
     fn build(&self, worker: &Builder) -> Result<()> {
+        let has_post_steps = !self.post_steps.is_empty();
+
         // TODO enable serial instead of VNC
-        let mut qemu = QemuBuilder::new(worker, OsCategory::Linux)
+        let qemu_builder = QemuBuilder::new(worker, OsCategory::Linux)
             .with_iso(&self.iso)?
-            .drive_files(HashMap::from([(
-                "configuration.nix".to_string(),
-                self.configuration.load(&worker.context_dir)?,
-            )]))?
+            // Forward the host SSH port to the installed system's sshd so
+            // post-steps can connect after the VM reboots.
+            .forward_ssh(22);
+        let public_key = qemu_builder.ssh_public_key()?;
+
+        // The config drive (/dev/vdb) carries the configuration and the
+        // goldboot public key used to reach the installed system over SSH.
+        let mut qemu = qemu_builder
+            .drive_files(HashMap::from([
+                (
+                    "configuration.nix".to_string(),
+                    self.configuration.load(&worker.effective_context_dir)?,
+                ),
+                ("public_key".to_string(), public_key),
+            ]))?
             .start()?;
 
         let mut cmds = vec![
@@ -75,12 +100,32 @@ impl BuildImage for Nix {
         cmds.extend(vec![
             enter!("nixos-generate-config --root /mnt"),
             enter!("cp /goldboot/configuration.nix /mnt/etc/nixos/configuration.nix"),
-            enter!("umount /goldboot"),
             enter!("nixos-install --no-root-passwd"),
-            enter!("poweroff"),
         ]);
 
+        if has_post_steps {
+            // Authorize the goldboot key for root, then reboot into the
+            // installed system so post-steps can run against it over SSH.
+            cmds.extend(vec![
+                enter!("mkdir -p /mnt/root/.ssh"),
+                enter!("cp /goldboot/public_key /mnt/root/.ssh/authorized_keys"),
+                enter!("chmod 700 /mnt/root/.ssh && chmod 600 /mnt/root/.ssh/authorized_keys"),
+                enter!("umount /goldboot"),
+                enter!("reboot"),
+            ]);
+        } else {
+            cmds.extend(vec![enter!("umount /goldboot"), enter!("poweroff")]);
+        }
+
         qemu.vnc.run(cmds)?;
+
+        if has_post_steps {
+            let mut ssh = qemu.ssh("root")?;
+            for step in &self.post_steps {
+                step.run(&mut ssh, &worker.effective_context_dir)?;
+            }
+            ssh.shutdown("poweroff")?;
+        }
 
         qemu.shutdown_wait()?;
         Ok(())
@@ -91,18 +136,14 @@ impl BuildImage for Nix {
 pub struct ConfigurationPath(PathBuf);
 
 impl ConfigurationPath {
+    /// Read the configuration file from the effective context directory
+    /// (pre-steps may have rendered or modified it there).
     fn load(&self, context_dir: &Path) -> Result<Vec<u8>> {
         if self.0.starts_with("http") {
             todo!()
         }
 
-        let path = if self.0.is_absolute() {
-            self.0.clone()
-        } else {
-            context_dir.join(&self.0)
-        };
-        let bytes = std::fs::read(&path)?;
-        Ok(bytes)
+        Ok(std::fs::read(context_dir.join(&self.0))?)
     }
 }
 

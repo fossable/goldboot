@@ -42,10 +42,13 @@ is converted into a final goldboot image (.gb).
 
 An alloy is a multi-boot image that consists of more than one element.
 
-### Fabricators
+### Steps
 
-Operates on images at the end of the casting process. For example, the shell
-fabricator runs shell commands on the image which can be useful in many cases.
+Steps run around the image build. A _PreStep_ runs on the host before the VM
+boots (for example, rendering a templated config file into the staging
+directory). A _PostStep_ runs over SSH against the installed system after the
+build completes — for example, the shell PostStep runs shell commands on the
+image, which can be useful in many cases.
 
 ### Casting
 

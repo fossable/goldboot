@@ -183,9 +183,9 @@ impl SshConnection {
             let mut line = String::new();
             match stdout.read_line(&mut line) {
                 Ok(0) => break,
-                // TODO part of some span like goldboot::builder::fabricator::exe
+                // TODO part of some span like goldboot::builder::steps::exe
                 Ok(_) => debug!(
-                    "(fabricator) {}",
+                    "(step) {}",
                     line.strip_suffix("\r\n")
                         .or(line.strip_suffix("\n"))
                         .unwrap_or(&line)

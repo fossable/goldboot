@@ -150,6 +150,20 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
         _ => false,
     };
 
+    // Check whether the struct has named fields called `pre_steps`/`post_steps`
+    let has_named_field = |name: &str| match &input.data {
+        syn::Data::Struct(data) => match &data.fields {
+            syn::Fields::Named(fields) => fields
+                .named
+                .iter()
+                .any(|f| f.ident.as_ref().map(|i| i == name).unwrap_or(false)),
+            _ => false,
+        },
+        _ => false,
+    };
+    let has_pre_steps_field = has_named_field("pre_steps");
+    let has_post_steps_field = has_named_field("post_steps");
+
     let arch_impls: Vec<TokenStream2> = os_args
         .architectures
         .0
@@ -189,6 +203,26 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
 
+    let pre_steps_impl = if has_pre_steps_field {
+        quote! {
+            fn pre_steps(&self) -> &[crate::builder::steps::PreStep] {
+                &self.pre_steps
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let post_steps_impl = if has_post_steps_field {
+        quote! {
+            fn post_steps(&self) -> &[crate::builder::steps::PostStep] {
+                &self.post_steps
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let expanded = quote! {
         #input
 
@@ -204,6 +238,10 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
             #os_arch_impl
 
             #os_minimum_size_impl
+
+            #pre_steps_impl
+
+            #post_steps_impl
 
             fn serialize_ron(&self, config: &ron::ser::PrettyConfig) -> anyhow::Result<String> {
                 Ok(ron::ser::to_string_pretty(self, config.clone())?)

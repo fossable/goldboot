@@ -531,6 +531,24 @@ impl QemuBuilder {
         Ok(self)
     }
 
+    /// Read the bytes of the SSH public key generated for this build. The
+    /// matching private key is used by [`QemuProcess::ssh`], so injecting this
+    /// public key into a guest's `authorized_keys` lets goldboot connect.
+    pub fn ssh_public_key(&self) -> Result<Vec<u8>> {
+        Ok(std::fs::read(self.ssh_private_key.with_extension("pub"))?)
+    }
+
+    /// Forward the host's SSH port to the given guest TCP port. Use this when
+    /// the guest runs its own SSH daemon (e.g. an installed system whose sshd
+    /// listens on port 22) rather than the bundled sshdog.
+    pub fn forward_ssh(mut self, guest_port: u16) -> Self {
+        self.args.netdev = vec![format!(
+            "user,id=user.0,hostfwd=tcp::{}-:{}",
+            self.ssh_port, guest_port
+        )];
+        self
+    }
+
     pub fn prepare_ssh(mut self) -> Result<Self> {
         let sshdog = crate::builder::ssh::download_sshdog(self.arch, self.os_category)?;
         let host_key = std::fs::read(&self.ssh_host_key)?;
