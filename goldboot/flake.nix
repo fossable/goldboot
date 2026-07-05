@@ -97,6 +97,11 @@
           mkdir -p /dev/pts
           mount -t devpts devpts /dev/pts
 
+          # Mount EFI variables for Boot####/BootNext manipulation
+          # (chain-loading and post-deploy boot entries); no-op on BIOS boots
+          modprobe efivarfs || true
+          mount -t efivarfs efivarfs /sys/firmware/efi/efivars || true
+
           # Redirect all output to a log
           exec >/init.log 2>&1
           set -x
@@ -335,6 +340,8 @@
             "nls_cp437"
             "nls_iso8859_1"
             "evdev"
+            # EFI variables (Boot####/BootNext chain-loading)
+            "efivarfs"
             # Real hardware storage drivers
             "ahci"
             "sd_mod"

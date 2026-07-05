@@ -22,8 +22,19 @@ impl GuiApp {
         let mut state = AppState::new();
         state.show_sudo_dialog = try_sudo;
 
+        // When goldboot.efi found chain-loadable bootloaders, offer them
+        // first; the image flow stays reachable via hotkey.
+        #[cfg(feature = "uki")]
+        let screen = if state.boot_targets.is_empty() {
+            Screen::SelectImage
+        } else {
+            Screen::SelectBootTarget
+        };
+        #[cfg(not(feature = "uki"))]
+        let screen = Screen::SelectImage;
+
         Self {
-            screen: Screen::SelectImage,
+            screen,
             state,
             theme,
             textures: TextureCache::new(&cc.egui_ctx),

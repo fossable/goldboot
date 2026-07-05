@@ -484,6 +484,9 @@ fn fix_protective_mbr(dest: &mut File, disk_last_lba: u64) -> Result<()> {
 
 /// Open `path`, parse its GPT, and return the first partition entry whose
 /// type GUID is the EFI System Partition GUID.
+///
+/// Multiboot (alloy) disks carry several ESPs and rely on the goldboot ESP
+/// being partition 1, so "first ESP" resolves to the chain-loader.
 pub fn find_esp(path: &Path) -> Result<Option<PartitionEntry>> {
     let mut f = OpenOptions::new().read(true).open(path)?;
     let Some(gpt) = read_gpt(&mut f)? else {

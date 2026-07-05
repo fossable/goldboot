@@ -3,6 +3,8 @@ use rand::RngExt;
 use std::net::TcpListener;
 
 pub mod boot;
+#[cfg(any(feature = "build", feature = "uki"))]
+pub mod boot_scan;
 #[cfg(feature = "build")]
 pub mod builder;
 #[cfg(feature = "cli")]

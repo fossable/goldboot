@@ -273,6 +273,16 @@ pub struct AppState {
     /// Non-loopback IP addresses gathered once at startup, shown in the GUI corner.
     #[cfg(feature = "uki")]
     pub ip_addresses: Vec<String>,
+
+    /// Chain-loadable bootloaders found on attached disks at startup.
+    #[cfg(feature = "uki")]
+    pub boot_targets: Vec<crate::boot_scan::BootTarget>,
+    #[cfg(feature = "uki")]
+    pub selected_boot_target: usize,
+    /// When set, the selected boot target is chain-loaded automatically at
+    /// this instant; any keypress on the selection screen cancels it.
+    #[cfg(feature = "uki")]
+    pub boot_countdown_deadline: Option<std::time::Instant>,
 }
 
 impl Default for AppState {
@@ -370,7 +380,7 @@ fn collect_ip_addresses() -> Vec<String> {
         .collect()
 }
 
-fn scan_block_devices() -> Vec<block_utils::Device> {
+pub(crate) fn scan_block_devices() -> Vec<block_utils::Device> {
     let block_devices = match block_utils::get_block_devices() {
         Ok(devs) => devs,
         Err(e) => {
@@ -401,6 +411,12 @@ fn scan_block_devices() -> Vec<block_utils::Device> {
 
 impl AppState {
     pub fn new() -> Self {
+        #[cfg(feature = "uki")]
+        let boot_targets = crate::boot_scan::scan_boot_targets();
+        #[cfg(feature = "uki")]
+        let boot_countdown_deadline = (!boot_targets.is_empty())
+            .then(|| std::time::Instant::now() + std::time::Duration::from_secs(10));
+
         Self {
             images: ImageLibrary::open()
                 .find_all()
@@ -433,6 +449,12 @@ impl AppState {
             error_message: None,
             #[cfg(feature = "uki")]
             ip_addresses: collect_ip_addresses(),
+            #[cfg(feature = "uki")]
+            boot_targets,
+            #[cfg(feature = "uki")]
+            selected_boot_target: 0,
+            #[cfg(feature = "uki")]
+            boot_countdown_deadline,
         }
     }
 

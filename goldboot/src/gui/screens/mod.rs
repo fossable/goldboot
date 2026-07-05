@@ -1,6 +1,8 @@
 pub mod apply_image;
 pub mod confirm;
 pub mod registry_login;
+#[cfg(feature = "uki")]
+pub mod select_boot_target;
 pub mod select_device;
 pub mod select_image;
 pub mod sudo_confirm;
@@ -9,6 +11,9 @@ use super::{resources::TextureCache, state::AppState, theme::Theme};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Screen {
+    /// Chain-loader menu shown when other bootloaders were detected
+    #[cfg(feature = "uki")]
+    SelectBootTarget,
     SelectImage,
     SelectDevice,
     Confirm,
@@ -24,6 +29,10 @@ impl Screen {
         theme: &Theme,
     ) {
         match self {
+            #[cfg(feature = "uki")]
+            Screen::SelectBootTarget => {
+                select_boot_target::render(ui, state, textures, theme, self)
+            }
             Screen::SelectImage => select_image::render(ui, state, textures, theme, self),
             Screen::SelectDevice => select_device::render(ui, state, textures, theme, self),
             Screen::Confirm => confirm::render(ui, state, textures, theme, self),

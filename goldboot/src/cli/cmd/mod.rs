@@ -39,6 +39,12 @@ pub enum Commands {
         #[clap(long)]
         ovmf_path: Option<PathBuf>,
 
+        /// Path to goldboot.efi to embed as the chain-loader in multiboot
+        /// images. Falls back to $GOLDBOOT_EFI, then <image library
+        /// parent>/goldboot.efi. Only needed for multi-element configs.
+        #[clap(long)]
+        goldboot_efi: Option<PathBuf>,
+
         /// Delete any cached build state and start fresh
         #[clap(long, num_args = 0)]
         clean: bool,

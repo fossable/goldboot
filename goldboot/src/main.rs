@@ -120,7 +120,7 @@ fn cli_main() -> ExitCode {
 
 #[cfg(feature = "uki")]
 fn uki_main() -> ExitCode {
-    use tracing::info;
+    use tracing::{debug, info};
 
     // Initialize logging for UKI mode
     tracing_subscriber::fmt()

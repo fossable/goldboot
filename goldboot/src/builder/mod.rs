@@ -130,6 +130,7 @@ impl Builder {
                 output,
                 path: _,
                 ovmf_path,
+                goldboot_efi,
                 tag,
                 name: _,
             } => {
@@ -198,6 +199,15 @@ impl Builder {
                     }
                 }
 
+                // Multiboot images embed goldboot.efi as the default
+                // (chain-loader) bootloader; resolve it up front so a
+                // missing file fails before the lengthy element builds.
+                let goldboot_efi_path = if self.elements.len() > 1 {
+                    Some(resolve_goldboot_efi(goldboot_efi)?)
+                } else {
+                    None
+                };
+
                 // Pre-steps may modify the context directory, so give them an
                 // ephemeral copy and read config files from it for the rest
                 // of the build.
@@ -247,12 +257,12 @@ impl Builder {
                 }
 
                 // Combine per-element disks into a single multiboot disk
-                if self.elements.len() > 1 {
+                if let Some(goldboot_efi_path) = goldboot_efi_path {
                     let sources = qcow_paths
                         .iter()
                         .map(Qcow3::open)
                         .collect::<Result<Vec<_>>>()?;
-                    alloy::merge_qcows(&sources, &alloy_path)?;
+                    alloy::merge_qcows(&sources, &alloy_path, &goldboot_efi_path, arch)?;
                     self.qcow_path = alloy_path;
                 }
 
@@ -310,6 +320,34 @@ impl Builder {
 
         Ok(())
     }
+}
+
+/// Locate the goldboot.efi to embed in a multiboot image: CLI flag, then
+/// $GOLDBOOT_EFI, then next to the image library (the same location
+/// `goldboot install` looks in).
+fn resolve_goldboot_efi(cli: Option<PathBuf>) -> Result<PathBuf> {
+    let path = if let Some(path) = cli {
+        path
+    } else if let Ok(env_path) = std::env::var("GOLDBOOT_EFI") {
+        PathBuf::from(env_path)
+    } else {
+        let library = ImageLibrary::open();
+        library
+            .directory
+            .parent()
+            .map(|p| p.join("goldboot.efi"))
+            .unwrap_or_else(|| PathBuf::from("goldboot.efi"))
+    };
+
+    if !path.is_file() {
+        bail!(
+            "goldboot.efi not found at {} (multiboot images embed it as the chain-loader). \
+             Pass --goldboot-efi, set $GOLDBOOT_EFI, or place it next to the image library. \
+             Build it with `cd goldboot && nix build .#goldboot-uki`.",
+            path.display()
+        );
+    }
+    Ok(path)
 }
 
 /// Recursively copy a directory, skipping `.git`.

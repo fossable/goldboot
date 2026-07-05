@@ -153,4 +153,4 @@ gui = [
 ]
 
 # UKI (Unified Kernel Image) mode - GUI with automatic reboot
-uki = ["gui", "dep:egui_term"]
+uki = ["gui", "dep:egui_term", "dep:fatfs", "dep:fscommon"]
