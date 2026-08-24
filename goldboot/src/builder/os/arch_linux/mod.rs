@@ -171,7 +171,7 @@ impl BuildImage for ArchLinux {
                 include_bytes!("bootstrap.sh"),
                 vec![
                     ("GB_HTTP_HOST", &http.address),
-                    ("GB_HTTP_PORT", &format!("{}", &http.port)),
+                    ("GB_HTTP_PORT", &format!("{}", http.port)),
                 ],
             ) {
                 Ok(0) => debug!("Installation completed successfully"),

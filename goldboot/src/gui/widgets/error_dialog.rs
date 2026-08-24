@@ -28,7 +28,7 @@ pub fn render(ui: &mut egui::Ui, error_message: &mut Option<String>, theme: &The
         .show(ui.ctx(), |ui| {
             egui::Frame::new()
                 .fill(egui::Color32::from_rgb(40, 30, 30))
-                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(200, 80, 80)))
+                .stroke(egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(200, 80, 80)))
                 .inner_margin(20.0)
                 .corner_radius(8.0)
                 .show(ui, |ui| {

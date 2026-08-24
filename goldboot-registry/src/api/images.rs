@@ -192,7 +192,7 @@ pub async fn push(
     let body = req.into_body();
     let body_stream = body.into_data_stream();
     let async_read =
-        tokio_util::io::StreamReader::new(body_stream.map_err(|e| std::io::Error::other(e)));
+        tokio_util::io::StreamReader::new(body_stream.map_err(std::io::Error::other));
 
     // Hop to a blocking task to write the file with the sync API.
     let storage_clone = storage.0.clone();

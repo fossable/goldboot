@@ -236,7 +236,7 @@ pub fn render(
             painter.rect_stroke(
                 box_rect,
                 8.0,
-                egui::Stroke::new(2.0, theme.accent_gold),
+                egui::Stroke::new(2.0_f32, theme.accent_gold),
                 egui::StrokeKind::Outside,
             );
 
@@ -312,7 +312,7 @@ pub fn render(
                 painter.rect_stroke(
                     box_rect,
                     5.0,
-                    egui::Stroke::new(3.0, theme.accent_gold),
+                    egui::Stroke::new(3.0_f32, theme.accent_gold),
                     egui::StrokeKind::Outside,
                 );
 
@@ -496,7 +496,7 @@ fn render_expanding_fs_overlay(ui: &mut egui::Ui, theme: &Theme) {
         painter.rect_stroke(
             box_rect,
             8.0,
-            egui::Stroke::new(2.0, theme.accent_gold),
+            egui::Stroke::new(2.0_f32, theme.accent_gold),
             egui::StrokeKind::Outside,
         );
 

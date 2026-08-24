@@ -39,7 +39,7 @@ impl Theme {
 
     pub fn render_background(&self, ctx: &egui::Context) {
         let painter = ctx.layer_painter(egui::LayerId::background());
-        let rect = ctx.screen_rect();
+        let rect = ctx.content_rect();
         if !rect.is_finite() || rect.width() <= 0.0 || rect.height() <= 0.0 {
             return;
         }
@@ -49,7 +49,7 @@ impl Theme {
 
         // Draw 80x80px grid
         let grid_size = 80.0;
-        let stroke = egui::Stroke::new(1.0, self.bg_grid);
+        let stroke = egui::Stroke::new(1.0_f32, self.bg_grid);
 
         // Vertical lines
         let mut x = (rect.min.x / grid_size).floor() * grid_size;

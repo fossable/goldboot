@@ -1142,6 +1142,10 @@ impl ImageHandle {
 
         let mut dest_file = std::fs::OpenOptions::new()
             .create(true)
+            // Never truncate: when `dest` is a block device the file represents
+            // the whole device, and truncation would be either a no-op or
+            // actively harmful (see the `set_len` guard below).
+            .truncate(false)
             .write(true)
             .read(true)
             .open(dest)?;

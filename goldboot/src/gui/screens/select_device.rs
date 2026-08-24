@@ -125,7 +125,7 @@ pub fn render(
                 );
 
                 egui::Frame::new()
-                    .stroke(egui::Stroke::new(3.0, theme.border.linear_multiply(0.75)))
+                    .stroke(egui::Stroke::new(3.0_f32, theme.border.linear_multiply(0.75)))
                     .fill(theme.list_bg)
                     .inner_margin(8.0)
                     .show(&mut child, |ui| {

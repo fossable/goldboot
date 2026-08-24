@@ -91,7 +91,7 @@ pub fn render(
 
                     // Image info panel
                     egui::Frame::new()
-                        .stroke(egui::Stroke::new(3.0, theme.border.linear_multiply(0.75)))
+                        .stroke(egui::Stroke::new(3.0_f32, theme.border.linear_multiply(0.75)))
                         .fill(theme.list_bg)
                         .inner_margin(14.0)
                         .show(ui, |ui| {
@@ -197,7 +197,7 @@ pub fn render(
 
                     // Device info panel
                     egui::Frame::new()
-                        .stroke(egui::Stroke::new(3.0, theme.border.linear_multiply(0.75)))
+                        .stroke(egui::Stroke::new(3.0_f32, theme.border.linear_multiply(0.75)))
                         .fill(theme.list_bg)
                         .inner_margin(14.0)
                         .show(ui, |ui| {

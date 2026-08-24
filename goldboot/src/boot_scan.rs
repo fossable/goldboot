@@ -236,11 +236,13 @@ mod tests {
     const SECTOR: u64 = 512;
     const MIB: u64 = 1024 * 1024;
 
+    /// One synthetic ESP: partition name, optional PARTUUID, and its files as
+    /// `(path, content)` pairs.
+    type EspSpec<'a> = (&'a str, Option<Uuid>, &'a [(&'a str, &'a [u8])]);
+
     /// Build a synthetic GPT disk with FAT-formatted ESPs at consecutive
     /// 2 MiB partitions, each populated with the given files.
-    fn synthetic_disk(
-        esps: &[(&str, Option<Uuid>, &[(&str, &[u8])])],
-    ) -> Result<Cursor<Vec<u8>>> {
+    fn synthetic_disk(esps: &[EspSpec]) -> Result<Cursor<Vec<u8>>> {
         let disk_size = 4 * MIB + esps.len() as u64 * 2 * MIB;
         let mut entries = Vec::new();
         for (i, (name, uuid, _)) in esps.iter().enumerate() {
@@ -327,7 +329,7 @@ mod tests {
     #[test]
     fn scan_excludes_own_esp_by_partuuid_or_name() -> Result<()> {
         let own_uuid = Uuid::new_v4();
-        let esps: &[(&str, Option<Uuid>, &[(&str, &[u8])])] = &[
+        let esps: &[EspSpec] = &[
             (
                 GOLDBOOT_ESP_NAME,
                 Some(own_uuid),
