@@ -38,6 +38,7 @@ pub fn render(
 
     // Countdown: any keypress cancels; expiry boots the current selection.
     // Checked before per-key handling so the cancelling key still acts.
+    let countdown_was_armed = state.boot_countdown_deadline.is_some();
     if let Some(deadline) = state.boot_countdown_deadline {
         let key_pressed = ui.ctx().input(|i| {
             i.events.iter().any(|e| {
@@ -76,7 +77,7 @@ pub fn render(
         }
         // Esc cancels the countdown (handled above); with no countdown
         // armed it reboots, mirroring the SelectImage screen.
-        if inp.key_pressed(egui::Key::Escape) && state.boot_countdown_deadline.is_none() {
+        if inp.key_pressed(egui::Key::Escape) && !countdown_was_armed {
             unsafe {
                 libc::sync();
                 libc::reboot(libc::RB_AUTOBOOT);

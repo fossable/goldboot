@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     fs::File,
-    io::{BufReader, Cursor, Read, Seek, SeekFrom, Write},
+    io::{BufReader, Cursor, ErrorKind, Read, Seek, SeekFrom, Write},
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -1000,11 +1000,25 @@ impl ImageHandle {
             Box::new(BufReader::new(File::open(&self.path)?))
         };
 
-        // Extend regular files if necessary
-        // TODO also check size of block devices
+        // Regular files can be grown to fit the image. Block devices and other
+        // non-regular destinations can't be resized, so verify up front that
+        // they're large enough rather than failing partway through the write.
         let dest_metadata = dest.metadata()?;
-        if dest_metadata.is_file() && dest_metadata.len() < self.primary_header.size {
-            dest.set_len(self.primary_header.size)?;
+        if dest_metadata.is_file() {
+            if dest_metadata.len() < self.primary_header.size {
+                dest.set_len(self.primary_header.size)?;
+            }
+        } else {
+            // metadata().len() reports 0 for block devices on Linux, so seek to
+            // the end to discover the real capacity.
+            let capacity = dest.seek(SeekFrom::End(0))?;
+            if capacity < self.primary_header.size {
+                bail!(
+                    "destination is too small: {} bytes available but the image requires {} bytes",
+                    capacity,
+                    self.primary_header.size
+                );
+            }
         }
 
         let mut block = vec![0u8; protected_header.block_size as usize];
@@ -1020,10 +1034,13 @@ impl ImageHandle {
             // Hash the block to avoid unnecessary writes
             let hash: [u8; 32] = match dest.read_exact(&mut block) {
                 Ok(_) => Sha256::new().chain_update(&block).finalize().into(),
-                Err(_) => {
-                    // TODO check for EOF error
-                    [0u8; 32]
-                }
+                // The block extends past the current end of the destination
+                // (e.g. a block device sized short, or a region not yet
+                // extended). There's nothing there to compare against, so treat
+                // it as needing a write. Any other I/O error is a real failure
+                // and must be propagated rather than silently overwritten.
+                Err(e) if e.kind() == ErrorKind::UnexpectedEof => [0u8; 32],
+                Err(e) => return Err(e.into()),
             };
 
             let is_dirty = hash != entry.digest;

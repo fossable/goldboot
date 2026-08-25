@@ -362,18 +362,6 @@ mod tests {
         Ok(disk)
     }
 
-    fn read_esp_file(fs_file: File, path: &str) -> Result<Option<Vec<u8>>> {
-        let fs = fatfs::FileSystem::new(fs_file, fatfs::FsOptions::new())?;
-        match fs.root_dir().open_file(path) {
-            Ok(mut f) => {
-                let mut content = Vec::new();
-                f.read_to_end(&mut content)?;
-                Ok(Some(content))
-            }
-            Err(_) => Ok(None),
-        }
-    }
-
     #[test]
     fn merge_two_disks() -> Result<()> {
         let disk_a = synthetic_disk(
