@@ -10,7 +10,7 @@ use goldboot_image::validate_ref_segment as validate_component;
 use std::{
     fs,
     io::{Read, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 #[derive(Clone)]
@@ -26,26 +26,12 @@ impl Storage {
         Ok(Self { data_dir })
     }
 
-    pub fn data_dir(&self) -> &Path {
-        &self.data_dir
-    }
-
     /// Build a path to a hosted image. Performs strict validation of
     /// `name` and `tag` to prevent path traversal.
     pub fn image_path(&self, name: &str, tag: &str) -> Result<PathBuf> {
         validate_component(name).context("invalid image name")?;
         validate_component(tag).context("invalid image tag")?;
         Ok(self.data_dir.join(name).join(format!("{tag}.gb")))
-    }
-
-    /// Open an existing image for reading. Returns the file handle and
-    /// its on-disk length.
-    pub fn open(&self, name: &str, tag: &str) -> Result<(fs::File, u64)> {
-        let path = self.image_path(name, tag)?;
-        let file =
-            fs::File::open(&path).with_context(|| format!("open image {}", path.display()))?;
-        let len = file.metadata()?.len();
-        Ok((file, len))
     }
 
     /// Atomically write a new image by streaming `body` into a sibling
@@ -157,8 +143,9 @@ mod tests {
         let len = s.put("img", "tag", body.as_slice(), None).unwrap();
         assert_eq!(len, body.len() as u64);
 
-        let (mut f, n) = s.open("img", "tag").unwrap();
-        assert_eq!(n, len);
+        let path = s.image_path("img", "tag").unwrap();
+        let mut f = fs::File::open(&path).unwrap();
+        assert_eq!(f.metadata().unwrap().len(), len);
         let mut buf = Vec::new();
         f.read_to_end(&mut buf).unwrap();
         assert_eq!(buf, body);
