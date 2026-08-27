@@ -84,12 +84,7 @@ impl BuildImage for AlpineLinux {
         } else {
             "-m sys /dev/vda"
         };
-        let root_password = match &self.root_password {
-            RootPassword::Plaintext(p) => p.clone(),
-            RootPassword::PlaintextEnv(name) => {
-                std::env::var(name).expect("environment variable not found")
-            }
-        };
+        let root_password = self.root_password.plaintext();
 
         // Send boot command
         #[rustfmt::skip]

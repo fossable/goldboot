@@ -18,6 +18,19 @@ pub enum RootPassword {
     PlaintextEnv(String),
 }
 
+impl RootPassword {
+    /// Resolve to the plaintext password, reading the environment variable for
+    /// the [`RootPassword::PlaintextEnv`] variant.
+    pub fn plaintext(&self) -> String {
+        match self {
+            RootPassword::Plaintext(password) => password.clone(),
+            RootPassword::PlaintextEnv(name) => {
+                std::env::var(name).expect("environment variable not found")
+            }
+        }
+    }
+}
+
 impl Prompt for RootPassword {
     fn prompt(&mut self, _: &Builder) -> Result<()> {
         let theme = crate::cli::cmd::init::theme();
@@ -33,16 +46,6 @@ impl Prompt for RootPassword {
 
 impl Display for RootPassword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match &self {
-                RootPassword::Plaintext(password) => format!("plain:{password}"),
-                RootPassword::PlaintextEnv(name) => format!(
-                    "plain:{}",
-                    std::env::var(name).expect("environment variable not found")
-                ),
-            }
-        )
+        write!(f, "plain:{}", self.plaintext())
     }
 }

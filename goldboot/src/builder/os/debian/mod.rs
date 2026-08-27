@@ -67,12 +67,7 @@ pub struct Debian {
 
 impl Debian {
     fn generate_preseed(&self) -> String {
-        let root_password = match &self.root_password {
-            RootPassword::Plaintext(p) => p.clone(),
-            RootPassword::PlaintextEnv(name) => {
-                std::env::var(name).expect("environment variable not found")
-            }
-        };
+        let root_password = self.root_password.plaintext();
 
         let extra_packages = {
             let mut pkgs = vec!["openssh-server".to_string()];
@@ -225,10 +220,7 @@ impl BuildImage for Debian {
             },
             // Login as root
             enter!("root"),
-            enter!(match &self.root_password {
-                RootPassword::Plaintext(p) => p.clone(),
-                RootPassword::PlaintextEnv(name) => std::env::var(name).expect("environment variable not found"),
-            }),
+            enter!(self.root_password.plaintext()),
 		])?;
 
         // Wait for SSH

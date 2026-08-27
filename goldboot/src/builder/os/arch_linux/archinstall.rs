@@ -4,7 +4,6 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::builder::options::partition_layout::PartitionLayout;
-use crate::builder::options::root_password::RootPassword;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArchinstallCredentials {
@@ -29,12 +28,7 @@ pub struct User {
 
 impl From<&super::ArchLinux> for ArchinstallCredentials {
     fn from(value: &super::ArchLinux) -> Self {
-        let root_password = match &value.root_password {
-            RootPassword::Plaintext(p) => p.to_string(),
-            RootPassword::PlaintextEnv(name) => {
-                std::env::var(name).expect("environment variable not found")
-            }
-        };
+        let root_password = value.root_password.plaintext();
         Self {
             root_password,
             encryption_password: match &value.partition_layout {

@@ -67,12 +67,7 @@ pub struct Ubuntu {
 impl Ubuntu {
     /// Generate an autoinstall user-data YAML document.
     fn generate_autoinstall(&self) -> String {
-        let root_password = match &self.root_password {
-            RootPassword::Plaintext(p) => p.clone(),
-            RootPassword::PlaintextEnv(name) => {
-                std::env::var(name).expect("environment variable not found")
-            }
-        };
+        let root_password = self.root_password.plaintext();
 
         let extra_packages: Vec<String> = self
             .packages
@@ -186,10 +181,7 @@ impl BuildImage for Ubuntu {
             // Wait for install to complete and reach login
             wait_screen_rect!("TODO", 100, 0, 1024, 200),
             enter!("root"),
-            enter!(match &self.root_password {
-                RootPassword::Plaintext(p) => p.clone(),
-                RootPassword::PlaintextEnv(name) => std::env::var(name).expect("environment variable not found"),
-            }),
+            enter!(self.root_password.plaintext()),
         ])?;
 
         // Wait for SSH
