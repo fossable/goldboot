@@ -223,7 +223,7 @@ pub async fn push(
             anyhow::bail!("URL tag '{tag_c}' does not match image header tag '{header_tag}'");
         }
 
-        storage_clone.put(&name_c, &tag_c, Cursor::new(buf), None)
+        storage_clone.put(&name_c, &tag_c, Cursor::new(buf))
     })
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
