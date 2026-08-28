@@ -55,9 +55,9 @@ impl Qcow3 {
     pub fn create(path: impl AsRef<Path>, size: u64) -> Result<Self> {
         let path = path.as_ref();
 
-        // If we don't pass an image size that's a power of two, qemu-img will
-        // silently round up which is bad.
-        assert!(size % 2 == 0, "The image size must be a power of 2");
+        // An odd byte count would be silently rounded up by qemu-img, changing
+        // the virtual disk size out from under us, so require an even size.
+        assert!(size % 2 == 0, "The image size must be even");
 
         debug!(path = ?path, "Creating qcow storage");
         let status = Command::new("qemu-img")

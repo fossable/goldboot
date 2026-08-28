@@ -242,7 +242,7 @@ impl Builder {
                         Qcow3::open(path)?
                     } else {
                         let minimum_size = self.elements[i].0.os_minimum_size();
-                        // Truncate the minimum size to a power of two for the qcow storage
+                        // Round the minimum size down to an even byte count for the qcow storage
                         Qcow3::create(path, minimum_size - (minimum_size % 2))?
                     });
 
