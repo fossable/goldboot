@@ -242,8 +242,10 @@ impl Builder {
                         Qcow3::open(path)?
                     } else {
                         let minimum_size = self.elements[i].0.os_minimum_size();
-                        // Round the minimum size down to an even byte count for the qcow storage
-                        Qcow3::create(path, minimum_size - (minimum_size % 2))?
+                        // qemu-img rounds up to the next 512-byte sector, so align the
+                        // requested minimum up to that boundary ourselves. This honors the
+                        // requested minimum while guaranteeing the disk is exactly this size.
+                        Qcow3::create(path, minimum_size.next_multiple_of(512))?
                     });
 
                     // Revert to the last snapshot if one exists

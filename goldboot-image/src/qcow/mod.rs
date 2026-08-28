@@ -55,9 +55,13 @@ impl Qcow3 {
     pub fn create(path: impl AsRef<Path>, size: u64) -> Result<Self> {
         let path = path.as_ref();
 
-        // An odd byte count would be silently rounded up by qemu-img, changing
-        // the virtual disk size out from under us, so require an even size.
-        assert!(size % 2 == 0, "The image size must be even");
+        // qemu-img rounds the virtual size up to the next 512-byte sector, so an
+        // unaligned request silently yields a larger disk than we asked for.
+        // Require a sector-aligned size so the created image is exactly `size`.
+        assert!(
+            size % 512 == 0,
+            "The image size must be a multiple of 512 bytes"
+        );
 
         debug!(path = ?path, "Creating qcow storage");
         let status = Command::new("qemu-img")
