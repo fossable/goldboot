@@ -1451,6 +1451,11 @@ impl ImageHandle {
             digest_table: vec![],
         };
 
+        // Index of already-written cluster digests -> their offset in the image
+        // file, so identical clusters can be deduplicated in O(1) instead of
+        // scanning the whole digest table for every cluster.
+        let mut digest_to_offset: HashMap<[u8; 32], u64> = HashMap::new();
+
         // Track the offset into the data
         let mut block_offset: u64 = 0;
 
@@ -1489,24 +1494,24 @@ impl ImageHandle {
                         }
 
                         // Compute hash of the block which will be used when writing the block later
-                        let digest = Sha256::new().chain_update(&cluster.data).finalize();
+                        let digest: [u8; 32] =
+                            Sha256::new().chain_update(&cluster.data).finalize().into();
 
-                        // If the hash already exists, skip writing the cluster. TODO: faster data structure
-                        let mut existing_cluster_offset = None;
-                        for entry in digest_table.digest_table.iter() {
-                            if entry.digest == *digest {
-                                existing_cluster_offset = Some(entry.cluster_offset);
-                                break;
-                            }
-                        }
+                        // If an identical cluster was already written, reuse its
+                        // offset instead of writing the data again.
+                        let existing_cluster_offset = digest_to_offset.get(&digest).copied();
 
                         digest_table.digest_table.push(DigestTableEntry {
-                            digest: digest.into(),
+                            digest,
                             block_offset,
                             cluster_offset: existing_cluster_offset.unwrap_or(cluster_offset),
                         });
 
                         if existing_cluster_offset.is_none() {
+                            // Remember where this unique cluster is written so a
+                            // later identical cluster can point back to it.
+                            digest_to_offset.insert(digest, cluster_offset);
+
                             // Perform compression
                             cluster.data = match protected_header.cluster_compression {
                                 ClusterCompressionType::None => cluster.data,
