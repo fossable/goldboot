@@ -297,6 +297,7 @@ impl Builder {
                 ImageHandle::from_qcow(
                     &self.name,
                     &resolved_tag,
+                    arch,
                     element_headers,
                     self.qcow.as_ref().unwrap(),
                     &path,

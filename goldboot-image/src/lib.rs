@@ -1322,6 +1322,7 @@ impl ImageHandle {
     pub fn from_qcow<F: Fn(u64, u64)>(
         name: &str,
         tag: &str,
+        arch: ImageArch,
         metadata: Vec<ElementHeader>,
         source: &Qcow3,
         dest: impl AsRef<Path>,
@@ -1364,7 +1365,7 @@ impl ImageHandle {
         // in after the cluster region is written).
         let mut primary_header = PrimaryHeader {
             version: 2,
-            arch: ImageArch::Amd64,   // TODO
+            arch,
             size: source.header.size, // TODO this is aligned to the cluster size?
             directory_nonce: {
                 let mut b = [0u8; 12];
