@@ -129,33 +129,7 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
     let name = &input.ident;
     let name_str = name.to_string();
 
-    // Check if struct has an `arch` field
-    let has_arch_field = match &input.data {
-        syn::Data::Struct(data) => match &data.fields {
-            syn::Fields::Named(fields) => fields
-                .named
-                .iter()
-                .any(|f| f.ident.as_ref().map(|i| i == "arch").unwrap_or(false)),
-            _ => false,
-        },
-        _ => false,
-    };
-
-    // Check if struct has a `minimum_size` field
-    let has_minimum_size_field = match &input.data {
-        syn::Data::Struct(data) => match &data.fields {
-            syn::Fields::Named(fields) => fields.named.iter().any(|f| {
-                f.ident
-                    .as_ref()
-                    .map(|i| i == "minimum_size")
-                    .unwrap_or(false)
-            }),
-            _ => false,
-        },
-        _ => false,
-    };
-
-    // Check whether the struct has named fields called `pre_steps`/`post_steps`
+    // Whether the struct has a named field with the given name.
     let has_named_field = |name: &str| match &input.data {
         syn::Data::Struct(data) => match &data.fields {
             syn::Fields::Named(fields) => fields
@@ -166,6 +140,8 @@ pub fn Os(args: TokenStream, input: TokenStream) -> TokenStream {
         },
         _ => false,
     };
+    let has_arch_field = has_named_field("arch");
+    let has_minimum_size_field = has_named_field("minimum_size");
     let has_pre_steps_field = has_named_field("pre_steps");
     let has_post_steps_field = has_named_field("post_steps");
 
