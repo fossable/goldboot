@@ -7,7 +7,8 @@ use anyhow::{Result, bail};
 use chrono::Utc;
 use dialoguer::Password;
 use goldboot_image::{
-    ElementHeader, ImageArch, ImageHandle, ImageRef, qcow::Qcow3, validate_ref_segment,
+    ElementHeader, ImageArch, ImageConfig, ImageHandle, ImageRef, qcow::Qcow3,
+    validate_ref_segment,
 };
 use rand::RngExt;
 use std::{
@@ -295,13 +296,15 @@ impl Builder {
                     .collect::<Result<_>>()?;
 
                 ImageHandle::from_qcow(
-                    &self.name,
-                    &resolved_tag,
-                    arch,
-                    element_headers,
+                    ImageConfig {
+                        name: self.name.clone(),
+                        tag: resolved_tag.clone(),
+                        arch,
+                        metadata: element_headers,
+                        password,
+                    },
                     self.qcow.as_ref().unwrap(),
                     &path,
-                    password,
                     |_, _| {},
                 )?;
 

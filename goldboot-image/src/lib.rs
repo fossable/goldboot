@@ -748,6 +748,26 @@ pub fn compute_content_id(
     Ok(hasher.finalize().into())
 }
 
+/// The identity and encryption config written into a goldboot image when it is
+/// created from a qcow source. Grouping these together keeps `from_qcow`'s
+/// signature focused on the I/O it performs (source, destination, progress).
+pub struct ImageConfig {
+    /// The image's name, validated and written into the `PrimaryHeader`.
+    pub name: String,
+
+    /// The image's tag, validated and written into the `PrimaryHeader`.
+    pub tag: String,
+
+    /// The target architecture.
+    pub arch: ImageArch,
+
+    /// The element headers describing the image's contents.
+    pub metadata: Vec<ElementHeader>,
+
+    /// Optional password; when set, the header and clusters are encrypted.
+    pub password: Option<String>,
+}
+
 impl ImageHandle {
     /// Load all sections into memory except the cluster table. If the image is
     /// encrypted, the sections will be decrypted.
@@ -1320,19 +1340,23 @@ impl ImageHandle {
     /// deliberately not part of `content_id` — that is computed over the
     /// cluster region only.
     pub fn from_qcow<F: Fn(u64, u64)>(
-        name: &str,
-        tag: &str,
-        arch: ImageArch,
-        metadata: Vec<ElementHeader>,
+        config: ImageConfig,
         source: &Qcow3,
         dest: impl AsRef<Path>,
-        password: Option<String>,
         progress: F,
     ) -> Result<ImageHandle> {
+        let ImageConfig {
+            name,
+            tag,
+            arch,
+            metadata,
+            password,
+        } = config;
+
         info!(qcow = ?source, "Converting qcow image to goldboot image");
 
-        validate_ref_segment(name).context("invalid image name")?;
-        validate_ref_segment(tag).context("invalid image tag")?;
+        validate_ref_segment(&name).context("invalid image name")?;
+        validate_ref_segment(&tag).context("invalid image tag")?;
 
         let mut dest_file = File::create(&dest)?;
         let mut source_file = File::open(&source.path)?;
