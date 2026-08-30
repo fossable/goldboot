@@ -10,23 +10,33 @@ use uuid::Uuid;
 /// EFI System Partition type GUID.
 pub const ESP_TYPE_GUID: Uuid = Uuid::from_u128(0xC12A7328_F81F_11D2_BA4B_00A0C93EC93B);
 
-/// Compute a CRC32 checksum using the IEEE polynomial (same as used by GPT).
-fn crc32(data: &[u8]) -> u32 {
+/// Lookup table for the IEEE CRC32 polynomial, built once at compile time
+/// rather than rebuilt on every `crc32` call.
+const CRC32_TABLE: [u32; 256] = {
     let mut table = [0u32; 256];
-    for i in 0..256u32 {
+    let mut i = 0u32;
+    while i < 256 {
         let mut c = i;
-        for _ in 0..8 {
+        let mut k = 0;
+        while k < 8 {
             c = if c & 1 != 0 {
                 0xedb88320 ^ (c >> 1)
             } else {
                 c >> 1
             };
+            k += 1;
         }
         table[i as usize] = c;
+        i += 1;
     }
+    table
+};
+
+/// Compute a CRC32 checksum using the IEEE polynomial (same as used by GPT).
+fn crc32(data: &[u8]) -> u32 {
     let mut crc: u32 = 0xffffffff;
     for &b in data {
-        crc = table[((crc ^ b as u32) & 0xff) as usize] ^ (crc >> 8);
+        crc = CRC32_TABLE[((crc ^ b as u32) & 0xff) as usize] ^ (crc >> 8);
     }
     crc ^ 0xffffffff
 }
