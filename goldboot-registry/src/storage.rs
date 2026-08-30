@@ -36,13 +36,7 @@ impl Storage {
 
     /// Atomically write a new image by streaming `body` into a sibling
     /// temp file, then renaming it into place.
-    pub fn put(
-        &self,
-        name: &str,
-        tag: &str,
-        mut body: impl Read,
-        _expected_len: Option<u64>,
-    ) -> Result<u64> {
+    pub fn put(&self, name: &str, tag: &str, mut body: impl Read) -> Result<u64> {
         let final_path = self.image_path(name, tag)?;
         if let Some(parent) = final_path.parent() {
             fs::create_dir_all(parent)?;
@@ -140,7 +134,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let s = Storage::new(dir.path()).unwrap();
         let body = b"hello world".to_vec();
-        let len = s.put("img", "tag", body.as_slice(), None).unwrap();
+        let len = s.put("img", "tag", body.as_slice()).unwrap();
         assert_eq!(len, body.len() as u64);
 
         let path = s.image_path("img", "tag").unwrap();
