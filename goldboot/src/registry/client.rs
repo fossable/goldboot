@@ -107,10 +107,6 @@ impl Client {
         Ok(Self { base, http, auth })
     }
 
-    pub fn base_url(&self) -> &Url {
-        &self.base
-    }
-
     /// Attach Basic Auth to a request builder if credentials are configured.
     fn auth(&self, rb: RequestBuilder) -> RequestBuilder {
         match &self.auth {

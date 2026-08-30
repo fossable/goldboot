@@ -67,11 +67,6 @@ impl VncScreenshot {
         Ok(())
     }
 
-    /// Compute a percentage of how similar the given screenshot is to this one.
-    pub fn similarity(&self, _other: &VncScreenshot) -> f32 {
-        todo!();
-    }
-
     /// Create a trimmed screenshot according to the given dimensions
     pub fn trim(&self, rect: vnc::Rect) -> Result<VncScreenshot> {
         // Validate request

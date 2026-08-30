@@ -20,17 +20,6 @@ struct CommandLine {
     fullscreen: bool,
 }
 
-/// Determine whether builds should be headless or not for debugging.
-pub fn build_headless_debug() -> bool {
-    if std::env::var("CI").is_ok() {
-        return true;
-    }
-    if std::env::var("GOLDBOOT_DEBUG").is_ok() {
-        return false;
-    }
-    true
-}
-
 pub fn main() -> ExitCode {
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
