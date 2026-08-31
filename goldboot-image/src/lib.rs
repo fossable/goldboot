@@ -670,6 +670,32 @@ fn write_length_prefixed(out: &mut Vec<u8>, data: &[u8]) {
     out.extend_from_slice(data);
 }
 
+/// Parse a big-endian metadata section from a manifest blob, transparently
+/// decrypting it first when the image is encrypted. `nonce` and `label` are
+/// only used in the encrypted case; `label` names the section in error
+/// messages.
+fn read_manifest_section<T>(
+    cipher: &Aes256Gcm,
+    encryption: &HeaderEncryptionType,
+    bytes: &[u8],
+    nonce: &[u8],
+    label: &str,
+) -> Result<T>
+where
+    T: for<'a> BinRead<Args<'a> = ()>,
+{
+    let section = match encryption {
+        HeaderEncryptionType::None => Cursor::new(bytes).read_be()?,
+        HeaderEncryptionType::Aes256 => {
+            let plain = cipher
+                .decrypt(Nonce::from_slice(nonce), bytes)
+                .map_err(|e| anyhow::anyhow!("decrypt {label}: {e}"))?;
+            Cursor::new(plain).read_be()?
+        }
+    };
+    Ok(section)
+}
+
 /// Parse a manifest blob into the four typed metadata structures, decrypting
 /// each section if the source image is encrypted. Returns the cluster region
 /// start offset (= end of protected header bytes in the original `.gb` file).
@@ -679,45 +705,32 @@ pub fn parse_manifest(
 ) -> Result<(PrimaryHeader, ProtectedHeader, Directory, DigestTable, u64)> {
     let primary: PrimaryHeader = Cursor::new(&blob.primary_bytes).read_be()?;
 
-    let header_cipher = new_key(password.unwrap_or_default());
-    let directory: Directory = match primary.encryption_type {
-        HeaderEncryptionType::None => Cursor::new(&blob.directory_bytes).read_be()?,
-        HeaderEncryptionType::Aes256 => {
-            let plain = header_cipher
-                .decrypt(
-                    Nonce::from_slice(&primary.directory_nonce),
-                    blob.directory_bytes.as_slice(),
-                )
-                .map_err(|e| anyhow::anyhow!("decrypt directory: {e}"))?;
-            Cursor::new(plain).read_be()?
-        }
-    };
+    let cipher = new_key(password.unwrap_or_default());
+    let enc = &primary.encryption_type;
 
-    let protected: ProtectedHeader = match primary.encryption_type {
-        HeaderEncryptionType::None => Cursor::new(&blob.protected_bytes).read_be()?,
-        HeaderEncryptionType::Aes256 => {
-            let plain = header_cipher
-                .decrypt(
-                    Nonce::from_slice(&directory.protected_nonce),
-                    blob.protected_bytes.as_slice(),
-                )
-                .map_err(|e| anyhow::anyhow!("decrypt protected: {e}"))?;
-            Cursor::new(plain).read_be()?
-        }
-    };
-
-    let digest: DigestTable = match primary.encryption_type {
-        HeaderEncryptionType::None => Cursor::new(&blob.digest_table_bytes).read_be()?,
-        HeaderEncryptionType::Aes256 => {
-            let plain = header_cipher
-                .decrypt(
-                    Nonce::from_slice(&directory.digest_table_nonce),
-                    blob.digest_table_bytes.as_slice(),
-                )
-                .map_err(|e| anyhow::anyhow!("decrypt digest_table: {e}"))?;
-            Cursor::new(plain).read_be()?
-        }
-    };
+    // The directory holds the nonces for the remaining sections, so it must be
+    // decoded first.
+    let directory: Directory = read_manifest_section(
+        &cipher,
+        enc,
+        &blob.directory_bytes,
+        &primary.directory_nonce,
+        "directory",
+    )?;
+    let protected: ProtectedHeader = read_manifest_section(
+        &cipher,
+        enc,
+        &blob.protected_bytes,
+        &directory.protected_nonce,
+        "protected",
+    )?;
+    let digest: DigestTable = read_manifest_section(
+        &cipher,
+        enc,
+        &blob.digest_table_bytes,
+        &directory.digest_table_nonce,
+        "digest_table",
+    )?;
 
     let cluster_region_start = blob.primary_bytes.len() as u64 + blob.protected_bytes.len() as u64;
     Ok((primary, protected, directory, digest, cluster_region_start))
