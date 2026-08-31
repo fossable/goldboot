@@ -59,8 +59,8 @@ pub struct Debian {
     pub ntp: Ntp,
 
     #[default(Iso {
-        url: "https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/debian-13.4.0-amd64-netinst.iso".parse().unwrap(),
-        checksum: Some("sha256:0b813535dd76f2ea96eff908c65e8521512c92a0631fd41c95756ffd7d4896dc".to_string()),
+        url: "https://cdimage.debian.org/cdimage/release/current/amd64/iso-cd/debian-13.6.0-amd64-netinst.iso".parse().unwrap(),
+        checksum: Some("sha256:65273beed27b2df543b68b65630ba525cfbad8df2b12035732b2dff87d6664e7".to_string()),
     })]
     pub iso: Iso,
 }
