@@ -16,7 +16,7 @@ axum = { version = "0.8.1", features = ["macros"] }
 clap = { version = "4.4.7", features = ["derive", "string"] }
 futures-util = "0.3"
 goldboot = { path = "../goldboot", default-features = false }
-goldboot-image = { path = "../goldboot-image", version = "0.0.5" }
+goldboot-image = { path = "../goldboot-image", version = "0.0.6" }
 hex = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
