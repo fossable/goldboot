@@ -586,6 +586,32 @@ fn build_cluster_ordinal_map(digest_table: &[DigestTableEntry]) -> HashMap<u64, 
     map
 }
 
+/// Reverse the on-disk transforms of a single cluster's `data`: decrypt (if the
+/// image is encrypted) using the nonce at `nonce_idx`, then decompress. Returns
+/// the plaintext cluster bytes. `cluster_offset` is used only for error context.
+fn decode_cluster(
+    header: &ProtectedHeader,
+    cipher: &Aes256Gcm,
+    nonce_idx: usize,
+    data: Vec<u8>,
+    cluster_offset: u64,
+) -> Result<Vec<u8>> {
+    let data = match header.cluster_encryption {
+        ClusterEncryptionType::None => data,
+        ClusterEncryptionType::Aes256 => cipher
+            .decrypt(
+                Nonce::from_slice(&header.nonce_table[nonce_idx]),
+                data.as_ref(),
+            )
+            .map_err(|e| anyhow::anyhow!("decrypt cluster {cluster_offset}: {e}"))?,
+    };
+    let data = match header.cluster_compression {
+        ClusterCompressionType::None => data,
+        ClusterCompressionType::Zstd => zstd::decode_all(Cursor::new(data))?,
+    };
+    Ok(data)
+}
+
 /// GBMF manifest magic. The server's `/manifest` endpoint returns a small
 /// binary blob in this format so a streaming client can parse the four
 /// metadata sections (primary header, protected header, directory, digest
@@ -1079,31 +1105,19 @@ impl ImageHandle {
                     "Read dirty cluster",
                 );
 
-                // Reverse encryption — nonces are keyed by unique-cluster ordinal,
-                // not by digest-table index (multiple digest entries can alias the
-                // same cluster_offset via dedup).
-                cluster.data = match protected_header.cluster_encryption {
-                    ClusterEncryptionType::None => cluster.data,
-                    ClusterEncryptionType::Aes256 => {
-                        let nonce_idx = *cluster_ordinal
-                            .get(&entry.cluster_offset)
-                            .ok_or_else(|| anyhow::anyhow!("missing cluster ordinal"))?;
-                        cluster_cipher
-                            .decrypt(
-                                Nonce::from_slice(&protected_header.nonce_table[nonce_idx]),
-                                cluster.data.as_ref(),
-                            )
-                            .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?
-                    }
-                };
-
-                // Reverse compression
-                cluster.data = match protected_header.cluster_compression {
-                    ClusterCompressionType::None => cluster.data,
-                    ClusterCompressionType::Zstd => {
-                        zstd::decode_all(std::io::Cursor::new(&cluster.data))?
-                    }
-                };
+                // Reverse encryption and compression. Nonces are keyed by
+                // unique-cluster ordinal, not by digest-table index (multiple
+                // digest entries can alias the same cluster_offset via dedup).
+                let nonce_idx = *cluster_ordinal
+                    .get(&entry.cluster_offset)
+                    .ok_or_else(|| anyhow::anyhow!("missing cluster ordinal"))?;
+                cluster.data = decode_cluster(
+                    &protected_header,
+                    &cluster_cipher,
+                    nonce_idx,
+                    cluster.data,
+                    entry.cluster_offset,
+                )?;
 
                 trace!(
                     block_offset = entry.block_offset,
@@ -1240,25 +1254,17 @@ impl ImageHandle {
             }
             stream_pos += 4 + cluster_size;
 
-            // Reverse encryption
+            // Reverse encryption and compression.
             let nonce_idx = *nonce_idx_by_offset
                 .get(&cluster_offset)
                 .expect("nonce idx for known cluster_offset");
-            let plain = match protected_header.cluster_encryption {
-                ClusterEncryptionType::None => data,
-                ClusterEncryptionType::Aes256 => cluster_cipher
-                    .decrypt(
-                        Nonce::from_slice(&protected_header.nonce_table[nonce_idx]),
-                        data.as_ref(),
-                    )
-                    .map_err(|e| anyhow::anyhow!("decrypt cluster {cluster_offset}: {e}"))?,
-            };
-
-            // Reverse compression
-            let plain = match protected_header.cluster_compression {
-                ClusterCompressionType::None => plain,
-                ClusterCompressionType::Zstd => zstd::decode_all(Cursor::new(plain))?,
-            };
+            let plain = decode_cluster(
+                protected_header,
+                &cluster_cipher,
+                nonce_idx,
+                data,
+                cluster_offset,
+            )?;
 
             // Place at every block_offset that references this cluster.
             let entry_indices = entries_by_offset
